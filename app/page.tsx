@@ -11,15 +11,12 @@ import {
   PresentationChart,
   Lightbulb,
   UsersThree,
-  ArrowRight,
-  Anchor,
-  MagicWand,
   CheckCircle,
 } from "@phosphor-icons/react"
 
 import { getSupabaseClient } from "@/lib/supabase-client"
 import type { Task, TaskStatus } from "@/types/task"
-import { demoTasksSeed, LS_KEY as LEGACY_LS_KEY } from "@/lib/demo-tasks"
+import { demoTasksSeed } from "@/lib/demo-tasks"
 import { fetchTasksForUser, signIn, signUp, updateTaskForUser, getLocalUser, setLocalUser, getLocalTasks, setLocalTasks } from "@/lib/auth"
 import type { User } from "@/types/user"
 import type { Opportunity } from "@/types/opportunity"
@@ -35,7 +32,7 @@ type PageKey =
   | "bounty"   // 机会雷达
   | "forge"    // 破冰工坊
   | "cockpit"  // 行动指挥室
-  | "pricing"  // 定价（恢复）
+  | "pricing"  // 定价
   | "blog"
   | "login"
   | "signup"
@@ -49,6 +46,8 @@ export default function Page() {
   // Home 内部锚点
   const featuresRef = useRef<HTMLElement | null>(null)
   const testimonialsRef = useRef<HTMLElement | null>(null)
+  const aboutRef = useRef<HTMLElement | null>(null)
+  const [activeHomeSection, setActiveHomeSection] = useState<null | "features" | "about">(null)
 
   // Auth
   const [user, setUser] = useState<User | null>(null)
@@ -84,6 +83,7 @@ export default function Page() {
       profile: "profile",
       features: "home",
       testimonials: "home",
+      about: "home",
     }),
     []
   )
@@ -96,6 +96,9 @@ export default function Page() {
     if (id === "testimonials" && testimonialsRef.current) {
       testimonialsRef.current.scrollIntoView({ behavior: "smooth", block: "start" })
     }
+    if (id === "about" && aboutRef.current) {
+      aboutRef.current.scrollIntoView({ behavior: "smooth", block: "start" })
+    }
   }, [])
 
   const showPage = useCallback((hashOrKey: string, scrollToId?: string | null) => {
@@ -104,6 +107,9 @@ export default function Page() {
     setCurrentPage(target)
     if (typeof window !== "undefined") {
       window.location.hash = cleaned
+    }
+    if (cleaned !== "home") {
+      setActiveHomeSection(null)
     }
     if (scrollToId) {
       setTimeout(() => smoothScrollInsideHome(scrollToId), 100)
@@ -154,6 +160,11 @@ export default function Page() {
   ) => {
     e.preventDefault()
     const scrollToId = e.currentTarget.getAttribute("data-scroll-to")
+    if (href === "#home") {
+      setActiveHomeSection((scrollToId as any) || "features")
+    } else {
+      setActiveHomeSection(null)
+    }
     showPage(href, scrollToId)
     if (mobileOpen) setMobileOpen(false)
   }
@@ -348,6 +359,9 @@ export default function Page() {
     }
   }
 
+  const navItemClass = (active: boolean) =>
+    `transition-colors nav-link ${active ? "text-green-600 font-semibold" : "text-gray-600 hover:text-green-500"}`
+
   const avatarInitial = (user?.username?.[0] || "U").toUpperCase()
   const handleLogout = () => { try { setLocalUser(null) } catch {} ; setUser(null); setTasks([]); showPage("#home") }
 
@@ -401,21 +415,21 @@ export default function Page() {
               <>
                 <a
                   href="#bounty"
-                  className="text-gray-600 hover:text-green-500 transition-colors nav-link"
+                  className={navItemClass(currentPage === "bounty")}
                   onClick={(e) => handleNavClick(e, "#bounty")}
                 >
                   机会雷达
                 </a>
                 <a
                   href="#forge"
-                  className="text-gray-600 hover:text-green-500 transition-colors nav-link"
+                  className={navItemClass(currentPage === "forge")}
                   onClick={(e) => handleNavClick(e, "#forge")}
                 >
                   破冰工坊
                 </a>
                 <a
                   href="#cockpit"
-                  className="text-gray-600 hover:text-green-500 transition-colors nav-link"
+                  className={navItemClass(currentPage === "cockpit")}
                   onClick={(e) => handleNavClick(e, "#cockpit")}
                 >
                   行动指挥室
@@ -426,24 +440,32 @@ export default function Page() {
                 <a
                   href="#home"
                   data-scroll-to="features"
-                  className="text-gray-600 hover:text-green-500 transition-colors nav-link"
+                  className={navItemClass(currentPage === "home" && activeHomeSection !== "about")}
                   onClick={(e) => handleNavClick(e, "#home")}
                 >
                   产品功能
                 </a>
                 <a
                   href="#pricing"
-                  className="text-gray-600 hover:text-green-500 transition-colors nav-link"
+                  className={navItemClass(currentPage === "pricing")}
                   onClick={(e) => handleNavClick(e, "#pricing")}
                 >
                   定价
                 </a>
                 <a
                   href="#blog"
-                  className="text-gray-600 hover:text-green-500 transition-colors nav-link"
+                  className={navItemClass(currentPage === "blog")}
                   onClick={(e) => handleNavClick(e, "#blog")}
                 >
                   求职干货
+                </a>
+                <a
+                  href="#home"
+                  data-scroll-to="about"
+                  className={navItemClass(currentPage === "home" && activeHomeSection === "about")}
+                  onClick={(e) => handleNavClick(e, "#home")}
+                >
+                  关于我们
                 </a>
               </>
             )}
@@ -509,24 +531,32 @@ export default function Page() {
               <a
                 href="#home"
                 data-scroll-to="features"
-                className="block py-2 text-gray-600 hover:text-green-500 nav-link"
+                className={navItemClass(currentPage === "home" && activeHomeSection !== "about")}
                 onClick={(e) => handleNavClick(e, "#home")}
               >
                 产品功能
               </a>
               <a
                 href="#pricing"
-                className="block py-2 text-gray-600 hover:text-green-500 nav-link"
+                className={navItemClass(currentPage === "pricing")}
                 onClick={(e) => handleNavClick(e, "#pricing")}
               >
                 定价
               </a>
               <a
                 href="#blog"
-                className="block py-2 text-gray-600 hover:text-green-500 nav-link"
+                className={navItemClass(currentPage === "blog")}
                 onClick={(e) => handleNavClick(e, "#blog")}
               >
                 求职干货
+              </a>
+              <a
+                href="#home"
+                data-scroll-to="about"
+                className={navItemClass(currentPage === "home" && activeHomeSection === "about")}
+                onClick={(e) => handleNavClick(e, "#home")}
+              >
+                关于我们
               </a>
             </>
           ) : (
@@ -534,21 +564,21 @@ export default function Page() {
               {/* 已登录：功能菜单 */}
               <a
                 href="#bounty"
-                className="block py-2 text-gray-600 hover:text-green-500 nav-link"
+                className={navItemClass(currentPage === "bounty")}
                 onClick={(e) => handleNavClick(e, "#bounty")}
               >
                 机会雷达
               </a>
               <a
                 href="#forge"
-                className="block py-2 text-gray-600 hover:text-green-500 nav-link"
+                className={navItemClass(currentPage === "forge")}
                 onClick={(e) => handleNavClick(e, "#forge")}
               >
                 破冰工坊
               </a>
               <a
                 href="#cockpit"
-                className="block py-2 text-gray-600 hover:text-green-500 nav-link"
+                className={navItemClass(currentPage === "cockpit")}
                 onClick={(e) => handleNavClick(e, "#cockpit")}
               >
                 行动指挥室
@@ -561,7 +591,7 @@ export default function Page() {
               <>
                 <a
                   href="#profile"
-                  className="block text-center text-gray-600 hover:text-green-500 nav-link"
+                  className={navItemClass(currentPage === "profile")}
                   onClick={(e) => handleNavClick(e, "#profile")}
                 >
                   个人主页
@@ -572,7 +602,7 @@ export default function Page() {
               <>
                 <a
                   href="#login"
-                  className="block text-center text-gray-600 hover:text-green-500 nav-link"
+                  className={navItemClass(currentPage === "login")}
                   onClick={(e) => handleNavClick(e, "#login")}
                 >
                   登录
@@ -591,7 +621,7 @@ export default function Page() {
       </header>
 
       <main>
-        {/* Home（登录前完整主页已恢复） */}
+        {/* Home（登录前完整主页） */}
         {currentPage === "home" && (
           <div id="page-home" className="page-content">
             <section className="hero-gradient py-20 md:py-32">
@@ -663,7 +693,7 @@ export default function Page() {
               </div>
             </section>
 
-            {/* 功能三段（含“从‘求职者’到‘机会猎手’”） */}
+            {/* 功能三段（从“求职者”到“机会猎手”） */}
             <section id="features" ref={featuresRef} className="py-20">
               <div className="container mx-auto px-6">
                 <div className="text-center max-w-2xl mx-auto mb-16">
@@ -808,6 +838,61 @@ export default function Page() {
                         <p className="text-sm text-gray-500">软件工程专业</p>
                       </div>
                     </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* 关于我们（新增恢复的营销区块） */}
+            <section id="about" ref={aboutRef} className="py-20 bg-white">
+              <div className="container mx-auto px-6">
+                <div className="text-center max-w-3xl mx-auto mb-14">
+                  <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">关于我们</h2>
+                  <p className="text-gray-600">
+                    我们是一支来自 AI 与职业教育一线的产品团队。相信每位应届生都值得被看见，
+                    用数据与智能工具，帮助你从“投简历”升级为“捕机会”。
+                  </p>
+                </div>
+
+                <div className="grid md:grid-cols-3 gap-8">
+                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6">
+                    <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mb-4">
+                      <Lightbulb size={24} className="text-emerald-600" weight="bold" />
+                    </div>
+                    <h3 className="font-bold text-lg mb-2">创新为先</h3>
+                    <p className="text-gray-600 text-sm">
+                      持续打磨 AI 情报与个性化生成能力，打造面向求职者的“战术级”产品。
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6">
+                    <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mb-4">
+                      <UsersThree size={24} className="text-emerald-600" weight="bold" />
+                    </div>
+                    <h3 className="font-bold text-lg mb-2">以人为本</h3>
+                    <p className="text-gray-600 text-sm">
+                      先用户、后功能。我们与高校与校招导师深度共创，把复杂体验做简单。
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6">
+                    <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mb-4">
+                      <PresentationChart size={24} className="text-emerald-600" weight="bold" />
+                    </div>
+                    <h3 className="font-bold text-lg mb-2">结果导向</h3>
+                    <p className="text-gray-600 text-sm">
+                      不止追踪投递，更关注“回复-面试-Offer”的全链路，给你可复用的策略沉淀。
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-12 rounded-2xl border border-gray-200 bg-white p-6">
+                  <p className="text-sm text-gray-500 mb-4">已服务与合作的机构（示意）</p>
+                  <div className="grid grid-cols-2 md:grid-cols-6 gap-6 items-center">
+                    <img src="https://placehold.co/120x40?text=LogoA" alt="合作机构 Logo A" className="mx-auto opacity-70" />
+                    <img src="https://placehold.co/120x40?text=LogoB" alt="合作机构 Logo B" className="mx-auto opacity-70" />
+                    <img src="https://placehold.co/120x40?text=LogoC" alt="合作机构 Logo C" className="mx-auto opacity-70" />
+                    <img src="https://placehold.co/120x40?text=LogoD" alt="合作机构 Logo D" className="mx-auto opacity-70" />
+                    <img src="https://placehold.co/120x40?text=LogoE" alt="合作机构 Logo E" className="mx-auto opacity-70" />
+                    <img src="https://placehold.co/120x40?text=LogoF" alt="合作机构 Logo F" className="mx-auto opacity-70" />
                   </div>
                 </div>
               </div>
@@ -1010,7 +1095,7 @@ export default function Page() {
                             <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: "100%" }} />
                           </div>
 
-                          <div className="flex justify-between items-center">
+                          <div className="flex justify之间 items-center">
                             <p>回复率</p>
                             <p>40%</p>
                           </div>
@@ -1045,7 +1130,7 @@ export default function Page() {
           </div>
         )}
 
-        {/* 定价（恢复） */}
+        {/* 定价 */}
         {currentPage === "pricing" && (
           <div id="page-pricing" className="page-content">
             <section className="py-20">
@@ -1279,7 +1364,7 @@ export default function Page() {
           <div id="page-signup" className="page-content">
             <section className="py-20">
               <div className="container mx-auto px-6">
-                <div className="max-w-md mx-auto bg白 rounded-2xl shadow-lg p-8 md:p-12">
+                <div className="max-w-md mx-auto bg-white rounded-2xl shadow-lg p-8 md:p-12">
                   <div className="text-center mb-8">
                     <h2 className="text-3xl font-bold text-gray-800">开启你的猎手之旅</h2>
                     <p className="text-gray-500 mt-2">只需一步，即可解锁隐藏机会</p>
@@ -1383,7 +1468,7 @@ export default function Page() {
                         </div>
                       </div>
                       <div className="flex justify-end">
-                        <a href="#bounty" onClick={(e) => handleNavClick(e, "#bounty")} className="px-5 py-2 rounded-full bg-green-500 text白 cta-button nav-link">
+                        <a href="#bounty" onClick={(e) => handleNavClick(e, "#bounty")} className="px-5 py-2 rounded-full bg-green-500 text-white cta-button nav-link">
                           去机会雷达挑选
                         </a>
                       </div>
@@ -1396,7 +1481,7 @@ export default function Page() {
         )}
       </main>
 
-      {/* Footer（无“关于我们”） */}
+      {/* Footer */}
       <footer className="bg-gray-800 text-white">
         <div className="container mx-auto px-6 py-12">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
@@ -1410,6 +1495,7 @@ export default function Page() {
                 <li><a href="#home" data-scroll-to="features" className="hover:text-white nav-link" onClick={(e) => handleNavClick(e, "#home")}>产品功能</a></li>
                 <li><a href="#pricing" className="hover:text-white nav-link" onClick={(e) => handleNavClick(e, "#pricing")}>定价</a></li>
                 <li><a href="#blog" className="hover:text-white nav-link" onClick={(e) => handleNavClick(e, "#blog")}>求职干货</a></li>
+                <li><a href="#home" data-scroll-to="about" className="hover:text-white nav-link" onClick={(e) => handleNavClick(e, "#home")}>关于我们</a></li>
               </ul>
             </div>
             <div>
@@ -1443,29 +1529,19 @@ export default function Page() {
           background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
         }
         @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
         }
         .fade-in-element {
           animation: fadeIn 0.8s ease-out forwards;
           opacity: 0;
         }
-        .cta-button {
-          transition: all 0.3s ease;
-        }
+        .cta-button { transition: all 0.3s ease; }
         .cta-button:hover {
           transform: translateY(-3px);
           box-shadow: 0 10px 20px -10px rgba(76, 175, 80, 0.5);
         }
-        .page-content {
-          animation: fadeIn 0.5s ease-in-out;
-        }
+        .page-content { animation: fadeIn 0.5s ease-in-out; }
         .kanban-card {
           box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
         }
