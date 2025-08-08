@@ -7,7 +7,6 @@ import {
   Files,
   TreasureChest,
   Door,
-  Quotes,
   RocketLaunch,
   PresentationChart,
   Lightbulb,
@@ -23,24 +22,25 @@ import type { Task, TaskStatus } from "@/types/task"
 import { demoTasksSeed, LS_KEY as LEGACY_LS_KEY } from "@/lib/demo-tasks"
 import { fetchTasksForUser, signIn, signUp, updateTaskForUser, getLocalUser, setLocalUser, getLocalTasks, setLocalTasks } from "@/lib/auth"
 import type { User } from "@/types/user"
+import type { Opportunity } from "@/types/opportunity"
+import { todayOpportunities } from "@/lib/opportunities"
+import { fetchUserResumeText, updateUserResumeText } from "@/lib/user-profile"
+import { generateIcebreakerEmail } from "@/lib/email-template"
+import { logAndAdvanceTask } from "@/lib/email-send"
 
-const noto = Noto_Sans_SC({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-})
+const noto = Noto_Sans_SC({ subsets: ["latin"], weight: ["400", "500", "700"] })
 
 type PageKey =
   | "home"
-  | "radar"
-  | "playbook"
-  | "cockpit"
-  | "pricing"
+  | "bounty"   // 机会雷达
+  | "forge"    // 破冰工坊
+  | "cockpit"  // 行动指挥室
+  | "pricing"  // 定价（恢复）
   | "blog"
-  | "about"
   | "login"
   | "signup"
   | "terms"
-  | "profile" // 新增
+  | "profile"
 
 export default function Page() {
   const [currentPage, setCurrentPage] = useState<PageKey>("home")
@@ -50,33 +50,38 @@ export default function Page() {
   const featuresRef = useRef<HTMLElement | null>(null)
   const testimonialsRef = useRef<HTMLElement | null>(null)
 
-  // Auth 状态
+  // Auth
   const [user, setUser] = useState<User | null>(null)
   const supabase = getSupabaseClient()
   const [connOk, setConnOk] = useState<boolean | null>(null)
   const [connErr, setConnErr] = useState<string | null>(null)
 
-  // Tasks 状态（登录后按用户加载）
+  // Tasks
   const [tasks, setTasks] = useState<Task[]>([])
-
-  // 登录与注册表单状态
   const [loginErr, setLoginErr] = useState<string | null>(null)
   const [signupErr, setSignupErr] = useState<string | null>(null)
   const [authLoading, setAuthLoading] = useState(false)
 
+  // 破冰工坊上下文
+  const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null)
+  const [resumeText, setResumeText] = useState<string | null>(null)
+  const [mailSubject, setMailSubject] = useState("")
+  const [mailBody, setMailBody] = useState("")
+  const [sending, setSending] = useState(false)
+  const [sendMsg, setSendMsg] = useState<string | null>(null)
+
   const validPages: Record<string, PageKey> = useMemo(
     () => ({
       home: "home",
-      radar: "radar",
-      playbook: "playbook",
+      bounty: "bounty",
+      forge: "forge",
       cockpit: "cockpit",
       pricing: "pricing",
       blog: "blog",
-      about: "about",
       login: "login",
       signup: "signup",
       terms: "terms",
-      profile: "profile", // 新增
+      profile: "profile",
       features: "home",
       testimonials: "home",
     }),
@@ -93,24 +98,21 @@ export default function Page() {
     }
   }, [])
 
-  const showPage = useCallback(
-    (hashOrKey: string, scrollToId?: string | null) => {
-      const cleaned = hashOrKey.startsWith("#") ? hashOrKey.slice(1) : hashOrKey
-      const target = validPages[cleaned] ?? "home"
-      setCurrentPage(target)
-      if (typeof window !== "undefined") {
-        window.location.hash = cleaned
-      }
-      if (scrollToId) {
-        setTimeout(() => smoothScrollInsideHome(scrollToId), 100)
-      } else {
-        window.scrollTo({ top: 0 })
-      }
-    },
-    [smoothScrollInsideHome, validPages]
-  )
+  const showPage = useCallback((hashOrKey: string, scrollToId?: string | null) => {
+    const cleaned = hashOrKey.startsWith("#") ? hashOrKey.slice(1) : hashOrKey
+    const target = validPages[cleaned] ?? "home"
+    setCurrentPage(target)
+    if (typeof window !== "undefined") {
+      window.location.hash = cleaned
+    }
+    if (scrollToId) {
+      setTimeout(() => smoothScrollInsideHome(scrollToId), 100)
+    } else {
+      window.scrollTo({ top: 0 })
+    }
+  }, [smoothScrollInsideHome, validPages])
 
-  // 初始化：根据 hash 加载页面；读取本地用户
+  // 初始化
   useEffect(() => {
     const initial = window.location.hash || "#home"
     showPage(initial)
@@ -118,7 +120,7 @@ export default function Page() {
     if (u) setUser(u)
   }, [showPage])
 
-  // 支持浏览器前进/后退（hashchange）
+  // hash 路由
   useEffect(() => {
     const handler = () => {
       const h = window.location.hash || "#home"
@@ -128,7 +130,7 @@ export default function Page() {
     return () => window.removeEventListener("hashchange", handler)
   }, [showPage])
 
-  // 淡入动画
+  // 进入视口动画
   useEffect(() => {
     const elements = document.querySelectorAll("section, .grid > div, table")
     const observer = new IntersectionObserver(
@@ -156,15 +158,14 @@ export default function Page() {
     if (mobileOpen) setMobileOpen(false)
   }
 
-  // 连接检测（在 Cockpit 下进行）
+  // 连接检测
   const checkConnection = useCallback(async () => {
     if (!supabase) throw new Error("缺少环境变量 NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY")
-    // 简单探测：查询一个轻量表（users 计数）
     const { error } = await supabase.from("users").select("id", { count: "exact", head: true })
     if (error) throw error
   }, [supabase])
 
-  // 加载任务（优先云端，失败使用本地）
+  // 加载任务
   const loadTasksForCurrentUser = useCallback(async () => {
     if (!user) return
     try {
@@ -173,9 +174,8 @@ export default function Page() {
       setConnErr(null)
       const rows = await fetchTasksForUser(user.id)
       if (rows.length === 0) {
-        // 无任务时用 demo 初始化（防御），插入到远端
         const col: Task[] = demoTasksSeed.map((t, idx) => ({
-          id: `local-seed-${idx + 1}`, // 仅用于 UI；远端插入后会有 uuid
+          id: `local-seed-${idx + 1}`,
           title: t.title,
           status: t.status as TaskStatus,
           ord: t.ord,
@@ -187,7 +187,6 @@ export default function Page() {
         setTasks(rows)
       }
     } catch (err: any) {
-      // 连接失败：local fallback（按用户隔离）
       setConnOk(false)
       setConnErr(err?.message ?? "连接 Supabase 失败")
       const local = getLocalTasks(user.id)
@@ -208,30 +207,25 @@ export default function Page() {
     }
   }, [user, checkConnection])
 
-  // 切到 Cockpit 或登录状态变更时加载
+  // 切到 cockpit/profile/forge 时加载任务/简历
   useEffect(() => {
-    if (currentPage !== "cockpit") return
-    if (!user) {
-      // 若之前遗留了旧版全局 demo，本地清理避免干扰
-      try { localStorage.removeItem(LEGACY_LS_KEY) } catch {}
-      setTasks([])
-      // 仍检查连接以显示状态
-      ;(async () => {
+    (async () => {
+      if (!user) return
+      if (currentPage === "cockpit") loadTasksForCurrentUser()
+      if (currentPage === "profile" || currentPage === "forge") {
         try {
           await checkConnection()
-          setConnOk(true)
-          setConnErr(null)
+          setConnOk(true); setConnErr(null)
+          const txt = await fetchUserResumeText(user.id)
+          setResumeText(txt)
         } catch (e: any) {
-          setConnOk(false)
-          setConnErr(e?.message ?? "连接 Supabase 失败")
+          setConnOk(false); setConnErr(e?.message ?? "连接 Supabase 失败")
         }
-      })()
-      return
-    }
-    loadTasksForCurrentUser()
+      }
+    })()
   }, [currentPage, user, loadTasksForCurrentUser, checkConnection])
 
-  // 登录提交
+  // 登录
   const handleLoginSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setAuthLoading(true)
@@ -243,7 +237,7 @@ export default function Page() {
       const u = await signIn(username, password)
       setUser(u)
       setLocalUser(u)
-      showPage("#cockpit")
+      showPage("#bounty")
     } catch (err: any) {
       setLoginErr(err?.message ?? "登录失败")
     } finally {
@@ -251,17 +245,16 @@ export default function Page() {
     }
   }
 
-  // 注册提交
+  // 注册
   const handleSignupSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setAuthLoading(true)
     setSignupErr(null)
     const form = new FormData(e.currentTarget)
     const username = String(form.get("signup-name") ?? "").trim()
-    const email = String(form.get("signup-email") ?? "").trim() // 仅展示，不入库
     const password = String(form.get("signup-password") ?? "")
     if (!username || !password) {
-      setSignupErr("请输入昵称（作为用户名）与密码")
+      setSignupErr("请输入昵称（用户名）与密码")
       setAuthLoading(false)
       return
     }
@@ -269,7 +262,7 @@ export default function Page() {
       const u = await signUp(username, password)
       setUser(u)
       setLocalUser(u)
-      showPage("#cockpit")
+      showPage("#profile")
     } catch (err: any) {
       setSignupErr(err?.message ?? "注册失败")
     } finally {
@@ -277,13 +270,12 @@ export default function Page() {
     }
   }
 
-  // 任务交互：切换到下一状态并保存
+  // 任务点击：切换状态
   const nextStatusOf = (s: TaskStatus): TaskStatus => {
     const order: TaskStatus[] = ["pool", "sent", "replied", "interview"]
     const i = order.indexOf(s)
     return order[(i + 1) % order.length]
   }
-
   const handleTaskClick = async (task: Task) => {
     if (!user) return
     const newStatus = nextStatusOf(task.status)
@@ -306,7 +298,60 @@ export default function Page() {
     }
   }
 
-  // 渲染辅助
+  // 机会卡片 -> 破冰工坊
+  const onGoForge = async (opp: Opportunity) => {
+    if (!user) { showPage("#login"); return }
+    setSelectedOpp(opp)
+    const draft = generateIcebreakerEmail({ user, resumeText, opp })
+    setMailSubject(draft.subject)
+    setMailBody(draft.body)
+    showPage("#forge")
+  }
+
+  // 破冰工坊：确认发送
+  const onConfirmSend = async () => {
+    if (!user || !selectedOpp) return
+    setSending(true); setSendMsg(null)
+    try {
+      await logAndAdvanceTask({ userId: user.id, opp: selectedOpp, subject: mailSubject, body: mailBody })
+      setSendMsg("已发送并写入任务进展（列：已发送）")
+      setTimeout(() => showPage("#cockpit"), 600)
+    } catch (e: any) {
+      setSendMsg(`发送失败：${e?.message ?? "未知错误"}`)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  // 简历上传
+  const onResumeFileChosen = async (file: File) => {
+    if (!user) return
+    const ext = file.name.split(".").pop()?.toLowerCase()
+    try {
+      let text = ""
+      if (ext === "txt" || file.type.startsWith("text/")) {
+        text = await file.text()
+      } else if (ext === "docx") {
+        const mammoth = await import("mammoth/mammoth.browser")
+        const arrayBuffer = await file.arrayBuffer()
+        const result = await mammoth.convertToHtml({ arrayBuffer })
+        text = result.value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
+      } else {
+        alert("目前仅支持 .txt 或 .docx 简历文件用于 Demo 提取文本。")
+        return
+      }
+      await updateUserResumeText(user.id, text)
+      setResumeText(text)
+      alert("简历已更新（文本）")
+    } catch (e: any) {
+      alert(`简历上传失败：${e?.message ?? "未知错误"}`)
+    }
+  }
+
+  const avatarInitial = (user?.username?.[0] || "U").toUpperCase()
+  const handleLogout = () => { try { setLocalUser(null) } catch {} ; setUser(null); setTasks([]); showPage("#home") }
+
+  // 渲染：看板列
   const renderKanbanColumn = (title: string, status: TaskStatus, bgClass: string) => {
     const column = [...tasks.filter((t) => t.status === status)].sort((a, b) => a.ord - b.ord)
     return (
@@ -319,7 +364,6 @@ export default function Page() {
               className="bg-white p-3 rounded-md kanban-card cursor-pointer"
               onClick={() => handleTaskClick(t)}
               role="button"
-              aria-label={`任务：${t.title}（点击切换状态）`}
               title="点击切换到下一列并保存"
             >
               {t.title}
@@ -334,67 +378,10 @@ export default function Page() {
     )
   }
 
-  // 表单提交（用于首页订阅模拟）
   const onSubmitAlert = (msg: string) => (e: React.FormEvent) => {
     e.preventDefault()
     alert(msg)
   }
-
-  const avatarInitial = (user?.username?.[0] || "U").toUpperCase()
-
-  const handleLogout = () => {
-    try {
-      setLocalUser(null)
-    } catch {}
-    setUser(null)
-    setTasks([])
-    showPage("#home")
-  }
-
-  useEffect(() => {
-    if (currentPage !== "cockpit") return
-    if (!user) {
-      // 若之前遗留了旧版全局 demo，本地清理避免干扰
-      try { localStorage.removeItem(LEGACY_LS_KEY) } catch {}
-      setTasks([])
-      // 仍检查连接以显示状态
-      ;(async () => {
-        try {
-          await checkConnection()
-          setConnOk(true)
-          setConnErr(null)
-        } catch (e: any) {
-          setConnOk(false)
-          setConnErr(e?.message ?? "连接 Supabase 失败")
-        }
-      })()
-      return
-    }
-    loadTasksForCurrentUser()
-  }, [currentPage, user, loadTasksForCurrentUser, checkConnection])
-
-  useEffect(() => {
-    if (currentPage !== "profile") return
-    if (!user) return
-    // 如果还没有任务数据，尝试加载（与 Cockpit 同步）
-    if (tasks.length === 0) {
-      ;(async () => {
-        try {
-          // 复用连接检查 & 加载逻辑
-          if (checkConnection) {
-            await checkConnection()
-            setConnOk(true)
-            setConnErr(null)
-          }
-          const rows = await fetchTasksForUser(user.id)
-          if (rows.length > 0) setTasks(rows)
-        } catch (e: any) {
-          setConnOk(false)
-          setConnErr(e?.message ?? "连接 Supabase 失败")
-        }
-      })()
-    }
-  }, [currentPage, user, tasks.length, checkConnection])
 
   return (
     <div className={`${noto.className} bg-[#f8f9fa] text-gray-800 antialiased`}>
@@ -409,54 +396,78 @@ export default function Page() {
           </div>
 
           {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center space-x-8">
-            <a
-              href="#home"
-              data-scroll-to="features"
-              className="text-gray-600 hover:text-green-500 transition-colors nav-link"
-              onClick={(e) => handleNavClick(e, "#home")}
-            >
-              产品功能
-            </a>
-            <a
-              href="#pricing"
-              className="text-gray-600 hover:text-green-500 transition-colors nav-link"
-              onClick={(e) => handleNavClick(e, "#pricing")}
-            >
-              定价
-            </a>
-            <a
-              href="#blog"
-              className="text-gray-600 hover:text-green-500 transition-colors nav-link"
-              onClick={(e) => handleNavClick(e, "#blog")}
-            >
-              求职干货
-            </a>
-            <a
-              href="#about"
-              className="text-gray-600 hover:text-green-500 transition-colors nav-link"
-              onClick={(e) => handleNavClick(e, "#about")}
-            >
-              关于我们
-            </a>
+          <nav className="hidden md:flex items-center space-x-6">
+            {user ? (
+              <>
+                <a
+                  href="#bounty"
+                  className="text-gray-600 hover:text-green-500 transition-colors nav-link"
+                  onClick={(e) => handleNavClick(e, "#bounty")}
+                >
+                  机会雷达
+                </a>
+                <a
+                  href="#forge"
+                  className="text-gray-600 hover:text-green-500 transition-colors nav-link"
+                  onClick={(e) => handleNavClick(e, "#forge")}
+                >
+                  破冰工坊
+                </a>
+                <a
+                  href="#cockpit"
+                  className="text-gray-600 hover:text-green-500 transition-colors nav-link"
+                  onClick={(e) => handleNavClick(e, "#cockpit")}
+                >
+                  行动指挥室
+                </a>
+              </>
+            ) : (
+              <>
+                <a
+                  href="#home"
+                  data-scroll-to="features"
+                  className="text-gray-600 hover:text-green-500 transition-colors nav-link"
+                  onClick={(e) => handleNavClick(e, "#home")}
+                >
+                  产品功能
+                </a>
+                <a
+                  href="#pricing"
+                  className="text-gray-600 hover:text-green-500 transition-colors nav-link"
+                  onClick={(e) => handleNavClick(e, "#pricing")}
+                >
+                  定价
+                </a>
+                <a
+                  href="#blog"
+                  className="text-gray-600 hover:text-green-500 transition-colors nav-link"
+                  onClick={(e) => handleNavClick(e, "#blog")}
+                >
+                  求职干货
+                </a>
+              </>
+            )}
           </nav>
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center space-x-4">
             {user ? (
-              <a
-                href="#profile"
-                className="nav-link flex items-center"
-                onClick={(e) => handleNavClick(e, "#profile")}
-                aria-label="个人主页"
-                title="个人主页"
-              >
-                <span
-                  className="inline-flex items-center justify-center h-9 w-9 rounded-full bg-green-500 text-white font-bold"
+              <>
+                <a
+                  href="#profile"
+                  className="nav-link flex items-center"
+                  onClick={(e) => handleNavClick(e, "#profile")}
+                  aria-label="个人主页"
+                  title="个人主页"
                 >
-                  {avatarInitial}
-                </span>
-              </a>
+                  <span
+                    className="inline-flex items-center justify-center h-9 w-9 rounded-full bg-green-500 text-white font-bold"
+                  >
+                    {avatarInitial}
+                  </span>
+                </a>
+                <button onClick={handleLogout} className="text-gray-600 hover:text-green-500">退出</button>
+              </>
             ) : (
               <>
                 <a
@@ -492,44 +503,71 @@ export default function Page() {
 
         {/* Mobile Menu */}
         <div id="mobile-menu" className={`${mobileOpen ? "block" : "hidden"} md:hidden px-6 pb-4`}>
-          <a
-            href="#home"
-            data-scroll-to="features"
-            className="block py-2 text-gray-600 hover:text-green-500 nav-link"
-            onClick={(e) => handleNavClick(e, "#home")}
-          >
-            产品功能
-          </a>
-          <a
-            href="#pricing"
-            className="block py-2 text-gray-600 hover:text-green-500 nav-link"
-            onClick={(e) => handleNavClick(e, "#pricing")}
-          >
-            定价
-          </a>
-          <a
-            href="#blog"
-            className="block py-2 text-gray-600 hover:text-green-500 nav-link"
-            onClick={(e) => handleNavClick(e, "#blog")}
-          >
-            求职干货
-          </a>
-          <a
-            href="#about"
-            className="block py-2 text-gray-600 hover:text-green-500 nav-link"
-            onClick={(e) => handleNavClick(e, "#about")}
-          >
-            关于我们
-          </a>
+          {!user ? (
+            <>
+              {/* 未登录：营销导航 */}
+              <a
+                href="#home"
+                data-scroll-to="features"
+                className="block py-2 text-gray-600 hover:text-green-500 nav-link"
+                onClick={(e) => handleNavClick(e, "#home")}
+              >
+                产品功能
+              </a>
+              <a
+                href="#pricing"
+                className="block py-2 text-gray-600 hover:text-green-500 nav-link"
+                onClick={(e) => handleNavClick(e, "#pricing")}
+              >
+                定价
+              </a>
+              <a
+                href="#blog"
+                className="block py-2 text-gray-600 hover:text-green-500 nav-link"
+                onClick={(e) => handleNavClick(e, "#blog")}
+              >
+                求职干货
+              </a>
+            </>
+          ) : (
+            <>
+              {/* 已登录：功能菜单 */}
+              <a
+                href="#bounty"
+                className="block py-2 text-gray-600 hover:text-green-500 nav-link"
+                onClick={(e) => handleNavClick(e, "#bounty")}
+              >
+                机会雷达
+              </a>
+              <a
+                href="#forge"
+                className="block py-2 text-gray-600 hover:text-green-500 nav-link"
+                onClick={(e) => handleNavClick(e, "#forge")}
+              >
+                破冰工坊
+              </a>
+              <a
+                href="#cockpit"
+                className="block py-2 text-gray-600 hover:text-green-500 nav-link"
+                onClick={(e) => handleNavClick(e, "#cockpit")}
+              >
+                行动指挥室
+              </a>
+            </>
+          )}
+
           <div className="mt-4 border-t pt-4 space-y-2">
             {user ? (
-              <a
-                href="#profile"
-                className="block text-center text-gray-600 hover:text-green-500 nav-link"
-                onClick={(e) => handleNavClick(e, "#profile")}
-              >
-                个人主页
-              </a>
+              <>
+                <a
+                  href="#profile"
+                  className="block text-center text-gray-600 hover:text-green-500 nav-link"
+                  onClick={(e) => handleNavClick(e, "#profile")}
+                >
+                  个人主页
+                </a>
+                <button onClick={handleLogout} className="block w-full text-center text-gray-600 hover:text-green-500">退出</button>
+              </>
             ) : (
               <>
                 <a
@@ -553,7 +591,7 @@ export default function Page() {
       </header>
 
       <main>
-        {/* Home */}
+        {/* Home（登录前完整主页已恢复） */}
         {currentPage === "home" && (
           <div id="page-home" className="page-content">
             <section className="hero-gradient py-20 md:py-32">
@@ -587,6 +625,7 @@ export default function Page() {
               </div>
             </section>
 
+            {/* 痛点三卡片 */}
             <section className="py-20 bg-white">
               <div className="container mx-auto px-6">
                 <div className="text-center max-w-2xl mx-auto mb-16">
@@ -624,6 +663,7 @@ export default function Page() {
               </div>
             </section>
 
+            {/* 功能三段（含“从‘求职者’到‘机会猎手’”） */}
             <section id="features" ref={featuresRef} className="py-20">
               <div className="container mx-auto px-6">
                 <div className="text-center max-w-2xl mx-auto mb-16">
@@ -648,11 +688,11 @@ export default function Page() {
                         7x24小时扫描融资新闻、行业峰会、项目发布，为你预测“即将”出现的招聘需求。不再错过任何一个潜力机会。
                       </p>
                       <a
-                        href="#radar"
+                        href="#bounty"
                         className="nav-link font-bold text-green-600 hover:underline"
-                        onClick={(e) => handleNavClick(e, "#radar")}
+                        onClick={(e) => handleNavClick(e, "#bounty")}
                       >
-                        了解雷达如何工作 →
+                        了解机会雷达 →
                       </a>
                     </div>
                   </div>
@@ -673,11 +713,11 @@ export default function Page() {
                         从关键联系人到邮件第一句话，AI为你量身定制沟通策略，让你的出击不再尴尬，给HR留下深刻第一印象。
                       </p>
                       <a
-                        href="#playbook"
+                        href="#forge"
                         className="nav-link font-bold text-yellow-600 hover:underline"
-                        onClick={(e) => handleNavClick(e, "#playbook")}
+                        onClick={(e) => handleNavClick(e, "#forge")}
                       >
-                        查看AI如何生成策略 →
+                        查看破冰工坊 →
                       </a>
                     </div>
                   </div>
@@ -702,7 +742,7 @@ export default function Page() {
                         className="nav-link font-bold text-blue-600 hover:underline"
                         onClick={(e) => handleNavClick(e, "#cockpit")}
                       >
-                        探索你的指挥室 →
+                        探索行动指挥室 →
                       </a>
                     </div>
                   </div>
@@ -710,6 +750,7 @@ export default function Page() {
               </div>
             </section>
 
+            {/* 证言 */}
             <section id="testimonials" ref={testimonialsRef} className="py-20 bg-white">
               <div className="container mx-auto px-6">
                 <div className="text-center max-w-2xl mx-auto mb-16">
@@ -772,6 +813,7 @@ export default function Page() {
               </div>
             </section>
 
+            {/* 绿色 CTA */}
             <section className="bg-green-600 text-white">
               <div className="container mx-auto px-6 py-20 text-center">
                 <h2 className="text-3xl md:text-4xl font-bold mb-4">你的下一个机会，不在招聘网站上。</h2>
@@ -790,252 +832,141 @@ export default function Page() {
           </div>
         )}
 
-        {/* Radar */}
-        {currentPage === "radar" && (
-          <div id="page-radar" className="page-content">
-            <section className="py-20 bg-white">
+        {/* 1) 机会雷达 */}
+        {currentPage === "bounty" && (
+          <div id="page-bounty" className="page-content">
+            <section className="py-12 bg-white">
               <div className="container mx-auto px-6">
-                <div className="max-w-4xl mx-auto">
-                  <div className="mb-12">
-                    <a
-                      href="#home"
-                      data-scroll-to="features"
-                      className="nav-link text-gray-500 hover:text-green-600 transition-colors"
-                      onClick={(e) => handleNavClick(e, "#home")}
-                    >
-                      ← 返回产品功能
-                    </a>
-                  </div>
+                <div className="mb-8 flex items-center justify-between">
+                  <h2 className="text-2xl md:text-3xl font-bold text-gray-800">机会雷达</h2>
+                  {!user && <p className="text-sm text-gray-500">登录后可发送破冰邮件</p>}
+                </div>
 
-                  <div className="text-center mb-16">
-                    <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">AI驱动的机会雷达</h2>
-                    <p className="text-lg text-gray-600">
-                      我们的情报引擎，为你揭示隐藏在海量信息下的真实机会。
-                    </p>
-                  </div>
-
-                  {/* 信号源 */}
-                  <div className="mb-20">
-                    <h3 className="text-2xl font-bold text-center mb-10">第一步：捕捉全网的增长信号</h3>
-                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-                      <div className="text-center p-6 bg-gray-50 rounded-xl">
-                        <RocketLaunch size={40} className="text-green-500 mb-4 inline-block" weight="bold" />
-                        <h4 className="font-bold text-lg mb-2">资金动向</h4>
-                        <p className="text-sm text-gray-500">监控融资新闻，刚拿到钱的公司大概率要招人。</p>
+                <div className="grid md:grid-cols-2 gap-6">
+                  {todayOpportunities.map((opp) => (
+                    <div key={opp.id} className="bg-gray-50 rounded-2xl border border-gray-100 p-6">
+                      <h3 className="text-xl font-bold text-gray-800">{opp.company}</h3>
+                      <p className="text-gray-500 mt-1">{opp.title} · {opp.city || "城市不限"}</p>
+                      <div className="mt-3 flex gap-2 flex-wrap">
+                        {opp.tags.map((t) => (
+                          <span key={t} className="text-xs bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full">{t}</span>
+                        ))}
                       </div>
-                      <div className="text-center p-6 bg-gray-50 rounded-xl">
-                        <PresentationChart size={40} className="text-blue-500 mb-4 inline-block" weight="bold" />
-                        <h4 className="font-bold text-lg mb-2">行业动态</h4>
-                        <p className="text-sm text-gray-500">抓取峰会赞助商，积极分享的公司正在扩张。</p>
-                      </div>
-                      <div className="text-center p-6 bg-gray-50 rounded-xl">
-                        <Lightbulb size={40} className="text-yellow-500 mb-4 inline-block" weight="bold" />
-                        <h4 className="font-bold text-lg mb-2">产品发布</h4>
-                        <p className="text-sm text-gray-500">新项目上线，需要人来维护和迭代。</p>
-                      </div>
-                      <div className="text-center p-6 bg-gray-50 rounded-xl">
-                        <UsersThree size={40} className="text-purple-500 mb-4 inline-block" weight="bold" />
-                        <h4 className="font-bold text-lg mb-2">人才流动</h4>
-                        <p className="text-sm text-gray-500">分析人才洼地，发现新兴的热门公司。</p>
+                      <div className="mt-6 flex justify-between items-center">
+                        <p className="text-sm text-gray-500">{opp.reason}</p>
+                        <button className="bg-green-500 text-white font-bold py-2 px-4 rounded-full cta-button" onClick={() => onGoForge(opp)}>
+                          发送破冰邮件
+                        </button>
                       </div>
                     </div>
-                  </div>
-
-                  {/* AI处理 */}
-                  <div className="mb-20 text-center">
-                    <h3 className="text-2xl font-bold text-center mb-10">第二步：AI大脑进行深度处理</h3>
-                    <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8">
-                      <div className="p-4 bg-white rounded-lg shadow-md">信息抽取</div>
-                      <ArrowRight size={24} className="text-gray-400" />
-                      <div className="p-4 bg-white rounded-lg shadow-md">需求预测</div>
-                      <ArrowRight size={24} className="text-gray-400" />
-                      <div className="p-4 bg-white rounded-lg shadow-md">关键人链接</div>
-                    </div>
-                  </div>
-
-                  {/* 呈现方式 */}
-                  <div>
-                    <h3 className="text-2xl font-bold text-center mb-10">第三步：每日推送高价值机会卡片</h3>
-                    <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-2xl mx-auto">
-                      <div className="flex items-start gap-6">
-                        <img
-                          src="https://placehold.co/80x80/1f2937/ffffff?text=AI"
-                          alt="公司Logo"
-                          className="rounded-lg w-20 h-20 flex-shrink-0"
-                        />
-                        <div>
-                          <h4 className="font-bold text-xl mb-1">奇点无限科技</h4>
-                          <p className="text-sm text-gray-500 mb-4">A轮融资 | 人工智能 | 北京</p>
-                          <p className="text-gray-700 mb-4">
-                            <b>机会解读：</b>该公司上周刚宣布完成5000万A轮融资，领投方为红杉资本。其官网发布了新产品“AI-Writer 2.0”，我们预测其正在大量招聘NLP算法工程师和产品经理。
-                          </p>
-                          <div className="bg-green-50 p-4 rounded-lg">
-                            <p className="font-bold text-green-800">关键人物链接 ↓</p>
-                            <div className="flex items-center gap-4 mt-2 text-sm">
-                              <p>
-                                王总 (CTO) - <span className="text-green-600">触达成功率: 85%</span>
-                              </p>
-                              <a href="#" className="text-blue-600 hover:underline">
-                                LinkedIn
-                              </a>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
             </section>
           </div>
         )}
 
-        {/* Playbook */}
-        {currentPage === "playbook" && (
-          <div id="page-playbook" className="page-content">
-            <section className="py-20 bg-white">
-              <div className="container mx-auto px-6">
-                <div className="max-w-5xl mx-auto">
-                  <div className="mb-12">
-                    <a
-                      href="#home"
-                      data-scroll-to="features"
-                      className="nav-link text-gray-500 hover:text-yellow-600 transition-colors"
-                      onClick={(e) => handleNavClick(e, "#home")}
-                    >
-                      ← 返回产品功能
-                    </a>
-                  </div>
+        {/* 2) 破冰工坊 */}
+        {currentPage === "forge" && (
+          <div id="page-forge" className="page-content">
+            <section className="py-12">
+              <div className="container mx-auto px-6 max-w-3xl">
+                <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">破冰工坊</h2>
+                {connOk === true && <p className="text-sm text-green-600 mb-4">已成功链接云端数据（Supabase）</p>}
+                {connOk === false && <p className="text-sm text-red-600 mb-4">云端连接失败：{connErr || "未知错误"}（本地演示）</p>}
 
-                  <div className="text-center mb-16">
-                    <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">AIGC生成破冰弹药</h2>
-                    <p className="text-lg text-gray-600">
-                      告别求职信写作困难，让AI成为你的专属沟通策略师。
+                {!user ? (
+                  <div className="bg-gray-50 rounded-2xl p-8 text-center border border-gray-200">
+                    <p className="text-gray-700">请先登录后生成邮件</p>
+                    <div className="mt-4">
+                      <a href="#login" className="px-6 py-2 rounded-full border border-gray-300 hover:bg-gray-100 nav-link" onClick={(e) => handleNavClick(e, "#login")}>
+                        去登录
+                      </a>
+                    </div>
+                  </div>
+                ) : !selectedOpp ? (
+                  <div className="bg-gray-50 rounded-2xl p-8 text-center border border-gray-200">
+                    <p className="text-gray-700">请先在“机会雷达”中选择一个机会</p>
+                    <div className="mt-4">
+                      <a href="#bounty" className="px-6 py-2 rounded-full bg-green-500 text-white cta-button nav-link" onClick={(e) => handleNavClick(e, "#bounty")}>
+                        前往选择
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-2xl shadow-xl p-6">
+                    <p className="text-sm text-gray-500 mb-2">
+                      根据你的简历与目标公司「<b>{selectedOpp.company}</b>」生成邮件草稿。
                     </p>
-                  </div>
 
-                  <div className="grid md:grid-cols-2 gap-8 items-start">
-                    {/* 左：价值锚点建议 */}
-                    <div className="bg-gray-50 p-8 rounded-2xl">
-                      <h3 className="text-xl font-bold mb-6 flex items-center">
-                        <Anchor size={22} className="text-yellow-500 mr-3" weight="bold" />
-                        AI的“价值锚点”建议
-                      </h3>
-                      <p className="text-gray-600 mb-4">
-                        根据你的简历和目标公司“奇点无限”，我们建议你在邮件中突出以下几点：
-                      </p>
-                      <ul className="space-y-3 list-disc list-inside text-gray-700">
-                        <li>你在“校园黑客松”中用Transformer模型构建聊天机器人的项目经历。</li>
-                        <li>
-                          你对大语言模型(LLM)伦理问题的深入思考（可结合其产品“AI-Writer”）。
-                        </li>
-                        <li>熟练使用Python, PyTorch, 和Hugging Face库。</li>
-                      </ul>
-                    </div>
+                    <div className="grid gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">主题</label>
+                        <input value={mailSubject} onChange={(e) => setMailSubject(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">正文</label>
+                        <textarea value={mailBody} onChange={(e) => setMailBody(e.target.value)} rows={12} className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none font-mono text-sm" />
+                      </div>
 
-                    {/* 右：个性化内容生成 */}
-                    <div className="bg-white p-8 rounded-2xl shadow-2xl">
-                      <h3 className="text-xl font-bold mb-6 flex items-center">
-                        <MagicWand size={22} className="text-yellow-500 mr-3" weight="bold" />
-                        AIGC生成个性化邮件
-                      </h3>
-                      <p className="text-gray-600 mb-4">选择一个场景，AI将为你生成邮件草稿：</p>
-                      <div className="flex gap-2 mb-4">
-                        <button className="bg-yellow-500 text-white px-3 py-1 text-sm rounded-full">融资场景</button>
-                        <button className="bg-gray-200 text-gray-700 px-3 py-1 text-sm rounded-full">峰会场景</button>
+                      {!resumeText && (
+                        <p className="text-xs text-amber-600">
+                          未检测到你的简历文本，建议先到“个人主页”上传 .txt 或 .docx 以获得更个性化内容。
+                        </p>
+                      )}
+
+                      <div className="flex justify-end gap-3">
+                        <a href="#bounty" onClick={(e) => handleNavClick(e, "#bounty")} className="px-4 py-2 rounded-full border border-gray-300 hover:bg-gray-100 nav-link">取消</a>
+                        <button onClick={onConfirmSend} disabled={sending} className="px-5 py-2 rounded-full bg-green-500 text-white cta-button disabled:opacity-60">
+                          {sending ? "发送中..." : "确认发送"}
+                        </button>
                       </div>
-                      <div className="bg-gray-800 text-white p-6 rounded-lg font-mono text-sm leading-relaxed">
-                        <p>
-                          <span className="text-gray-400">主题：</span>{" "}
-                          <span className="text-yellow-300">祝贺完成A轮融资 - 一位对NLP充满热情的求职者</span>
-                        </p>
-                        <br />
-                        <p>尊敬的王总，</p>
-                        <p>您好！</p>
-                        <br />
-                        <p>
-                          我从36氪上了解到贵公司“奇点无限”刚刚完成了5000万的A轮融资，并发布了令人印象深刻的“AI-Writer 2.0”，由衷地祝贺！
-                        </p>
-                        <br />
-                        <p>
-                          贵公司在NLP领域的探索，特别是对AIGC应用的专注，与我个人的技术热情和项目经验高度契合。我曾在校园黑客松中，独立使用Transformer模型构建了一个...{" "}
-                          <span className="text-gray-400">[此处插入价值锚点1]</span>
-                        </p>
-                        <br />
-                        <p>附件是我的简历，期待有机会能为“奇点无限”的下一个里程碑贡献力量！</p>
-                        <br />
-                        <p>祝好，</p>
-                        <p>[你的名字]</p>
-                      </div>
+                      {sendMsg && <p className="text-sm text-gray-600 mt-2">{sendMsg}</p>}
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             </section>
           </div>
         )}
 
-        {/* Cockpit */}
+        {/* 3) 行动指挥室 */}
         {currentPage === "cockpit" && (
           <div id="page-cockpit" className="page-content">
             <section className="py-20 bg-white">
               <div className="container mx-auto px-6">
                 <div className="max-w-6xl mx-auto">
-                  <div className="mb-12">
-                    <a
-                      href="#home"
-                      data-scroll-to="features"
-                      className="nav-link text-gray-500 hover:text-blue-600 transition-colors"
-                      onClick={(e) => handleNavClick(e, "#home")}
-                    >
-                      ← 返回产品功能
-                    </a>
-                  </div>
-
                   <div className="text-center mb-4">
-                    <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">一站式行动指挥室</h2>
+                    <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">行动指挥室</h2>
                     <p className="text-lg text-gray-600">
-                      将混乱的求职过程，变为清晰、高效、可复盘的行动项目。
+                      用数据化视角跟踪每一次出击
                     </p>
-                    {/* 连接状态提示 */}
                     {connOk === true && (
-                      <p className="mt-3 text-sm text-green-600">已成功链接云端数据（Supabase）</p>
+                      <p className="mt-2 text-sm text-green-600">已成功链接云端数据（Supabase）</p>
                     )}
                     {connOk === false && (
-                      <p className="mt-3 text-sm text-red-600">
+                      <p className="mt-2 text-sm text-red-600">
                         云端连接失败：{connErr || "未知错误"}（已使用本地存储演示）
                       </p>
                     )}
-                    {/* 登录状态提示 */}
                     {!user && (
                       <p className="mt-2 text-sm text-gray-500">
-                        当前未登录，请先
-                        {" "}
+                        当前未登录，请先{" "}
                         <a href="#login" className="text-blue-600 hover:underline nav-link" onClick={(e) => handleNavClick(e, "#login")}>
                           登录
-                        </a>
-                        {" "}
-                        或
-                        {" "}
-                        <a href="#signup" className="text-blue-600 hover:underline nav-link" onClick={(e) => handleNavClick(e, "#signup")}>
-                          注册
                         </a>
                         。
                       </p>
                     )}
                   </div>
 
-                  {/* 任务管理看板（未登录时不展示） */}
                   {user ? (
                     <div className="mb-20">
-                      <h3 className="text-2xl font-bold text-center mb-10">
-                        任务管理：像玩游戏一样追踪你的“狙击”
-                      </h3>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-6 bg-gray-50 p-6 rounded-2xl">
-                        {renderKanbanColumn("机会池 (5)", "pool", "bg-gray-200")}
-                        {renderKanbanColumn("已发送 (3)", "sent", "bg-blue-100")}
-                        {renderKanbanColumn("已回复 (1)", "replied", "bg-yellow-100")}
-                        {renderKanbanColumn("面试/Offer (1)", "interview", "bg-green-100")}
+                        {renderKanbanColumn("机会池", "pool", "bg-gray-200")}
+                        {renderKanbanColumn("已发送", "sent", "bg-blue-100")}
+                        {renderKanbanColumn("已回复", "replied", "bg-yellow-100")}
+                        {renderKanbanColumn("面试/Offer", "interview", "bg-green-100")}
                       </div>
                     </div>
                   ) : (
@@ -1062,7 +993,7 @@ export default function Page() {
                     </div>
                   )}
 
-                  {/* 数据看板（保持原样，仅展示静态示意） */}
+                  {/* 静态示意图 */}
                   <div>
                     <h3 className="text-2xl font-bold text-center mb-10">
                       数据看板：用数据复盘和优化你的策略
@@ -1107,20 +1038,21 @@ export default function Page() {
                       </div>
                     </div>
                   </div>
+
                 </div>
               </div>
             </section>
           </div>
         )}
 
-        {/* Pricing */}
+        {/* 定价（恢复） */}
         {currentPage === "pricing" && (
           <div id="page-pricing" className="page-content">
             <section className="py-20">
               <div className="container mx-auto px-6">
                 <div className="text-center max-w-2xl mx-auto mb-16">
                   <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">选择适合你的计划</h2>
-                  <p className="text-gray-600">我们提供灵活的方案，助力你求职之路的每一步。从免费开始，随时升级。</p>
+                  <p className="text-gray-600">从免费开始，随时升级，助力你求职之路的每一步。</p>
                 </div>
 
                 <div className="grid lg:grid-cols-3 gap-8 max-w-5xl mx-auto">
@@ -1166,12 +1098,10 @@ export default function Page() {
                         <CheckCircle size={20} className="text-green-500 mr-3" weight="fill" /> <b>无限</b> 机会情报
                       </li>
                       <li className="flex items-center">
-                        <CheckCircle size={20} className="text-green-500 mr-3" weight="fill" /> <b>AIGC</b>{" "}
-                        生成个性化破冰邮件
+                        <CheckCircle size={20} className="text-green-500 mr-3" weight="fill" /> <b>AIGC</b> 生成个性化破冰邮件
                       </li>
                       <li className="flex items-center">
-                        <CheckCircle size={20} className="text-green-500 mr-3" weight="fill" /> <b>无限</b>{" "}
-                        目标追踪与管理
+                        <CheckCircle size={20} className="text-green-500 mr-3" weight="fill" /> <b>无限</b> 目标追踪与管理
                       </li>
                       <li className="flex items-center">
                         <CheckCircle size={20} className="text-green-500 mr-3" weight="fill" /> 关键联系人深度分析
@@ -1209,9 +1139,9 @@ export default function Page() {
                       </li>
                     </ul>
                     <a
-                      href="#about"
+                      href="#signup"
                       className="nav-link mt-8 w-full text-center bg-gray-800 text-white font-bold py-3 px-6 rounded-full hover:bg-gray-900 transition-colors"
-                      onClick={(e) => handleNavClick(e, "#about")}
+                      onClick={(e) => handleNavClick(e, "#signup")}
                     >
                       咨询详情
                     </a>
@@ -1222,7 +1152,7 @@ export default function Page() {
           </div>
         )}
 
-        {/* Blog */}
+        {/* Blog（求职干货） */}
         {currentPage === "blog" && (
           <div id="page-blog" className="page-content">
             <section className="py-20 bg-white">
@@ -1288,30 +1218,7 @@ export default function Page() {
           </div>
         )}
 
-        {/* About */}
-        {currentPage === "about" && (
-          <div id="page-about" className="page-content">
-            <section className="py-20 bg-white">
-              <div className="container mx-auto px-6">
-                <div className="max-w-4xl mx-auto">
-                  <div className="text-center mb-16">
-                    <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">关于我们</h2>
-                    <p className="text-lg text-gray-600">一群相信“主动出击”的理想主义者</p>
-                  </div>
-
-                  <div className="bg-gray-50 rounded-2xl p-8 md:p-12 text-center shadow-inner">
-                    <Quotes size={48} className="text-green-400 mb-6 inline-block" weight="bold" />
-                    <p className="text-xl md:text-2xl leading-relaxed text-gray-700">
-                      我们致力于用技术打破求职信息壁垒，赋能每一个不愿平庸、渴望通过自身努力创造机会的你。我们相信，最好的机会不是等来的，而是被创造出来的。“简历冲鸭”就是你创造机会的第一个伙伴。
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </section>
-          </div>
-        )}
-
-        {/* Login */}
+        {/* 登录 */}
         {currentPage === "login" && (
           <div id="page-login" className="page-content">
             <section className="py-20">
@@ -1347,11 +1254,6 @@ export default function Page() {
                       />
                     </div>
                     {loginErr && <p className="text-sm text-red-600 mb-4">{loginErr}</p>}
-                    <div className="text-right mb-6">
-                      <a href="#" className="text-sm text-green-600 hover:underline">
-                        忘记密码?
-                      </a>
-                    </div>
                     <button type="submit" disabled={authLoading} className="w-full bg-green-500 text-white font-bold py-3 px-6 rounded-full cta-button disabled:opacity-60">
                       {authLoading ? "登录中..." : "登录"}
                     </button>
@@ -1372,12 +1274,12 @@ export default function Page() {
           </div>
         )}
 
-        {/* Signup */}
+        {/* 注册 */}
         {currentPage === "signup" && (
           <div id="page-signup" className="page-content">
             <section className="py-20">
               <div className="container mx-auto px-6">
-                <div className="max-w-md mx-auto bg-white rounded-2xl shadow-lg p-8 md:p-12">
+                <div className="max-w-md mx-auto bg白 rounded-2xl shadow-lg p-8 md:p-12">
                   <div className="text-center mb-8">
                     <h2 className="text-3xl font-bold text-gray-800">开启你的猎手之旅</h2>
                     <p className="text-gray-500 mt-2">只需一步，即可解锁隐藏机会</p>
@@ -1396,17 +1298,6 @@ export default function Page() {
                       />
                     </div>
                     <div className="mb-6">
-                      <label htmlFor="signup-email" className="block text-gray-700 font-bold mb-2">
-                        邮箱地址（演示用）
-                      </label>
-                      <input
-                        type="email"
-                        id="signup-email"
-                        name="signup-email"
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
-                      />
-                    </div>
-                    <div className="mb-6">
                       <label htmlFor="signup-password" className="block text-gray-700 font-bold mb-2">
                         设置密码
                       </label>
@@ -1418,22 +1309,6 @@ export default function Page() {
                         required
                       />
                     </div>
-                    <div className="mb-6">
-                      <label className="flex items-center text-gray-600">
-                        <input type="checkbox" className="form-checkbox h-5 w-5 text-green-600" defaultChecked />
-                        <span className="ml-2">
-                          我已阅读并同意
-                          <a
-                            href="#terms"
-                            className="text-green-600 hover:underline nav-link"
-                            onClick={(e) => handleNavClick(e, "#terms")}
-                          >
-                            服务条款
-                          </a>
-                        </span>
-                      </label>
-                    </div>
-                    {signupErr && <p className="text-sm text-red-600 mb-4">{signupErr}</p>}
                     <button type="submit" disabled={authLoading} className="w-full bg-green-500 text-white font-bold py-3 px-6 rounded-full cta-button disabled:opacity-60">
                       {authLoading ? "创建账户中..." : "创建账户"}
                     </button>
@@ -1454,120 +1329,77 @@ export default function Page() {
           </div>
         )}
 
-        {/* Terms */}
-        {currentPage === "terms" && (
-          <div id="page-terms" className="page-content">
-            <section className="py-20 bg-white">
-              <div className="container mx-auto px-6 max-w-3xl">
-                <h2 className="text-3xl font-bold mb-8 text-center">服务条款</h2>
-                <div className="prose lg:prose-xl max-w-none text-gray-700">
-                  <p>欢迎使用“简历冲鸭”！本服务条款是您与我们之间关于使用本服务的协议。请仔细阅读。</p>
-                  <h3>1. 服务内容</h3>
-                  <p>
-                    我们提供一个主动求职情报平台，通过AI技术帮助用户发现潜在的就业机会并提供沟通策略支持。所有功能和服务均受本条款约束。
-                  </p>
-                  <p>...</p>
-                </div>
-              </div>
-            </section>
-          </div>
-        )}
-
-        {/* Profile */}
+        {/* 个人资料：简历上传 */}
         {currentPage === "profile" && (
           <div id="page-profile" className="page-content">
-            <section className="py-20 bg-white">
-              <div className="container mx-auto px-6">
-                <div className="max-w-3xl mx-auto">
-                  <div className="text-center mb-8">
-                    <h2 className="text-3xl font-bold text-gray-800">个人主页</h2>
-                    <p className="text-gray-500 mt-2">查看你的账户信息与任务概览</p>
-                  </div>
-
-                  {!user ? (
-                    <div className="bg-gray-50 rounded-2xl p-8 text-center border border-gray-200">
-                      <p className="text-gray-700">你还未登录，请先登录或注册。</p>
-                      <div className="mt-6 flex justify-center gap-4">
-                        <a
-                          href="#login"
-                          className="px-6 py-2 rounded-full border border-gray-300 hover:bg-gray-100 nav-link"
-                          onClick={(e) => handleNavClick(e, "#login")}
-                        >
-                          去登录
-                        </a>
-                        <a
-                          href="#signup"
-                          className="px-6 py-2 rounded-full bg-green-500 text-white cta-button nav-link"
-                          onClick={(e) => handleNavClick(e, "#signup")}
-                        >
-                          免费注册
-                        </a>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="bg-white rounded-2xl shadow-lg p-8">
-                      <div className="flex items-center gap-4 mb-6">
-                        <span className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-green-500 text-white font-bold text-lg">
-                          {avatarInitial}
-                        </span>
-                        <div>
-                          <p className="text-sm text-gray-500">用户名</p>
-                          <p className="text-xl font-bold text-gray-800">{user.username}</p>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                        <div className="bg-gray-50 rounded-lg p-4 text-center">
-                          <p className="text-sm text-gray-500">机会池</p>
-                          <p className="text-2xl font-bold">
-                            {tasks.filter(t => t.status === "pool").length}
-                          </p>
-                        </div>
-                        <div className="bg-blue-50 rounded-lg p-4 text-center">
-                          <p className="text-sm text-gray-500">已发送</p>
-                          <p className="text-2xl font-bold">
-                            {tasks.filter(t => t.status === "sent").length}
-                          </p>
-                        </div>
-                        <div className="bg-yellow-50 rounded-lg p-4 text-center">
-                          <p className="text-sm text-gray-500">已回复</p>
-                          <p className="text-2xl font-bold">
-                            {tasks.filter(t => t.status === "replied").length}
-                          </p>
-                        </div>
-                        <div className="bg-green-50 rounded-lg p-4 text-center">
-                          <p className="text-sm text-gray-500">面试/Offer</p>
-                          <p className="text-2xl font-bold">
-                            {tasks.filter(t => t.status === "interview").length}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex justify-between items-center">
-                        <p className="text-sm text-gray-500">
-                          {connOk === true ? "云端已连接" : connOk === false ? "云端未连接（可能使用本地数据）" : ""}
-                        </p>
-                        <button
-                          onClick={handleLogout}
-                          className="px-4 py-2 rounded-full border border-gray-300 hover:bg-gray-100"
-                          aria-label="退出登录"
-                        >
-                          退出登录
-                        </button>
-                      </div>
-                    </div>
-                  )}
+            <section className="py-16 bg-white">
+              <div className="container mx-auto px-6 max-w-3xl">
+                <div className="text-center mb-8">
+                  <h2 className="text-3xl font-bold text-gray-800">个人资料</h2>
+                  <p className="text-gray-500 mt-2">上传你的简历（.txt 或 .docx），我们将用于个性化破冰邮件</p>
                 </div>
+
+                {!user ? (
+                  <div className="bg-gray-50 rounded-2xl p-8 text-center border border-gray-200">
+                    <p className="text-gray-700">你还未登录，请先登录或注册。</p>
+                    <div className="mt-6 flex justify-center gap-4">
+                      <a
+                        href="#login"
+                        className="px-6 py-2 rounded-full border border-gray-300 hover:bg-gray-100 nav-link"
+                        onClick={(e) => handleNavClick(e, "#login")}
+                      >
+                        去登录
+                      </a>
+                      <a
+                        href="#signup"
+                        className="px-6 py-2 rounded-full bg-green-500 text-white cta-button nav-link"
+                        onClick={(e) => handleNavClick(e, "#signup")}
+                      >
+                        免费注册
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-2xl shadow-lg p-8">
+                    <div className="flex items-center gap-4 mb-6">
+                      <span className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-green-500 text-white font-bold text-lg">
+                        {avatarInitial}
+                      </span>
+                      <div>
+                        <p className="text-sm text-gray-500">用户名</p>
+                        <p className="text-xl font-bold text-gray-800">{user.username}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">上传简历（.txt/.docx）</label>
+                        <input type="file" accept=".txt,.docx" onChange={(e) => { const f = e.target.files?.[0]; if (f) onResumeFileChosen(f) }} />
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 mb-2">简历文本预览（前 300 字）</p>
+                        <div className="bg-gray-50 border rounded-lg p-3 text-sm max-h-40 overflow-auto">
+                          {resumeText ? (resumeText.slice(0, 300) + (resumeText.length > 300 ? "..." : "")) : "尚未上传"}
+                        </div>
+                      </div>
+                      <div className="flex justify-end">
+                        <a href="#bounty" onClick={(e) => handleNavClick(e, "#bounty")} className="px-5 py-2 rounded-full bg-green-500 text白 cta-button nav-link">
+                          去机会雷达挑选
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </section>
           </div>
         )}
       </main>
 
-      {/* Footer */}
+      {/* Footer（无“关于我们”） */}
       <footer className="bg-gray-800 text-white">
         <div className="container mx-auto px-6 py-12">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
             <div>
               <h4 className="font-bold text-lg mb-4">简历冲鸭</h4>
               <p className="text-gray-400 text-sm">别再海投，我们教你狙击。</p>
@@ -1575,77 +1407,14 @@ export default function Page() {
             <div>
               <h4 className="font-bold mb-4">产品</h4>
               <ul className="space-y-2 text-gray-400">
-                <li>
-                  <a
-                    href="#home"
-                    data-scroll-to="features"
-                    className="hover:text-white nav-link"
-                    onClick={(e) => handleNavClick(e, "#home")}
-                  >
-                    功能
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#pricing"
-                    className="hover:text-white nav-link"
-                    onClick={(e) => handleNavClick(e, "#pricing")}
-                  >
-                    定价
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#home"
-                    data-scroll-to="testimonials"
-                    className="hover:text-white nav-link"
-                    onClick={(e) => handleNavClick(e, "#home")}
-                  >
-                    成功案例
-                  </a>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-bold mb-4">公司</h4>
-              <ul className="space-y-2 text-gray-400">
-                <li>
-                  <a
-                    href="#about"
-                    className="hover:text-white nav-link"
-                    onClick={(e) => handleNavClick(e, "#about")}
-                  >
-                    关于我们
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#blog"
-                    className="hover:text-white nav-link"
-                    onClick={(e) => handleNavClick(e, "#blog")}
-                  >
-                    博客
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#about"
-                    className="hover:text-white nav-link"
-                    onClick={(e) => handleNavClick(e, "#about")}
-                  >
-                    联系我们
-                  </a>
-                </li>
+                <li><a href="#home" data-scroll-to="features" className="hover:text-white nav-link" onClick={(e) => handleNavClick(e, "#home")}>产品功能</a></li>
+                <li><a href="#pricing" className="hover:text-white nav-link" onClick={(e) => handleNavClick(e, "#pricing")}>定价</a></li>
+                <li><a href="#blog" className="hover:text-white nav-link" onClick={(e) => handleNavClick(e, "#blog")}>求职干货</a></li>
               </ul>
             </div>
             <div>
               <h4 className="font-bold mb-4">法律</h4>
               <ul className="space-y-2 text-gray-400">
-                <li>
-                  <a href="#" className="hover:text-white">
-                    隐私政策
-                  </a>
-                </li>
                 <li>
                   <a
                     href="#terms"
@@ -1660,12 +1429,12 @@ export default function Page() {
           </div>
 
           <div className="mt-12 pt-8 border-t border-gray-700 text-center text-gray-500 text-sm">
-            <p>{`© 2025 简历冲鸭. All Rights Reserved. (为一个求职项目创建)`}</p>
+            <p>{`© 2025 简历冲鸭. All Rights Reserved.`}</p>
           </div>
         </div>
       </footer>
 
-      {/* 全局样式（迁移自你的 <style>） */}
+      {/* 全局样式 */}
       <style jsx global>{`
         body {
           color: #1f2937;
