@@ -18,6 +18,12 @@ import {
   CheckCircle,
 } from "@phosphor-icons/react"
 
+import { getSupabaseClient } from "@/lib/supabase-client"
+import type { Task, TaskStatus } from "@/types/task"
+import { demoTasksSeed, LS_KEY as LEGACY_LS_KEY } from "@/lib/demo-tasks"
+import { fetchTasksForUser, signIn, signUp, updateTaskForUser, getLocalUser, setLocalUser, getLocalTasks, setLocalTasks } from "@/lib/auth"
+import type { User } from "@/types/user"
+
 const noto = Noto_Sans_SC({
   subsets: ["latin"],
   weight: ["400", "500", "700"],
@@ -39,8 +45,23 @@ export default function Page() {
   const [currentPage, setCurrentPage] = useState<PageKey>("home")
   const [mobileOpen, setMobileOpen] = useState(false)
 
+  // Home 内部锚点
   const featuresRef = useRef<HTMLElement | null>(null)
   const testimonialsRef = useRef<HTMLElement | null>(null)
+
+  // Auth 状态
+  const [user, setUser] = useState<User | null>(null)
+  const supabase = getSupabaseClient()
+  const [connOk, setConnOk] = useState<boolean | null>(null)
+  const [connErr, setConnErr] = useState<string | null>(null)
+
+  // Tasks 状态（登录后按用户加载）
+  const [tasks, setTasks] = useState<Task[]>([])
+
+  // 登录与注册表单状态
+  const [loginErr, setLoginErr] = useState<string | null>(null)
+  const [signupErr, setSignupErr] = useState<string | null>(null)
+  const [authLoading, setAuthLoading] = useState(false)
 
   const validPages: Record<string, PageKey> = useMemo(
     () => ({
@@ -54,7 +75,7 @@ export default function Page() {
       login: "login",
       signup: "signup",
       terms: "terms",
-      features: "home", // special scroll inside home
+      features: "home",
       testimonials: "home",
     }),
     []
@@ -74,15 +95,10 @@ export default function Page() {
     (hashOrKey: string, scrollToId?: string | null) => {
       const cleaned = hashOrKey.startsWith("#") ? hashOrKey.slice(1) : hashOrKey
       const target = validPages[cleaned] ?? "home"
-
       setCurrentPage(target)
-
-      // 同步 URL hash
       if (typeof window !== "undefined") {
         window.location.hash = cleaned
       }
-
-      // 在 Home 内滚动到指定锚点，否则回到顶部
       if (scrollToId) {
         setTimeout(() => smoothScrollInsideHome(scrollToId), 100)
       } else {
@@ -92,10 +108,12 @@ export default function Page() {
     [smoothScrollInsideHome, validPages]
   )
 
-  // 初始化：根据 hash 加载页面
+  // 初始化：根据 hash 加载页面；读取本地用户
   useEffect(() => {
     const initial = window.location.hash || "#home"
     showPage(initial)
+    const u = getLocalUser()
+    if (u) setUser(u)
   }, [showPage])
 
   // 支持浏览器前进/后退（hashchange）
@@ -136,7 +154,185 @@ export default function Page() {
     if (mobileOpen) setMobileOpen(false)
   }
 
-  // 表单提交（模拟）
+  // 连接检测（在 Cockpit 下进行）
+  const checkConnection = useCallback(async () => {
+    if (!supabase) throw new Error("缺少环境变量 NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY")
+    // 简单探测：查询一个轻量表（users 计数）
+    const { error } = await supabase.from("users").select("id", { count: "exact", head: true })
+    if (error) throw error
+  }, [supabase])
+
+  // 加载任务（优先云端，失败使用本地）
+  const loadTasksForCurrentUser = useCallback(async () => {
+    if (!user) return
+    try {
+      await checkConnection()
+      setConnOk(true)
+      setConnErr(null)
+      const rows = await fetchTasksForUser(user.id)
+      if (rows.length === 0) {
+        // 无任务时用 demo 初始化（防御），插入到远端
+        const col: Task[] = demoTasksSeed.map((t, idx) => ({
+          id: `local-seed-${idx + 1}`, // 仅用于 UI；远端插入后会有 uuid
+          title: t.title,
+          status: t.status as TaskStatus,
+          ord: t.ord,
+          note: t.note ?? null,
+          created_at: new Date().toISOString(),
+        }))
+        setTasks(col)
+      } else {
+        setTasks(rows)
+      }
+    } catch (err: any) {
+      // 连接失败：local fallback（按用户隔离）
+      setConnOk(false)
+      setConnErr(err?.message ?? "连接 Supabase 失败")
+      const local = getLocalTasks(user.id)
+      if (local.length > 0) {
+        setTasks(local)
+      } else {
+        const seeded: Task[] = demoTasksSeed.map((t, idx) => ({
+          id: `local-${idx + 1}`,
+          title: t.title,
+          status: t.status as TaskStatus,
+          ord: t.ord,
+          note: t.note ?? null,
+          created_at: new Date().toISOString(),
+        }))
+        setTasks(seeded)
+        setLocalTasks(user.id, seeded)
+      }
+    }
+  }, [user, checkConnection])
+
+  // 切到 Cockpit 或登录状态变更时加载
+  useEffect(() => {
+    if (currentPage !== "cockpit") return
+    if (!user) {
+      // 若之前遗留了旧版全局 demo，本地清理避免干扰
+      try { localStorage.removeItem(LEGACY_LS_KEY) } catch {}
+      setTasks([])
+      // 仍检查连接以显示状态
+      ;(async () => {
+        try {
+          await checkConnection()
+          setConnOk(true)
+          setConnErr(null)
+        } catch (e: any) {
+          setConnOk(false)
+          setConnErr(e?.message ?? "连接 Supabase 失败")
+        }
+      })()
+      return
+    }
+    loadTasksForCurrentUser()
+  }, [currentPage, user, loadTasksForCurrentUser, checkConnection])
+
+  // 登录提交
+  const handleLoginSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setAuthLoading(true)
+    setLoginErr(null)
+    const form = new FormData(e.currentTarget)
+    const username = String(form.get("login-username") ?? "").trim()
+    const password = String(form.get("login-password") ?? "")
+    try {
+      const u = await signIn(username, password)
+      setUser(u)
+      setLocalUser(u)
+      showPage("#cockpit")
+    } catch (err: any) {
+      setLoginErr(err?.message ?? "登录失败")
+    } finally {
+      setAuthLoading(false)
+    }
+  }
+
+  // 注册提交
+  const handleSignupSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setAuthLoading(true)
+    setSignupErr(null)
+    const form = new FormData(e.currentTarget)
+    const username = String(form.get("signup-name") ?? "").trim()
+    const email = String(form.get("signup-email") ?? "").trim() // 仅展示，不入库
+    const password = String(form.get("signup-password") ?? "")
+    if (!username || !password) {
+      setSignupErr("请输入昵称（作为用户名）与密码")
+      setAuthLoading(false)
+      return
+    }
+    try {
+      const u = await signUp(username, password)
+      setUser(u)
+      setLocalUser(u)
+      showPage("#cockpit")
+    } catch (err: any) {
+      setSignupErr(err?.message ?? "注册失败")
+    } finally {
+      setAuthLoading(false)
+    }
+  }
+
+  // 任务交互：切换到下一状态并保存
+  const nextStatusOf = (s: TaskStatus): TaskStatus => {
+    const order: TaskStatus[] = ["pool", "sent", "replied", "interview"]
+    const i = order.indexOf(s)
+    return order[(i + 1) % order.length]
+  }
+
+  const handleTaskClick = async (task: Task) => {
+    if (!user) return
+    const newStatus = nextStatusOf(task.status)
+    const colTasks = tasks.filter((t) => t.status === newStatus)
+    const newOrd = (colTasks[colTasks.length - 1]?.ord ?? 0) + 1
+
+    const prev = tasks
+    const optimistic = prev.map((t) => (t.id === task.id ? { ...t, status: newStatus, ord: newOrd } : t))
+    setTasks(optimistic)
+
+    if (connOk) {
+      try {
+        await updateTaskForUser(task.id, { status: newStatus, ord: newOrd })
+      } catch (e: any) {
+        setTasks(prev)
+        setConnErr(`保存失败：${e?.message ?? "未知错误"}`)
+      }
+    } else {
+      setLocalTasks(user.id, optimistic)
+    }
+  }
+
+  // 渲染辅助
+  const renderKanbanColumn = (title: string, status: TaskStatus, bgClass: string) => {
+    const column = [...tasks.filter((t) => t.status === status)].sort((a, b) => a.ord - b.ord)
+    return (
+      <div className="flex flex-col">
+        <h4 className="font-bold p-2 text-center text-gray-700">{title}</h4>
+        <div className={`space-y-3 p-2 rounded-lg ${bgClass} flex-grow`}>
+          {column.map((t) => (
+            <div
+              key={t.id}
+              className="bg-white p-3 rounded-md kanban-card cursor-pointer"
+              onClick={() => handleTaskClick(t)}
+              role="button"
+              aria-label={`任务：${t.title}（点击切换状态）`}
+              title="点击切换到下一列并保存"
+            >
+              {t.title}
+              {t.note ? <p className="text-xs text-red-500 mt-1">{t.note}</p> : null}
+            </div>
+          ))}
+          {column.length === 0 && (
+            <div className="text-xs text-gray-500 px-2 py-1">暂无任务</div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // 表单提交（用于首页订阅模拟）
   const onSubmitAlert = (msg: string) => (e: React.FormEvent) => {
     e.preventDefault()
     alert(msg)
@@ -708,56 +904,77 @@ export default function Page() {
                     </a>
                   </div>
 
-                  <div className="text-center mb-16">
-                    <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">一站式行动指挥室</h2>
+                  <div className="text-center mb-4">
+                    <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">一站式行动指挥室</h2>
                     <p className="text-lg text-gray-600">
                       将混乱的求职过程，变为清晰、高效、可复盘的行动项目。
                     </p>
+                    {/* 连接状态提示 */}
+                    {connOk === true && (
+                      <p className="mt-3 text-sm text-green-600">已成功链接云端数据（Supabase）</p>
+                    )}
+                    {connOk === false && (
+                      <p className="mt-3 text-sm text-red-600">
+                        云端连接失败：{connErr || "未知错误"}（已使用本地存储演示）
+                      </p>
+                    )}
+                    {/* 登录状态提示 */}
+                    {!user && (
+                      <p className="mt-2 text-sm text-gray-500">
+                        当前未登录，请先
+                        {" "}
+                        <a href="#login" className="text-blue-600 hover:underline nav-link" onClick={(e) => handleNavClick(e, "#login")}>
+                          登录
+                        </a>
+                        {" "}
+                        或
+                        {" "}
+                        <a href="#signup" className="text-blue-600 hover:underline nav-link" onClick={(e) => handleNavClick(e, "#signup")}>
+                          注册
+                        </a>
+                        。
+                      </p>
+                    )}
                   </div>
 
-                  {/* 任务管理看板 */}
-                  <div className="mb-20">
-                    <h3 className="text-2xl font-bold text-center mb-10">
-                      任务管理：像玩游戏一样追踪你的“狙击”
-                    </h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6 bg-gray-50 p-6 rounded-2xl">
-                      {/* Col 1 */}
-                      <div className="flex flex-col">
-                        <h4 className="font-bold p-2 text-center text-gray-700">机会池 (5)</h4>
-                        <div className="space-y-3 p-2 rounded-lg bg-gray-200 flex-grow">
-                          <div className="bg-white p-3 rounded-md kanban-card">奇点无限</div>
-                          <div className="bg-white p-3 rounded-md kanban-card">像素跃动</div>
-                        </div>
+                  {/* 任务管理看板（未登录时不展示） */}
+                  {user ? (
+                    <div className="mb-20">
+                      <h3 className="text-2xl font-bold text-center mb-10">
+                        任务管理：像玩游戏一样追踪你的“狙击”
+                      </h3>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-6 bg-gray-50 p-6 rounded-2xl">
+                        {renderKanbanColumn("机会池 (5)", "pool", "bg-gray-200")}
+                        {renderKanbanColumn("已发送 (3)", "sent", "bg-blue-100")}
+                        {renderKanbanColumn("已回复 (1)", "replied", "bg-yellow-100")}
+                        {renderKanbanColumn("面试/Offer (1)", "interview", "bg-green-100")}
                       </div>
-                      {/* Col 2 */}
-                      <div className="flex flex-col">
-                        <h4 className="font-bold p-2 text-center text-gray-700">已发送 (3)</h4>
-                        <div className="space-y-3 p-2 rounded-lg bg-blue-100 flex-grow">
-                          <div className="bg-white p-3 rounded-md kanban-card">矩阵数据</div>
-                          <div className="bg-white p-3 rounded-md kanban-card">
-                            云端畅想
-                            <p className="text-xs text-red-500 mt-1">跟进提醒: 3天后</p>
-                          </div>
-                        </div>
-                      </div>
-                      {/* Col 3 */}
-                      <div className="flex flex-col">
-                        <h4 className="font-bold p-2 text-center text-gray-700">已回复 (1)</h4>
-                        <div className="space-y-3 p-2 rounded-lg bg-yellow-100 flex-grow">
-                          <div className="bg-white p-3 rounded-md kanban-card">深空探索</div>
-                        </div>
-                      </div>
-                      {/* Col 4 */}
-                      <div className="flex flex-col">
-                        <h4 className="font-bold p-2 text-center text-gray-700">面试/Offer (1)</h4>
-                        <div className="space-y-3 p-2 rounded-lg bg-green-100 flex-grow">
-                          <div className="bg-white p-3 rounded-md kanban-card">未来智能</div>
+                    </div>
+                  ) : (
+                    <div className="mb-20">
+                      <div className="max-w-2xl mx-auto bg-gray-50 border border-gray-200 p-8 rounded-2xl text-center">
+                        <p className="text-gray-700">登录后即可查看与你账号关联的任务与完成情况。</p>
+                        <div className="mt-6 flex justify-center gap-4">
+                          <a
+                            href="#login"
+                            className="px-6 py-2 rounded-full border border-gray-300 hover:bg-gray-100 nav-link"
+                            onClick={(e) => handleNavClick(e, "#login")}
+                          >
+                            去登录
+                          </a>
+                          <a
+                            href="#signup"
+                            className="px-6 py-2 rounded-full bg-green-500 text-white cta-button nav-link"
+                            onClick={(e) => handleNavClick(e, "#signup")}
+                          >
+                            免费注册
+                          </a>
                         </div>
                       </div>
                     </div>
-                  </div>
+                  )}
 
-                  {/* 数据看板 */}
+                  {/* 数据看板（保持原样，仅展示静态示意） */}
                   <div>
                     <h3 className="text-2xl font-bold text-center mb-10">
                       数据看板：用数据复盘和优化你的策略
@@ -1016,14 +1233,15 @@ export default function Page() {
                     <h2 className="text-3xl font-bold text-gray-800">欢迎回来</h2>
                     <p className="text-gray-500 mt-2">登录以继续你的猎手之旅</p>
                   </div>
-                  <form onSubmit={onSubmitAlert("登录成功（模拟）")}>
+                  <form onSubmit={handleLoginSubmit}>
                     <div className="mb-6">
-                      <label htmlFor="login-email" className="block text-gray-700 font-bold mb-2">
-                        邮箱地址
+                      <label htmlFor="login-username" className="block text-gray-700 font-bold mb-2">
+                        用户名
                       </label>
                       <input
-                        type="email"
-                        id="login-email"
+                        type="text"
+                        id="login-username"
+                        name="login-username"
                         className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
                         required
                       />
@@ -1035,17 +1253,19 @@ export default function Page() {
                       <input
                         type="password"
                         id="login-password"
+                        name="login-password"
                         className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
                         required
                       />
                     </div>
+                    {loginErr && <p className="text-sm text-red-600 mb-4">{loginErr}</p>}
                     <div className="text-right mb-6">
                       <a href="#" className="text-sm text-green-600 hover:underline">
                         忘记密码?
                       </a>
                     </div>
-                    <button type="submit" className="w-full bg-green-500 text-white font-bold py-3 px-6 rounded-full cta-button">
-                      登录
+                    <button type="submit" disabled={authLoading} className="w-full bg-green-500 text-white font-bold py-3 px-6 rounded-full cta-button disabled:opacity-60">
+                      {authLoading ? "登录中..." : "登录"}
                     </button>
                   </form>
                   <p className="text-center text-gray-500 mt-8">
@@ -1074,27 +1294,28 @@ export default function Page() {
                     <h2 className="text-3xl font-bold text-gray-800">开启你的猎手之旅</h2>
                     <p className="text-gray-500 mt-2">只需一步，即可解锁隐藏机会</p>
                   </div>
-                  <form onSubmit={onSubmitAlert("注册成功（模拟）")}>
+                  <form onSubmit={handleSignupSubmit}>
                     <div className="mb-6">
                       <label htmlFor="signup-name" className="block text-gray-700 font-bold mb-2">
-                        昵称
+                        昵称（作为用户名）
                       </label>
                       <input
                         type="text"
                         id="signup-name"
+                        name="signup-name"
                         className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
                         required
                       />
                     </div>
                     <div className="mb-6">
                       <label htmlFor="signup-email" className="block text-gray-700 font-bold mb-2">
-                        邮箱地址
+                        邮箱地址（演示用）
                       </label>
                       <input
                         type="email"
                         id="signup-email"
+                        name="signup-email"
                         className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
-                        required
                       />
                     </div>
                     <div className="mb-6">
@@ -1104,6 +1325,7 @@ export default function Page() {
                       <input
                         type="password"
                         id="signup-password"
+                        name="signup-password"
                         className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
                         required
                       />
@@ -1123,8 +1345,9 @@ export default function Page() {
                         </span>
                       </label>
                     </div>
-                    <button type="submit" className="w-full bg-green-500 text-white font-bold py-3 px-6 rounded-full cta-button">
-                      创建账户
+                    {signupErr && <p className="text-sm text-red-600 mb-4">{signupErr}</p>}
+                    <button type="submit" disabled={authLoading} className="w-full bg-green-500 text-white font-bold py-3 px-6 rounded-full cta-button disabled:opacity-60">
+                      {authLoading ? "创建账户中..." : "创建账户"}
                     </button>
                   </form>
                   <p className="text-center text-gray-500 mt-8">
