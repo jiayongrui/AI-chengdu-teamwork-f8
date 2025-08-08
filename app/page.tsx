@@ -40,6 +40,7 @@ type PageKey =
   | "login"
   | "signup"
   | "terms"
+  | "profile" // 新增
 
 export default function Page() {
   const [currentPage, setCurrentPage] = useState<PageKey>("home")
@@ -75,6 +76,7 @@ export default function Page() {
       login: "login",
       signup: "signup",
       terms: "terms",
+      profile: "profile", // 新增
       features: "home",
       testimonials: "home",
     }),
@@ -338,6 +340,62 @@ export default function Page() {
     alert(msg)
   }
 
+  const avatarInitial = (user?.username?.[0] || "U").toUpperCase()
+
+  const handleLogout = () => {
+    try {
+      setLocalUser(null)
+    } catch {}
+    setUser(null)
+    setTasks([])
+    showPage("#home")
+  }
+
+  useEffect(() => {
+    if (currentPage !== "cockpit") return
+    if (!user) {
+      // 若之前遗留了旧版全局 demo，本地清理避免干扰
+      try { localStorage.removeItem(LEGACY_LS_KEY) } catch {}
+      setTasks([])
+      // 仍检查连接以显示状态
+      ;(async () => {
+        try {
+          await checkConnection()
+          setConnOk(true)
+          setConnErr(null)
+        } catch (e: any) {
+          setConnOk(false)
+          setConnErr(e?.message ?? "连接 Supabase 失败")
+        }
+      })()
+      return
+    }
+    loadTasksForCurrentUser()
+  }, [currentPage, user, loadTasksForCurrentUser, checkConnection])
+
+  useEffect(() => {
+    if (currentPage !== "profile") return
+    if (!user) return
+    // 如果还没有任务数据，尝试加载（与 Cockpit 同步）
+    if (tasks.length === 0) {
+      ;(async () => {
+        try {
+          // 复用连接检查 & 加载逻辑
+          if (checkConnection) {
+            await checkConnection()
+            setConnOk(true)
+            setConnErr(null)
+          }
+          const rows = await fetchTasksForUser(user.id)
+          if (rows.length > 0) setTasks(rows)
+        } catch (e: any) {
+          setConnOk(false)
+          setConnErr(e?.message ?? "连接 Supabase 失败")
+        }
+      })()
+    }
+  }, [currentPage, user, tasks.length, checkConnection])
+
   return (
     <div className={`${noto.className} bg-[#f8f9fa] text-gray-800 antialiased`}>
       {/* Header */}
@@ -385,20 +443,38 @@ export default function Page() {
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center space-x-4">
-            <a
-              href="#login"
-              className="text-gray-600 hover:text-green-500 nav-link"
-              onClick={(e) => handleNavClick(e, "#login")}
-            >
-              登录
-            </a>
-            <a
-              href="#signup"
-              className="bg-green-500 text-white font-bold py-2 px-5 rounded-full cta-button nav-link"
-              onClick={(e) => handleNavClick(e, "#signup")}
-            >
-              免费注册
-            </a>
+            {user ? (
+              <a
+                href="#profile"
+                className="nav-link flex items-center"
+                onClick={(e) => handleNavClick(e, "#profile")}
+                aria-label="个人主页"
+                title="个人主页"
+              >
+                <span
+                  className="inline-flex items-center justify-center h-9 w-9 rounded-full bg-green-500 text-white font-bold"
+                >
+                  {avatarInitial}
+                </span>
+              </a>
+            ) : (
+              <>
+                <a
+                  href="#login"
+                  className="text-gray-600 hover:text-green-500 nav-link"
+                  onClick={(e) => handleNavClick(e, "#login")}
+                >
+                  登录
+                </a>
+                <a
+                  href="#signup"
+                  className="bg-green-500 text-white font-bold py-2 px-5 rounded-full cta-button nav-link"
+                  onClick={(e) => handleNavClick(e, "#signup")}
+                >
+                  免费注册
+                </a>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -446,20 +522,32 @@ export default function Page() {
             关于我们
           </a>
           <div className="mt-4 border-t pt-4 space-y-2">
-            <a
-              href="#login"
-              className="block text-center text-gray-600 hover:text-green-500 nav-link"
-              onClick={(e) => handleNavClick(e, "#login")}
-            >
-              登录
-            </a>
-            <a
-              href="#signup"
-              className="block text-center bg-green-500 text-white font-bold py-2 px-5 rounded-full cta-button nav-link"
-              onClick={(e) => handleNavClick(e, "#signup")}
-            >
-              免费注册
-            </a>
+            {user ? (
+              <a
+                href="#profile"
+                className="block text-center text-gray-600 hover:text-green-500 nav-link"
+                onClick={(e) => handleNavClick(e, "#profile")}
+              >
+                个人主页
+              </a>
+            ) : (
+              <>
+                <a
+                  href="#login"
+                  className="block text-center text-gray-600 hover:text-green-500 nav-link"
+                  onClick={(e) => handleNavClick(e, "#login")}
+                >
+                  登录
+                </a>
+                <a
+                  href="#signup"
+                  className="block text-center bg-green-500 text-white font-bold py-2 px-5 rounded-full cta-button nav-link"
+                  onClick={(e) => handleNavClick(e, "#signup")}
+                >
+                  免费注册
+                </a>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -1379,6 +1467,96 @@ export default function Page() {
                     我们提供一个主动求职情报平台，通过AI技术帮助用户发现潜在的就业机会并提供沟通策略支持。所有功能和服务均受本条款约束。
                   </p>
                   <p>...</p>
+                </div>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* Profile */}
+        {currentPage === "profile" && (
+          <div id="page-profile" className="page-content">
+            <section className="py-20 bg-white">
+              <div className="container mx-auto px-6">
+                <div className="max-w-3xl mx-auto">
+                  <div className="text-center mb-8">
+                    <h2 className="text-3xl font-bold text-gray-800">个人主页</h2>
+                    <p className="text-gray-500 mt-2">查看你的账户信息与任务概览</p>
+                  </div>
+
+                  {!user ? (
+                    <div className="bg-gray-50 rounded-2xl p-8 text-center border border-gray-200">
+                      <p className="text-gray-700">你还未登录，请先登录或注册。</p>
+                      <div className="mt-6 flex justify-center gap-4">
+                        <a
+                          href="#login"
+                          className="px-6 py-2 rounded-full border border-gray-300 hover:bg-gray-100 nav-link"
+                          onClick={(e) => handleNavClick(e, "#login")}
+                        >
+                          去登录
+                        </a>
+                        <a
+                          href="#signup"
+                          className="px-6 py-2 rounded-full bg-green-500 text-white cta-button nav-link"
+                          onClick={(e) => handleNavClick(e, "#signup")}
+                        >
+                          免费注册
+                        </a>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-2xl shadow-lg p-8">
+                      <div className="flex items-center gap-4 mb-6">
+                        <span className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-green-500 text-white font-bold text-lg">
+                          {avatarInitial}
+                        </span>
+                        <div>
+                          <p className="text-sm text-gray-500">用户名</p>
+                          <p className="text-xl font-bold text-gray-800">{user.username}</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                        <div className="bg-gray-50 rounded-lg p-4 text-center">
+                          <p className="text-sm text-gray-500">机会池</p>
+                          <p className="text-2xl font-bold">
+                            {tasks.filter(t => t.status === "pool").length}
+                          </p>
+                        </div>
+                        <div className="bg-blue-50 rounded-lg p-4 text-center">
+                          <p className="text-sm text-gray-500">已发送</p>
+                          <p className="text-2xl font-bold">
+                            {tasks.filter(t => t.status === "sent").length}
+                          </p>
+                        </div>
+                        <div className="bg-yellow-50 rounded-lg p-4 text-center">
+                          <p className="text-sm text-gray-500">已回复</p>
+                          <p className="text-2xl font-bold">
+                            {tasks.filter(t => t.status === "replied").length}
+                          </p>
+                        </div>
+                        <div className="bg-green-50 rounded-lg p-4 text-center">
+                          <p className="text-sm text-gray-500">面试/Offer</p>
+                          <p className="text-2xl font-bold">
+                            {tasks.filter(t => t.status === "interview").length}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-between items-center">
+                        <p className="text-sm text-gray-500">
+                          {connOk === true ? "云端已连接" : connOk === false ? "云端未连接（可能使用本地数据）" : ""}
+                        </p>
+                        <button
+                          onClick={handleLogout}
+                          className="px-4 py-2 rounded-full border border-gray-300 hover:bg-gray-100"
+                          aria-label="退出登录"
+                        >
+                          退出登录
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </section>
