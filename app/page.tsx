@@ -13,6 +13,11 @@ import {
   Lightbulb,
   UsersThree,
   CheckCircle,
+  Plus,
+  Pencil,
+  Trash,
+  FloppyDisk,
+  X,
 } from "@phosphor-icons/react"
 
 import { getSupabaseClient } from "@/lib/supabase-client"
@@ -30,12 +35,16 @@ type PageKey =
   | "home"
   | "bounty" // 机会雷达
   | "forge" // 破冰工坊
+  | "scraper" // 网页爬虫（管理员）
+  | "opportunity-manager" // 机会管理（管理员）
   | "pricing" // 定价
   | "blog"
   | "login"
   | "signup"
   | "terms"
   | "profile"
+
+const ADMIN_OPPORTUNITIES_KEY = "admin-opportunities"
 
 export default function Page() {
   const [currentPage, setCurrentPage] = useState<PageKey>("home")
@@ -66,11 +75,37 @@ export default function Page() {
   const [sending, setSending] = useState(false)
   const [sendMsg, setSendMsg] = useState<string | null>(null)
 
+  // 网页爬虫状态（管理员功能）
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [crawlUrl, setCrawlUrl] = useState("")
+  const [crawlResult, setCrawlResult] = useState<string | null>(null)
+  const [crawling, setCrawling] = useState(false)
+  const [crawlError, setCrawlError] = useState<string | null>(null)
+
+  // 机会管理状态（管理员功能）
+  const [adminOpportunities, setAdminOpportunities] = useState<Opportunity[]>([])
+  const [editingOpp, setEditingOpp] = useState<Opportunity | null>(null)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [oppForm, setOppForm] = useState({
+    company: "",
+    title: "",
+    city: "",
+    tags: "",
+    reason: "",
+  })
+
+  // 合并的机会列表（默认 + 管理员添加的）
+  const allOpportunities = useMemo(() => {
+    return [...todayOpportunities, ...adminOpportunities]
+  }, [adminOpportunities])
+
   const validPages: Record<string, PageKey> = useMemo(
     () => ({
       home: "home",
       bounty: "bounty",
       forge: "forge",
+      scraper: "scraper",
+      "opportunity-manager": "opportunity-manager",
       pricing: "pricing",
       blog: "blog",
       login: "login",
@@ -123,6 +158,9 @@ export default function Page() {
     showPage(initial)
     const u = getLocalUser()
     if (u) setUser(u)
+
+    // 加载管理员添加的机会
+    loadAdminOpportunities()
   }, [showPage])
 
   // hash 路由
@@ -199,10 +237,27 @@ export default function Page() {
     const form = new FormData(e.currentTarget)
     const username = String(form.get("login-username") ?? "").trim()
     const password = String(form.get("login-password") ?? "")
+
+    // 检查特殊管理员账户
+    if (username === "offergungun" && password === "careericebreaker") {
+      const adminUser: User = {
+        id: "admin-special",
+        username: "管理员",
+        created_at: new Date().toISOString(),
+      }
+      setUser(adminUser)
+      setLocalUser(adminUser)
+      setIsAdmin(true)
+      setAuthLoading(false)
+      showPage("#scraper")
+      return
+    }
+
     try {
       const u = await signIn(username, password)
       setUser(u)
       setLocalUser(u)
+      setIsAdmin(false)
       showPage("#bounty")
     } catch (err: any) {
       setLoginErr(err?.message ?? "登录失败")
@@ -293,6 +348,131 @@ export default function Page() {
     }
   }
 
+  // 网页爬取功能
+  const handleCrawl = async () => {
+    if (!crawlUrl.trim()) {
+      setCrawlError("请输入有效的URL")
+      return
+    }
+
+    setCrawling(true)
+    setCrawlError(null)
+    setCrawlResult(null)
+
+    try {
+      // 这里使用一个简单的代理服务来获取网页内容
+      // 在实际应用中，你可能需要使用专门的爬虫服务
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(crawlUrl)}`
+      const response = await fetch(proxyUrl)
+      const data = await response.json()
+
+      if (data.contents) {
+        // 简单提取文本内容
+        const parser = new DOMParser()
+        const doc = parser.parseFromString(data.contents, "text/html")
+        const textContent = doc.body?.textContent || doc.textContent || ""
+        setCrawlResult(textContent.slice(0, 5000)) // 限制显示长度
+      } else {
+        setCrawlError("无法获取网页内容")
+      }
+    } catch (error: any) {
+      setCrawlError(`爬取失败: ${error.message}`)
+    } finally {
+      setCrawling(false)
+    }
+  }
+
+  // 机会管理功能
+  const loadAdminOpportunities = () => {
+    try {
+      const stored = localStorage.getItem(ADMIN_OPPORTUNITIES_KEY)
+      if (stored) {
+        setAdminOpportunities(JSON.parse(stored))
+      }
+    } catch (error) {
+      console.error("加载管理员机会失败:", error)
+    }
+  }
+
+  const saveAdminOpportunities = (opportunities: Opportunity[]) => {
+    try {
+      localStorage.setItem(ADMIN_OPPORTUNITIES_KEY, JSON.stringify(opportunities))
+      setAdminOpportunities(opportunities)
+    } catch (error) {
+      console.error("保存管理员机会失败:", error)
+    }
+  }
+
+  const handleAddOpportunity = () => {
+    if (!oppForm.company.trim() || !oppForm.title.trim()) {
+      alert("请填写公司名称和职位标题")
+      return
+    }
+
+    const newOpp: Opportunity = {
+      id: `admin-opp-${Date.now()}`,
+      company: oppForm.company.trim(),
+      title: oppForm.title.trim(),
+      city: oppForm.city.trim() || undefined,
+      tags: oppForm.tags
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean),
+      reason: oppForm.reason.trim() || undefined,
+    }
+
+    const updated = [...adminOpportunities, newOpp]
+    saveAdminOpportunities(updated)
+
+    // 重置表单
+    setOppForm({ company: "", title: "", city: "", tags: "", reason: "" })
+    setShowAddForm(false)
+  }
+
+  const handleEditOpportunity = (opp: Opportunity) => {
+    setEditingOpp(opp)
+    setOppForm({
+      company: opp.company,
+      title: opp.title,
+      city: opp.city || "",
+      tags: opp.tags.join(", "),
+      reason: opp.reason || "",
+    })
+  }
+
+  const handleUpdateOpportunity = () => {
+    if (!editingOpp || !oppForm.company.trim() || !oppForm.title.trim()) {
+      alert("请填写公司名称和职位标题")
+      return
+    }
+
+    const updatedOpp: Opportunity = {
+      ...editingOpp,
+      company: oppForm.company.trim(),
+      title: oppForm.title.trim(),
+      city: oppForm.city.trim() || undefined,
+      tags: oppForm.tags
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean),
+      reason: oppForm.reason.trim() || undefined,
+    }
+
+    const updated = adminOpportunities.map((opp) => (opp.id === editingOpp.id ? updatedOpp : opp))
+    saveAdminOpportunities(updated)
+
+    // 重置编辑状态
+    setEditingOpp(null)
+    setOppForm({ company: "", title: "", city: "", tags: "", reason: "" })
+  }
+
+  const handleDeleteOpportunity = (oppId: string) => {
+    if (confirm("确定要删除这个机会吗？")) {
+      const updated = adminOpportunities.filter((opp) => opp.id !== oppId)
+      saveAdminOpportunities(updated)
+    }
+  }
+
   const navItemClass = (active: boolean) =>
     `transition-colors nav-link ${active ? "text-green-600 font-semibold" : "text-gray-600 hover:text-green-500"}`
 
@@ -302,6 +482,7 @@ export default function Page() {
       setLocalUser(null)
     } catch {}
     setUser(null)
+    setIsAdmin(false)
     showPage("#home")
   }
 
@@ -326,20 +507,41 @@ export default function Page() {
           <nav className="hidden md:flex items-center space-x-6">
             {user ? (
               <>
-                <a
-                  href="#bounty"
-                  className={navItemClass(currentPage === "bounty")}
-                  onClick={(e) => handleNavClick(e, "#bounty")}
-                >
-                  机会雷达
-                </a>
-                <a
-                  href="#forge"
-                  className={navItemClass(currentPage === "forge")}
-                  onClick={(e) => handleNavClick(e, "#forge")}
-                >
-                  破冰工坊
-                </a>
+                {isAdmin ? (
+                  <>
+                    <a
+                      href="#scraper"
+                      className={navItemClass(currentPage === "scraper")}
+                      onClick={(e) => handleNavClick(e, "#scraper")}
+                    >
+                      网页爬虫
+                    </a>
+                    <a
+                      href="#opportunity-manager"
+                      className={navItemClass(currentPage === "opportunity-manager")}
+                      onClick={(e) => handleNavClick(e, "#opportunity-manager")}
+                    >
+                      机会管理
+                    </a>
+                  </>
+                ) : (
+                  <>
+                    <a
+                      href="#bounty"
+                      className={navItemClass(currentPage === "bounty")}
+                      onClick={(e) => handleNavClick(e, "#bounty")}
+                    >
+                      机会雷达
+                    </a>
+                    <a
+                      href="#forge"
+                      className={navItemClass(currentPage === "forge")}
+                      onClick={(e) => handleNavClick(e, "#forge")}
+                    >
+                      破冰工坊
+                    </a>
+                  </>
+                )}
               </>
             ) : (
               <>
@@ -468,20 +670,41 @@ export default function Page() {
           ) : (
             <>
               {/* 已登录：功能菜单 */}
-              <a
-                href="#bounty"
-                className={navItemClass(currentPage === "bounty")}
-                onClick={(e) => handleNavClick(e, "#bounty")}
-              >
-                机会雷达
-              </a>
-              <a
-                href="#forge"
-                className={navItemClass(currentPage === "forge")}
-                onClick={(e) => handleNavClick(e, "#forge")}
-              >
-                破冰工坊
-              </a>
+              {isAdmin ? (
+                <>
+                  <a
+                    href="#scraper"
+                    className={navItemClass(currentPage === "scraper")}
+                    onClick={(e) => handleNavClick(e, "#scraper")}
+                  >
+                    网页爬虫
+                  </a>
+                  <a
+                    href="#opportunity-manager"
+                    className={navItemClass(currentPage === "opportunity-manager")}
+                    onClick={(e) => handleNavClick(e, "#opportunity-manager")}
+                  >
+                    机会管理
+                  </a>
+                </>
+              ) : (
+                <>
+                  <a
+                    href="#bounty"
+                    className={navItemClass(currentPage === "bounty")}
+                    onClick={(e) => handleNavClick(e, "#bounty")}
+                  >
+                    机会雷达
+                  </a>
+                  <a
+                    href="#forge"
+                    className={navItemClass(currentPage === "forge")}
+                    onClick={(e) => handleNavClick(e, "#forge")}
+                  >
+                    破冰工坊
+                  </a>
+                </>
+              )}
             </>
           )}
 
@@ -826,7 +1049,7 @@ export default function Page() {
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-6">
-                  {todayOpportunities.map((opp) => (
+                  {allOpportunities.map((opp) => (
                     <div key={opp.id} className="bg-gray-50 rounded-2xl border border-gray-100 p-6">
                       <h3 className="text-xl font-bold text-gray-800">{opp.company}</h3>
                       <p className="text-gray-500 mt-1">
@@ -944,6 +1167,330 @@ export default function Page() {
                     </div>
                   </div>
                 )}
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* 网页爬虫（管理员页面） */}
+        {currentPage === "scraper" && (
+          <div id="page-scraper" className="page-content">
+            <section className="py-12 bg-white">
+              <div className="container mx-auto px-6 max-w-4xl">
+                <div className="mb-8">
+                  <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">网页爬虫工具</h2>
+                  <p className="text-sm text-green-600">管理员专用 - 用于收集机会情报数据</p>
+                </div>
+
+                <div className="bg-white rounded-2xl shadow-xl p-6 mb-8">
+                  <div className="grid gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">目标网页URL</label>
+                      <div className="flex gap-3">
+                        <input
+                          type="url"
+                          value={crawlUrl}
+                          onChange={(e) => setCrawlUrl(e.target.value)}
+                          placeholder="https://example.com"
+                          className="flex-1 px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                        />
+                        <button
+                          onClick={handleCrawl}
+                          disabled={crawling}
+                          className="px-6 py-3 bg-green-500 text-white font-bold rounded-lg cta-button disabled:opacity-60"
+                        >
+                          {crawling ? "爬取中..." : "开始爬取"}
+                        </button>
+                      </div>
+                    </div>
+
+                    {crawlError && (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <p className="text-red-600 text-sm">{crawlError}</p>
+                      </div>
+                    )}
+
+                    {crawlResult && (
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-800 mb-3">爬取结果</h3>
+                        <div className="bg-gray-50 border rounded-lg p-4 max-h-96 overflow-auto">
+                          <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono">{crawlResult}</pre>
+                        </div>
+                        <div className="mt-4 flex gap-3">
+                          <button
+                            onClick={() => navigator.clipboard.writeText(crawlResult)}
+                            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                          >
+                            复制结果
+                          </button>
+                          <button
+                            onClick={() => setCrawlResult(null)}
+                            className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                          >
+                            清空结果
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 使用说明 */}
+                <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6">
+                  <h3 className="text-lg font-bold text-blue-800 mb-3">使用说明</h3>
+                  <ul className="text-sm text-blue-700 space-y-2">
+                    <li>• 输入完整的网页URL（包含 http:// 或 https://）</li>
+                    <li>• 支持爬取大部分公开网页的文本内容</li>
+                    <li>• 结果会自动截取前5000字符以便查看</li>
+                    <li>• 可以复制结果用于后续的机会分析</li>
+                    <li>• 请遵守目标网站的robots.txt规则</li>
+                  </ul>
+                </div>
+
+                {/* 快捷链接 */}
+                <div className="mt-8">
+                  <h3 className="text-lg font-bold text-gray-800 mb-4">常用数据源</h3>
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[
+                      { name: "36氪", url: "https://36kr.com", desc: "创投资讯" },
+                      { name: "虎嗅", url: "https://huxiu.com", desc: "商业资讯" },
+                      { name: "IT桔子", url: "https://itjuzi.com", desc: "投融资数据" },
+                      { name: "拉勾网", url: "https://lagou.com", desc: "招聘信息" },
+                      { name: "Boss直聘", url: "https://zhipin.com", desc: "招聘信息" },
+                      { name: "猎聘网", url: "https://liepin.com", desc: "高端招聘" },
+                    ].map((source) => (
+                      <div
+                        key={source.name}
+                        className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-green-300 transition-colors cursor-pointer"
+                        onClick={() => setCrawlUrl(source.url)}
+                      >
+                        <h4 className="font-bold text-gray-800">{source.name}</h4>
+                        <p className="text-sm text-gray-500 mt-1">{source.desc}</p>
+                        <p className="text-xs text-green-600 mt-2">{source.url}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* 机会管理（管理员页面） */}
+        {currentPage === "opportunity-manager" && (
+          <div id="page-opportunity-manager" className="page-content">
+            <section className="py-12 bg-white">
+              <div className="container mx-auto px-6 max-w-6xl">
+                <div className="mb-8 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">机会管理</h2>
+                    <p className="text-sm text-green-600">管理员专用 - 管理机会雷达页面的卡片内容</p>
+                  </div>
+                  <button
+                    onClick={() => setShowAddForm(true)}
+                    className="flex items-center gap-2 bg-green-500 text-white font-bold py-2 px-4 rounded-lg cta-button"
+                  >
+                    <Plus size={20} />
+                    添加机会
+                  </button>
+                </div>
+
+                {/* 添加/编辑表单 */}
+                {(showAddForm || editingOpp) && (
+                  <div className="bg-white rounded-2xl shadow-xl p-6 mb-8 border border-gray-200">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-bold text-gray-800">{editingOpp ? "编辑机会" : "添加新机会"}</h3>
+                      <button
+                        onClick={() => {
+                          setShowAddForm(false)
+                          setEditingOpp(null)
+                          setOppForm({ company: "", title: "", city: "", tags: "", reason: "" })
+                        }}
+                        className="text-gray-500 hover:text-gray-700"
+                      >
+                        <X size={24} />
+                      </button>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          公司名称 <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={oppForm.company}
+                          onChange={(e) => setOppForm({ ...oppForm, company: e.target.value })}
+                          className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                          placeholder="例如：奇点无限科技"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          职位标题 <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={oppForm.title}
+                          onChange={(e) => setOppForm({ ...oppForm, title: e.target.value })}
+                          className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                          placeholder="例如：NLP算法工程师"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">城市</label>
+                        <input
+                          type="text"
+                          value={oppForm.city}
+                          onChange={(e) => setOppForm({ ...oppForm, city: e.target.value })}
+                          className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                          placeholder="例如：北京"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">标签</label>
+                        <input
+                          type="text"
+                          value={oppForm.tags}
+                          onChange={(e) => setOppForm({ ...oppForm, tags: e.target.value })}
+                          className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                          placeholder="用逗号分隔，例如：A轮融资,NLP,北京"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">机会原因</label>
+                        <textarea
+                          value={oppForm.reason}
+                          onChange={(e) => setOppForm({ ...oppForm, reason: e.target.value })}
+                          rows={3}
+                          className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                          placeholder="例如：资金到位+产品迭代加速，对NLP岗位需求上升"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-3 mt-6">
+                      <button
+                        onClick={() => {
+                          setShowAddForm(false)
+                          setEditingOpp(null)
+                          setOppForm({ company: "", title: "", city: "", tags: "", reason: "" })
+                        }}
+                        className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition-colors"
+                      >
+                        取消
+                      </button>
+                      <button
+                        onClick={editingOpp ? handleUpdateOpportunity : handleAddOpportunity}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg cta-button"
+                      >
+                        <FloppyDisk size={16} />
+                        {editingOpp ? "更新" : "保存"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* 机会列表 */}
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-800 mb-4">默认机会（系统内置）</h3>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {todayOpportunities.map((opp) => (
+                        <div key={opp.id} className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h4 className="font-bold text-gray-800">{opp.company}</h4>
+                              <p className="text-gray-600 text-sm mt-1">
+                                {opp.title} · {opp.city || "城市不限"}
+                              </p>
+                              <div className="mt-2 flex gap-1 flex-wrap">
+                                {opp.tags.map((tag) => (
+                                  <span key={tag} className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full">
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                              {opp.reason && <p className="text-xs text-gray-500 mt-2">{opp.reason}</p>}
+                            </div>
+                            <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full">系统内置</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-800 mb-4">
+                      管理员添加的机会 ({adminOpportunities.length})
+                    </h3>
+                    {adminOpportunities.length === 0 ? (
+                      <div className="bg-gray-50 rounded-lg border border-gray-200 p-8 text-center">
+                        <p className="text-gray-500">暂无管理员添加的机会</p>
+                        <button
+                          onClick={() => setShowAddForm(true)}
+                          className="mt-4 text-green-600 hover:text-green-700 font-medium"
+                        >
+                          点击添加第一个机会 →
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="grid md:grid-cols-2 gap-4">
+                        {adminOpportunities.map((opp) => (
+                          <div key={opp.id} className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <h4 className="font-bold text-gray-800">{opp.company}</h4>
+                                <p className="text-gray-600 text-sm mt-1">
+                                  {opp.title} · {opp.city || "城市不限"}
+                                </p>
+                                <div className="mt-2 flex gap-1 flex-wrap">
+                                  {opp.tags.map((tag) => (
+                                    <span
+                                      key={tag}
+                                      className="text-xs bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full"
+                                    >
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                                {opp.reason && <p className="text-xs text-gray-500 mt-2">{opp.reason}</p>}
+                              </div>
+                              <div className="flex gap-2 ml-4">
+                                <button
+                                  onClick={() => handleEditOpportunity(opp)}
+                                  className="p-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded"
+                                  title="编辑"
+                                >
+                                  <Pencil size={16} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteOpportunity(opp.id)}
+                                  className="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded"
+                                  title="删除"
+                                >
+                                  <Trash size={16} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 使用说明 */}
+                <div className="mt-8 bg-blue-50 border border-blue-200 rounded-2xl p-6">
+                  <h3 className="text-lg font-bold text-blue-800 mb-3">使用说明</h3>
+                  <ul className="text-sm text-blue-700 space-y-2">
+                    <li>• 添加的机会会立即在"机会雷达"页面显示</li>
+                    <li>• 公司名称和职位标题为必填项</li>
+                    <li>• 标签用逗号分隔，会自动生成标签样式</li>
+                    <li>• 机会原因用于解释为什么这是一个好机会</li>
+                    <li>• 数据保存在浏览器本地存储中</li>
+                  </ul>
+                </div>
               </div>
             </section>
           </div>
