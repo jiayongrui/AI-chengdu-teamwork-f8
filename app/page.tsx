@@ -1,13 +1,14 @@
 "use client"
 
+import type React from "react"
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Noto_Sans_SC } from 'next/font/google'
+import { Noto_Sans_SC } from "next/font/google"
 import {
   List,
   Files,
   TreasureChest,
   Door,
-  RocketLaunch,
   PresentationChart,
   Lightbulb,
   UsersThree,
@@ -15,9 +16,7 @@ import {
 } from "@phosphor-icons/react"
 
 import { getSupabaseClient } from "@/lib/supabase-client"
-import type { Task, TaskStatus } from "@/types/task"
-import { demoTasksSeed } from "@/lib/demo-tasks"
-import { fetchTasksForUser, signIn, signUp, updateTaskForUser, getLocalUser, setLocalUser, getLocalTasks, setLocalTasks } from "@/lib/auth"
+import { signIn, signUp, getLocalUser, setLocalUser } from "@/lib/auth"
 import type { User } from "@/types/user"
 import type { Opportunity } from "@/types/opportunity"
 import { todayOpportunities } from "@/lib/opportunities"
@@ -29,10 +28,9 @@ const noto = Noto_Sans_SC({ subsets: ["latin"], weight: ["400", "500", "700"] })
 
 type PageKey =
   | "home"
-  | "bounty"   // 机会雷达
-  | "forge"    // 破冰工坊
-  | "cockpit"  // 行动指挥室
-  | "pricing"  // 定价
+  | "bounty" // 机会雷达
+  | "forge" // 破冰工坊
+  | "pricing" // 定价
   | "blog"
   | "login"
   | "signup"
@@ -55,8 +53,7 @@ export default function Page() {
   const [connOk, setConnOk] = useState<boolean | null>(null)
   const [connErr, setConnErr] = useState<string | null>(null)
 
-  // Tasks
-  const [tasks, setTasks] = useState<Task[]>([])
+  // Auth states
   const [loginErr, setLoginErr] = useState<string | null>(null)
   const [signupErr, setSignupErr] = useState<string | null>(null)
   const [authLoading, setAuthLoading] = useState(false)
@@ -74,7 +71,6 @@ export default function Page() {
       home: "home",
       bounty: "bounty",
       forge: "forge",
-      cockpit: "cockpit",
       pricing: "pricing",
       blog: "blog",
       login: "login",
@@ -85,7 +81,7 @@ export default function Page() {
       testimonials: "home",
       about: "home",
     }),
-    []
+    [],
   )
 
   const smoothScrollInsideHome = useCallback((id?: string | null) => {
@@ -101,22 +97,25 @@ export default function Page() {
     }
   }, [])
 
-  const showPage = useCallback((hashOrKey: string, scrollToId?: string | null) => {
-    const cleaned = hashOrKey.startsWith("#") ? hashOrKey.slice(1) : hashOrKey
-    const target = validPages[cleaned] ?? "home"
-    setCurrentPage(target)
-    if (typeof window !== "undefined") {
-      window.location.hash = cleaned
-    }
-    if (cleaned !== "home") {
-      setActiveHomeSection(null)
-    }
-    if (scrollToId) {
-      setTimeout(() => smoothScrollInsideHome(scrollToId), 100)
-    } else {
-      window.scrollTo({ top: 0 })
-    }
-  }, [smoothScrollInsideHome, validPages])
+  const showPage = useCallback(
+    (hashOrKey: string, scrollToId?: string | null) => {
+      const cleaned = hashOrKey.startsWith("#") ? hashOrKey.slice(1) : hashOrKey
+      const target = validPages[cleaned] ?? "home"
+      setCurrentPage(target)
+      if (typeof window !== "undefined") {
+        window.location.hash = cleaned
+      }
+      if (cleaned !== "home") {
+        setActiveHomeSection(null)
+      }
+      if (scrollToId) {
+        setTimeout(() => smoothScrollInsideHome(scrollToId), 100)
+      } else {
+        window.scrollTo({ top: 0 })
+      }
+    },
+    [smoothScrollInsideHome, validPages],
+  )
 
   // 初始化
   useEffect(() => {
@@ -148,16 +147,13 @@ export default function Page() {
           }
         })
       },
-      { threshold: 0.1 }
+      { threshold: 0.1 },
     )
     elements.forEach((el) => observer.observe(el))
     return () => observer.disconnect()
   }, [currentPage])
 
-  const handleNavClick = (
-    e: React.MouseEvent<HTMLAnchorElement, MouseEvent>,
-    href: string
-  ) => {
+  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement, MouseEvent>, href: string) => {
     e.preventDefault()
     const scrollToId = e.currentTarget.getAttribute("data-scroll-to")
     if (href === "#home") {
@@ -176,65 +172,24 @@ export default function Page() {
     if (error) throw error
   }, [supabase])
 
-  // 加载任务
-  const loadTasksForCurrentUser = useCallback(async () => {
-    if (!user) return
-    try {
-      await checkConnection()
-      setConnOk(true)
-      setConnErr(null)
-      const rows = await fetchTasksForUser(user.id)
-      if (rows.length === 0) {
-        const col: Task[] = demoTasksSeed.map((t, idx) => ({
-          id: `local-seed-${idx + 1}`,
-          title: t.title,
-          status: t.status as TaskStatus,
-          ord: t.ord,
-          note: t.note ?? null,
-          created_at: new Date().toISOString(),
-        }))
-        setTasks(col)
-      } else {
-        setTasks(rows)
-      }
-    } catch (err: any) {
-      setConnOk(false)
-      setConnErr(err?.message ?? "连接 Supabase 失败")
-      const local = getLocalTasks(user.id)
-      if (local.length > 0) {
-        setTasks(local)
-      } else {
-        const seeded: Task[] = demoTasksSeed.map((t, idx) => ({
-          id: `local-${idx + 1}`,
-          title: t.title,
-          status: t.status as TaskStatus,
-          ord: t.ord,
-          note: t.note ?? null,
-          created_at: new Date().toISOString(),
-        }))
-        setTasks(seeded)
-        setLocalTasks(user.id, seeded)
-      }
-    }
-  }, [user, checkConnection])
-
-  // 切到 cockpit/profile/forge 时加载任务/简历
+  // 切到 profile/forge 时加载简历
   useEffect(() => {
-    (async () => {
+    ;(async () => {
       if (!user) return
-      if (currentPage === "cockpit") loadTasksForCurrentUser()
       if (currentPage === "profile" || currentPage === "forge") {
         try {
           await checkConnection()
-          setConnOk(true); setConnErr(null)
+          setConnOk(true)
+          setConnErr(null)
           const txt = await fetchUserResumeText(user.id)
           setResumeText(txt)
         } catch (e: any) {
-          setConnOk(false); setConnErr(e?.message ?? "连接 Supabase 失败")
+          setConnOk(false)
+          setConnErr(e?.message ?? "连接 Supabase 失败")
         }
       }
     })()
-  }, [currentPage, user, loadTasksForCurrentUser, checkConnection])
+  }, [currentPage, user, checkConnection])
 
   // 登录
   const handleLoginSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -281,37 +236,12 @@ export default function Page() {
     }
   }
 
-  // 任务点击：切换状态
-  const nextStatusOf = (s: TaskStatus): TaskStatus => {
-    const order: TaskStatus[] = ["pool", "sent", "replied", "interview"]
-    const i = order.indexOf(s)
-    return order[(i + 1) % order.length]
-  }
-  const handleTaskClick = async (task: Task) => {
-    if (!user) return
-    const newStatus = nextStatusOf(task.status)
-    const colTasks = tasks.filter((t) => t.status === newStatus)
-    const newOrd = (colTasks[colTasks.length - 1]?.ord ?? 0) + 1
-
-    const prev = tasks
-    const optimistic = prev.map((t) => (t.id === task.id ? { ...t, status: newStatus, ord: newOrd } : t))
-    setTasks(optimistic)
-
-    if (connOk) {
-      try {
-        await updateTaskForUser(task.id, { status: newStatus, ord: newOrd })
-      } catch (e: any) {
-        setTasks(prev)
-        setConnErr(`保存失败：${e?.message ?? "未知错误"}`)
-      }
-    } else {
-      setLocalTasks(user.id, optimistic)
-    }
-  }
-
   // 机会卡片 -> 破冰工坊
   const onGoForge = async (opp: Opportunity) => {
-    if (!user) { showPage("#login"); return }
+    if (!user) {
+      showPage("#login")
+      return
+    }
     setSelectedOpp(opp)
     const draft = generateIcebreakerEmail({ user, resumeText, opp })
     setMailSubject(draft.subject)
@@ -322,11 +252,12 @@ export default function Page() {
   // 破冰工坊：确认发送
   const onConfirmSend = async () => {
     if (!user || !selectedOpp) return
-    setSending(true); setSendMsg(null)
+    setSending(true)
+    setSendMsg(null)
     try {
       await logAndAdvanceTask({ userId: user.id, opp: selectedOpp, subject: mailSubject, body: mailBody })
-      setSendMsg("已发送并写入任务进展（列：已发送）")
-      setTimeout(() => showPage("#cockpit"), 600)
+      setSendMsg("已发送并记录到系统")
+      setTimeout(() => showPage("#bounty"), 600)
     } catch (e: any) {
       setSendMsg(`发送失败：${e?.message ?? "未知错误"}`)
     } finally {
@@ -346,7 +277,10 @@ export default function Page() {
         const mammoth = await import("mammoth/mammoth.browser")
         const arrayBuffer = await file.arrayBuffer()
         const result = await mammoth.convertToHtml({ arrayBuffer })
-        text = result.value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
+        text = result.value
+          .replace(/<[^>]+>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim()
       } else {
         alert("目前仅支持 .txt 或 .docx 简历文件用于 Demo 提取文本。")
         return
@@ -363,33 +297,12 @@ export default function Page() {
     `transition-colors nav-link ${active ? "text-green-600 font-semibold" : "text-gray-600 hover:text-green-500"}`
 
   const avatarInitial = (user?.username?.[0] || "U").toUpperCase()
-  const handleLogout = () => { try { setLocalUser(null) } catch {} ; setUser(null); setTasks([]); showPage("#home") }
-
-  // 渲染：看板列
-  const renderKanbanColumn = (title: string, status: TaskStatus, bgClass: string) => {
-    const column = [...tasks.filter((t) => t.status === status)].sort((a, b) => a.ord - b.ord)
-    return (
-      <div className="flex flex-col">
-        <h4 className="font-bold p-2 text-center text-gray-700">{title}</h4>
-        <div className={`space-y-3 p-2 rounded-lg ${bgClass} flex-grow`}>
-          {column.map((t) => (
-            <div
-              key={t.id}
-              className="bg-white p-3 rounded-md kanban-card cursor-pointer"
-              onClick={() => handleTaskClick(t)}
-              role="button"
-              title="点击切换到下一列并保存"
-            >
-              {t.title}
-              {t.note ? <p className="text-xs text-red-500 mt-1">{t.note}</p> : null}
-            </div>
-          ))}
-          {column.length === 0 && (
-            <div className="text-xs text-gray-500 px-2 py-1">暂无任务</div>
-          )}
-        </div>
-      </div>
-    )
+  const handleLogout = () => {
+    try {
+      setLocalUser(null)
+    } catch {}
+    setUser(null)
+    showPage("#home")
   }
 
   const onSubmitAlert = (msg: string) => (e: React.FormEvent) => {
@@ -426,13 +339,6 @@ export default function Page() {
                   onClick={(e) => handleNavClick(e, "#forge")}
                 >
                   破冰工坊
-                </a>
-                <a
-                  href="#cockpit"
-                  className={navItemClass(currentPage === "cockpit")}
-                  onClick={(e) => handleNavClick(e, "#cockpit")}
-                >
-                  行动指挥室
                 </a>
               </>
             ) : (
@@ -482,13 +388,13 @@ export default function Page() {
                   aria-label="个人主页"
                   title="个人主页"
                 >
-                  <span
-                    className="inline-flex items-center justify-center h-9 w-9 rounded-full bg-green-500 text-white font-bold"
-                  >
+                  <span className="inline-flex items-center justify-center h-9 w-9 rounded-full bg-green-500 text-white font-bold">
                     {avatarInitial}
                   </span>
                 </a>
-                <button onClick={handleLogout} className="text-gray-600 hover:text-green-500">退出</button>
+                <button onClick={handleLogout} className="text-gray-600 hover:text-green-500">
+                  退出
+                </button>
               </>
             ) : (
               <>
@@ -576,13 +482,6 @@ export default function Page() {
               >
                 破冰工坊
               </a>
-              <a
-                href="#cockpit"
-                className={navItemClass(currentPage === "cockpit")}
-                onClick={(e) => handleNavClick(e, "#cockpit")}
-              >
-                行动指挥室
-              </a>
             </>
           )}
 
@@ -596,7 +495,9 @@ export default function Page() {
                 >
                   个人主页
                 </a>
-                <button onClick={handleLogout} className="block w-full text-center text-gray-600 hover:text-green-500">退出</button>
+                <button onClick={handleLogout} className="block w-full text-center text-gray-600 hover:text-green-500">
+                  退出
+                </button>
               </>
             ) : (
               <>
@@ -631,7 +532,7 @@ export default function Page() {
                     别再海投，我们教你<span className="text-green-500">狙击</span>。
                   </h1>
                   <p className="text-lg md:text-xl text-gray-600 mb-10">
-                    专为应届生打造的主动求职情报平台，AI为你挖掘被巨头忽略的“隐藏机会”。
+                    专为应届生打造的主动求职情报平台，AI为你挖掘被巨头忽略的"隐藏机会"。
                   </p>
                   <form
                     className="max-w-lg mx-auto flex flex-col sm:flex-row gap-4"
@@ -659,9 +560,7 @@ export default function Page() {
             <section className="py-20 bg-white">
               <div className="container mx-auto px-6">
                 <div className="text-center max-w-2xl mx-auto mb-16">
-                  <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">
-                    50份简历石沉大海，问题出在哪？
-                  </h2>
+                  <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">50份简历石沉大海，问题出在哪？</h2>
                   <p className="text-gray-600">我们理解你的困惑和挫败，因为我们也曾经历过。</p>
                 </div>
 
@@ -679,7 +578,7 @@ export default function Page() {
                       <TreasureChest size={32} className="text-yellow-500" weight="bold" />
                     </div>
                     <h3 className="text-xl font-bold mb-2">机会黑箱，好公司难寻</h3>
-                    <p className="text-gray-500">除了大厂，那些高速成长的“潜力股”在哪？</p>
+                    <p className="text-gray-500">除了大厂，那些高速成长的"潜力股"在哪？</p>
                   </div>
 
                   <div className="text-center p-8 border border-gray-200 rounded-2xl shadow-sm hover:shadow-lg transition-shadow">
@@ -687,18 +586,18 @@ export default function Page() {
                       <Door size={32} className="text-blue-500" weight="bold" />
                     </div>
                     <h3 className="text-xl font-bold mb-2">主动出击，不知如何开口</h3>
-                    <p className="text-gray-500">找到邮箱却写不出第一句话，害怕成为“骚扰邮件”。</p>
+                    <p className="text-gray-500">找到邮箱却写不出第一句话，害怕成为"骚扰邮件"。</p>
                   </div>
                 </div>
               </div>
             </section>
 
-            {/* 功能三段（从“求职者”到“机会猎手”） */}
+            {/* 功能两段（从"求职者"到"机会猎手"） */}
             <section id="features" ref={featuresRef} className="py-20">
               <div className="container mx-auto px-6">
                 <div className="text-center max-w-2xl mx-auto mb-16">
-                  <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">从“求职者”到“机会猎手”</h2>
-                  <p className="text-gray-600">“简历冲鸭”如何将你武装到牙齿，精准捕捉每一个机会。</p>
+                  <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">从"求职者"到"机会猎手"</h2>
+                  <p className="text-gray-600">"简历冲鸭"如何将你武装到牙齿，精准捕捉每一个机会。</p>
                 </div>
 
                 <div className="space-y-16">
@@ -715,7 +614,7 @@ export default function Page() {
                       <span className="text-green-500 font-bold">01</span>
                       <h3 className="text-2xl font-bold mt-2 mb-4">AI驱动的情报雷达</h3>
                       <p className="text-gray-600 mb-6">
-                        7x24小时扫描融资新闻、行业峰会、项目发布，为你预测“即将”出现的招聘需求。不再错过任何一个潜力机会。
+                        7x24小时扫描融资新闻、行业峰会、项目发布，为你预测"即将"出现的招聘需求。不再错过任何一个潜力机会。
                       </p>
                       <a
                         href="#bounty"
@@ -751,31 +650,6 @@ export default function Page() {
                       </a>
                     </div>
                   </div>
-
-                  {/* item 03 */}
-                  <div className="flex flex-col md:flex-row items-center gap-10">
-                    <div className="md:w-1/2 p-8 bg-white rounded-2xl shadow-lg">
-                      <img
-                        src="https://placehold.co/600x400/60a5fa/ffffff?text=行动指挥室UI"
-                        alt="行动指挥室UI界面"
-                        className="rounded-lg w-full"
-                      />
-                    </div>
-                    <div className="md:w-1/2">
-                      <span className="text-blue-500 font-bold">03</span>
-                      <h3 className="text-2xl font-bold mt-2 mb-4">一站式行动管理</h3>
-                      <p className="text-gray-600 mb-6">
-                        管理你的每一次“狙击”，追踪状态，复盘数据，让求职像打游戏一样有反馈，持续优化策略。
-                      </p>
-                      <a
-                        href="#cockpit"
-                        className="nav-link font-bold text-blue-600 hover:underline"
-                        onClick={(e) => handleNavClick(e, "#cockpit")}
-                      >
-                        探索行动指挥室 →
-                      </a>
-                    </div>
-                  </div>
                 </div>
               </div>
             </section>
@@ -784,14 +658,14 @@ export default function Page() {
             <section id="testimonials" ref={testimonialsRef} className="py-20 bg-white">
               <div className="container mx-auto px-6">
                 <div className="text-center max-w-2xl mx-auto mb-16">
-                  <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">他们已经成功“破冰”</h2>
-                  <p className="text-gray-600">听听第一批“猎手”怎么说。</p>
+                  <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">他们已经成功"破冰"</h2>
+                  <p className="text-gray-600">听听第一批"猎手"怎么说。</p>
                 </div>
 
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                   <div className="bg-gray-50 p-8 rounded-2xl border border-gray-100">
                     <p className="text-gray-600 mb-6">
-                      “通过‘冲鸭’发现一家刚融资的AI公司，用它生成的邮件联系了CTO，三天后就收到了面试邀请，太神奇了！”
+                      "通过'冲鸭'发现一家刚融资的AI公司，用它生成的邮件联系了CTO，三天后就收到了面试邀请，太神奇了！"
                     </p>
                     <div className="flex items-center">
                       <img
@@ -808,7 +682,7 @@ export default function Page() {
 
                   <div className="bg-gray-50 p-8 rounded-2xl border border-gray-100">
                     <p className="text-gray-600 mb-6">
-                      “文科生找工作太难了！‘冲鸭’帮我定位了几家快速扩张的新消费品牌，并指导我如何展示策划能力，最终成功入职！”
+                      "文科生找工作太难了！'冲鸭'帮我定位了几家快速扩张的新消费品牌，并指导我如何展示策划能力，最终成功入职！"
                     </p>
                     <div className="flex items-center">
                       <img
@@ -825,7 +699,7 @@ export default function Page() {
 
                   <div className="bg-gray-50 p-8 rounded-2xl border border-gray-100 md:col-span-2 lg:col-span-1">
                     <p className="text-gray-600 mb-6">
-                      “以前总觉得毛遂自荐很掉价，用了这个才发现，精准的主动出击比海投有效100倍。已经拿到了3个隐藏offer。”
+                      "以前总觉得毛遂自荐很掉价，用了这个才发现，精准的主动出击比海投有效100倍。已经拿到了3个隐藏offer。"
                     </p>
                     <div className="flex items-center">
                       <img
@@ -843,14 +717,14 @@ export default function Page() {
               </div>
             </section>
 
-            {/* 关于我们（新增恢复的营销区块） */}
+            {/* 关于我们 */}
             <section id="about" ref={aboutRef} className="py-20 bg-white">
               <div className="container mx-auto px-6">
                 <div className="text-center max-w-3xl mx-auto mb-14">
                   <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">关于我们</h2>
                   <p className="text-gray-600">
                     我们是一支来自 AI 与职业教育一线的产品团队。相信每位应届生都值得被看见，
-                    用数据与智能工具，帮助你从“投简历”升级为“捕机会”。
+                    用数据与智能工具，帮助你从"投简历"升级为"捕机会"。
                   </p>
                 </div>
 
@@ -861,7 +735,7 @@ export default function Page() {
                     </div>
                     <h3 className="font-bold text-lg mb-2">创新为先</h3>
                     <p className="text-gray-600 text-sm">
-                      持续打磨 AI 情报与个性化生成能力，打造面向求职者的“战术级”产品。
+                      持续打磨 AI 情报与个性化生成能力，打造面向求职者的"战术级"产品。
                     </p>
                   </div>
                   <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6">
@@ -879,7 +753,7 @@ export default function Page() {
                     </div>
                     <h3 className="font-bold text-lg mb-2">结果导向</h3>
                     <p className="text-gray-600 text-sm">
-                      不止追踪投递，更关注“回复-面试-Offer”的全链路，给你可复用的策略沉淀。
+                      不止追踪投递，更关注"回复-面试-Offer"的全链路，给你可复用的策略沉淀。
                     </p>
                   </div>
                 </div>
@@ -887,12 +761,36 @@ export default function Page() {
                 <div className="mt-12 rounded-2xl border border-gray-200 bg-white p-6">
                   <p className="text-sm text-gray-500 mb-4">已服务与合作的机构（示意）</p>
                   <div className="grid grid-cols-2 md:grid-cols-6 gap-6 items-center">
-                    <img src="https://placehold.co/120x40?text=LogoA" alt="合作机构 Logo A" className="mx-auto opacity-70" />
-                    <img src="https://placehold.co/120x40?text=LogoB" alt="合作机构 Logo B" className="mx-auto opacity-70" />
-                    <img src="https://placehold.co/120x40?text=LogoC" alt="合作机构 Logo C" className="mx-auto opacity-70" />
-                    <img src="https://placehold.co/120x40?text=LogoD" alt="合作机构 Logo D" className="mx-auto opacity-70" />
-                    <img src="https://placehold.co/120x40?text=LogoE" alt="合作机构 Logo E" className="mx-auto opacity-70" />
-                    <img src="https://placehold.co/120x40?text=LogoF" alt="合作机构 Logo F" className="mx-auto opacity-70" />
+                    <img
+                      src="https://placehold.co/120x40?text=LogoA"
+                      alt="合作机构 Logo A"
+                      className="mx-auto opacity-70"
+                    />
+                    <img
+                      src="https://placehold.co/120x40?text=LogoB"
+                      alt="合作机构 Logo B"
+                      className="mx-auto opacity-70"
+                    />
+                    <img
+                      src="https://placehold.co/120x40?text=LogoC"
+                      alt="合作机构 Logo C"
+                      className="mx-auto opacity-70"
+                    />
+                    <img
+                      src="https://placehold.co/120x40?text=LogoD"
+                      alt="合作机构 Logo D"
+                      className="mx-auto opacity-70"
+                    />
+                    <img
+                      src="https://placehold.co/120x40?text=LogoE"
+                      alt="合作机构 Logo E"
+                      className="mx-auto opacity-70"
+                    />
+                    <img
+                      src="https://placehold.co/120x40?text=LogoF"
+                      alt="合作机构 Logo F"
+                      className="mx-auto opacity-70"
+                    />
                   </div>
                 </div>
               </div>
@@ -903,7 +801,7 @@ export default function Page() {
               <div className="container mx-auto px-6 py-20 text-center">
                 <h2 className="text-3xl md:text-4xl font-bold mb-4">你的下一个机会，不在招聘网站上。</h2>
                 <p className="text-lg text-green-100 mb-10 max-w-2xl mx-auto">
-                  立即加入，解锁那些专属于“猎手”的求职机会。
+                  立即加入，解锁那些专属于"猎手"的求职机会。
                 </p>
                 <a
                   href="#signup"
@@ -931,15 +829,22 @@ export default function Page() {
                   {todayOpportunities.map((opp) => (
                     <div key={opp.id} className="bg-gray-50 rounded-2xl border border-gray-100 p-6">
                       <h3 className="text-xl font-bold text-gray-800">{opp.company}</h3>
-                      <p className="text-gray-500 mt-1">{opp.title} · {opp.city || "城市不限"}</p>
+                      <p className="text-gray-500 mt-1">
+                        {opp.title} · {opp.city || "城市不限"}
+                      </p>
                       <div className="mt-3 flex gap-2 flex-wrap">
                         {opp.tags.map((t) => (
-                          <span key={t} className="text-xs bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full">{t}</span>
+                          <span key={t} className="text-xs bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full">
+                            {t}
+                          </span>
                         ))}
                       </div>
                       <div className="mt-6 flex justify-between items-center">
                         <p className="text-sm text-gray-500">{opp.reason}</p>
-                        <button className="bg-green-500 text-white font-bold py-2 px-4 rounded-full cta-button" onClick={() => onGoForge(opp)}>
+                        <button
+                          className="bg-green-500 text-white font-bold py-2 px-4 rounded-full cta-button"
+                          onClick={() => onGoForge(opp)}
+                        >
                           发送破冰邮件
                         </button>
                       </div>
@@ -958,22 +863,32 @@ export default function Page() {
               <div className="container mx-auto px-6 max-w-3xl">
                 <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">破冰工坊</h2>
                 {connOk === true && <p className="text-sm text-green-600 mb-4">已成功链接云端数据（Supabase）</p>}
-                {connOk === false && <p className="text-sm text-red-600 mb-4">云端连接失败：{connErr || "未知错误"}（本地演示）</p>}
+                {connOk === false && (
+                  <p className="text-sm text-red-600 mb-4">云端连接失败：{connErr || "未知错误"}（本地演示）</p>
+                )}
 
                 {!user ? (
                   <div className="bg-gray-50 rounded-2xl p-8 text-center border border-gray-200">
                     <p className="text-gray-700">请先登录后生成邮件</p>
                     <div className="mt-4">
-                      <a href="#login" className="px-6 py-2 rounded-full border border-gray-300 hover:bg-gray-100 nav-link" onClick={(e) => handleNavClick(e, "#login")}>
+                      <a
+                        href="#login"
+                        className="px-6 py-2 rounded-full border border-gray-300 hover:bg-gray-100 nav-link"
+                        onClick={(e) => handleNavClick(e, "#login")}
+                      >
                         去登录
                       </a>
                     </div>
                   </div>
                 ) : !selectedOpp ? (
                   <div className="bg-gray-50 rounded-2xl p-8 text-center border border-gray-200">
-                    <p className="text-gray-700">请先在“机会雷达”中选择一个机会</p>
+                    <p className="text-gray-700">请先在"机会雷达"中选择一个机会</p>
                     <div className="mt-4">
-                      <a href="#bounty" className="px-6 py-2 rounded-full bg-green-500 text-white cta-button nav-link" onClick={(e) => handleNavClick(e, "#bounty")}>
+                      <a
+                        href="#bounty"
+                        className="px-6 py-2 rounded-full bg-green-500 text-white cta-button nav-link"
+                        onClick={(e) => handleNavClick(e, "#bounty")}
+                      >
                         前往选择
                       </a>
                     </div>
@@ -987,22 +902,41 @@ export default function Page() {
                     <div className="grid gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">主题</label>
-                        <input value={mailSubject} onChange={(e) => setMailSubject(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none" />
+                        <input
+                          value={mailSubject}
+                          onChange={(e) => setMailSubject(e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                        />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">正文</label>
-                        <textarea value={mailBody} onChange={(e) => setMailBody(e.target.value)} rows={12} className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none font-mono text-sm" />
+                        <textarea
+                          value={mailBody}
+                          onChange={(e) => setMailBody(e.target.value)}
+                          rows={12}
+                          className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none font-mono text-sm"
+                        />
                       </div>
 
                       {!resumeText && (
                         <p className="text-xs text-amber-600">
-                          未检测到你的简历文本，建议先到“个人主页”上传 .txt 或 .docx 以获得更个性化内容。
+                          未检测到你的简历文本，建议先到"个人主页"上传 .txt 或 .docx 以获得更个性化内容。
                         </p>
                       )}
 
                       <div className="flex justify-end gap-3">
-                        <a href="#bounty" onClick={(e) => handleNavClick(e, "#bounty")} className="px-4 py-2 rounded-full border border-gray-300 hover:bg-gray-100 nav-link">取消</a>
-                        <button onClick={onConfirmSend} disabled={sending} className="px-5 py-2 rounded-full bg-green-500 text-white cta-button disabled:opacity-60">
+                        <a
+                          href="#bounty"
+                          onClick={(e) => handleNavClick(e, "#bounty")}
+                          className="px-4 py-2 rounded-full border border-gray-300 hover:bg-gray-100 nav-link"
+                        >
+                          取消
+                        </a>
+                        <button
+                          onClick={onConfirmSend}
+                          disabled={sending}
+                          className="px-5 py-2 rounded-full bg-green-500 text-white cta-button disabled:opacity-60"
+                        >
                           {sending ? "发送中..." : "确认发送"}
                         </button>
                       </div>
@@ -1010,121 +944,6 @@ export default function Page() {
                     </div>
                   </div>
                 )}
-              </div>
-            </section>
-          </div>
-        )}
-
-        {/* 3) 行动指挥室 */}
-        {currentPage === "cockpit" && (
-          <div id="page-cockpit" className="page-content">
-            <section className="py-20 bg-white">
-              <div className="container mx-auto px-6">
-                <div className="max-w-6xl mx-auto">
-                  <div className="text-center mb-4">
-                    <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">行动指挥室</h2>
-                    <p className="text-lg text-gray-600">
-                      用数据化视角跟踪每一次出击
-                    </p>
-                    {connOk === true && (
-                      <p className="mt-2 text-sm text-green-600">已成功链接云端数据（Supabase）</p>
-                    )}
-                    {connOk === false && (
-                      <p className="mt-2 text-sm text-red-600">
-                        云端连接失败：{connErr || "未知错误"}（已使用本地存储演示）
-                      </p>
-                    )}
-                    {!user && (
-                      <p className="mt-2 text-sm text-gray-500">
-                        当前未登录，请先{" "}
-                        <a href="#login" className="text-blue-600 hover:underline nav-link" onClick={(e) => handleNavClick(e, "#login")}>
-                          登录
-                        </a>
-                        。
-                      </p>
-                    )}
-                  </div>
-
-                  {user ? (
-                    <div className="mb-20">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-6 bg-gray-50 p-6 rounded-2xl">
-                        {renderKanbanColumn("机会池", "pool", "bg-gray-200")}
-                        {renderKanbanColumn("已发送", "sent", "bg-blue-100")}
-                        {renderKanbanColumn("已回复", "replied", "bg-yellow-100")}
-                        {renderKanbanColumn("面试/Offer", "interview", "bg-green-100")}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="mb-20">
-                      <div className="max-w-2xl mx-auto bg-gray-50 border border-gray-200 p-8 rounded-2xl text-center">
-                        <p className="text-gray-700">登录后即可查看与你账号关联的任务与完成情况。</p>
-                        <div className="mt-6 flex justify-center gap-4">
-                          <a
-                            href="#login"
-                            className="px-6 py-2 rounded-full border border-gray-300 hover:bg-gray-100 nav-link"
-                            onClick={(e) => handleNavClick(e, "#login")}
-                          >
-                            去登录
-                          </a>
-                          <a
-                            href="#signup"
-                            className="px-6 py-2 rounded-full bg-green-500 text-white cta-button nav-link"
-                            onClick={(e) => handleNavClick(e, "#signup")}
-                          >
-                            免费注册
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 静态示意图 */}
-                  <div>
-                    <h3 className="text-2xl font-bold text-center mb-10">
-                      数据看板：用数据复盘和优化你的策略
-                    </h3>
-                    <div className="grid md:grid-cols-2 gap-8">
-                      <div className="bg-white p-6 rounded-2xl shadow-lg">
-                        <h4 className="font-bold mb-4">求职漏斗</h4>
-                        <div className="space-y-3">
-                          <div className="flex justify-between items-center">
-                            <p>狙击次数</p>
-                            <p>10</p>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2.5">
-                            <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: "100%" }} />
-                          </div>
-
-                          <div className="flex justify之间 items-center">
-                            <p>回复率</p>
-                            <p>40%</p>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2.5">
-                            <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: "40%" }} />
-                          </div>
-
-                          <div className="flex justify-between items-center">
-                            <p>面试转化率</p>
-                            <p>20%</p>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2.5">
-                            <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: "20%" }} />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="bg-white p-6 rounded-2xl shadow-lg">
-                        <h4 className="font-bold mb-4">机会来源分析</h4>
-                        <img
-                          src="https://placehold.co/600x300/f3f4f6/ffffff?text=来源分析饼图"
-                          alt="机会来源分析图"
-                          className="w-full rounded-lg"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                </div>
               </div>
             </section>
           </div>
@@ -1183,10 +1002,12 @@ export default function Page() {
                         <CheckCircle size={20} className="text-green-500 mr-3" weight="fill" /> <b>无限</b> 机会情报
                       </li>
                       <li className="flex items-center">
-                        <CheckCircle size={20} className="text-green-500 mr-3" weight="fill" /> <b>AIGC</b> 生成个性化破冰邮件
+                        <CheckCircle size={20} className="text-green-500 mr-3" weight="fill" /> <b>AIGC</b>{" "}
+                        生成个性化破冰邮件
                       </li>
                       <li className="flex items-center">
-                        <CheckCircle size={20} className="text-green-500 mr-3" weight="fill" /> <b>无限</b> 目标追踪与管理
+                        <CheckCircle size={20} className="text-green-500 mr-3" weight="fill" /> <b>无限</b>{" "}
+                        目标追踪与管理
                       </li>
                       <li className="flex items-center">
                         <CheckCircle size={20} className="text-green-500 mr-3" weight="fill" /> 关键联系人深度分析
@@ -1257,7 +1078,7 @@ export default function Page() {
                     />
                     <div className="p-6 flex flex-col flex-grow">
                       <p className="text-sm text-gray-500 mb-2">求职技巧 · 5分钟阅读</p>
-                      <h3 className="text-xl font-bold mb-4 flex-grow">如何写一封让CTO无法拒绝的“破冰”邮件？</h3>
+                      <h3 className="text-xl font-bold mb-4 flex-grow">如何写一封让CTO无法拒绝的"破冰"邮件？</h3>
                       <a href="#" className="text-green-600 font-bold hover:underline">
                         阅读更多 →
                       </a>
@@ -1291,7 +1112,7 @@ export default function Page() {
                     />
                     <div className="p-6 flex flex-col flex-grow">
                       <p className="text-sm text-gray-500 mb-2">心态建设 · 6分钟阅读</p>
-                      <h3 className="text-xl font-bold mb-4 flex-grow">从“求职者”到“猎手”：你只需要转变一个观念</h3>
+                      <h3 className="text-xl font-bold mb-4 flex-grow">从"求职者"到"猎手"：你只需要转变一个观念</h3>
                       <a href="#" className="text-green-600 font-bold hover:underline">
                         阅读更多 →
                       </a>
@@ -1339,7 +1160,11 @@ export default function Page() {
                       />
                     </div>
                     {loginErr && <p className="text-sm text-red-600 mb-4">{loginErr}</p>}
-                    <button type="submit" disabled={authLoading} className="w-full bg-green-500 text-white font-bold py-3 px-6 rounded-full cta-button disabled:opacity-60">
+                    <button
+                      type="submit"
+                      disabled={authLoading}
+                      className="w-full bg-green-500 text-white font-bold py-3 px-6 rounded-full cta-button disabled:opacity-60"
+                    >
                       {authLoading ? "登录中..." : "登录"}
                     </button>
                   </form>
@@ -1394,7 +1219,12 @@ export default function Page() {
                         required
                       />
                     </div>
-                    <button type="submit" disabled={authLoading} className="w-full bg-green-500 text-white font-bold py-3 px-6 rounded-full cta-button disabled:opacity-60">
+                    {signupErr && <p className="text-sm text-red-600 mb-4">{signupErr}</p>}
+                    <button
+                      type="submit"
+                      disabled={authLoading}
+                      className="w-full bg-green-500 text-white font-bold py-3 px-6 rounded-full cta-button disabled:opacity-60"
+                    >
                       {authLoading ? "创建账户中..." : "创建账户"}
                     </button>
                   </form>
@@ -1459,16 +1289,27 @@ export default function Page() {
                     <div className="space-y-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">上传简历（.txt/.docx）</label>
-                        <input type="file" accept=".txt,.docx" onChange={(e) => { const f = e.target.files?.[0]; if (f) onResumeFileChosen(f) }} />
+                        <input
+                          type="file"
+                          accept=".txt,.docx"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0]
+                            if (f) onResumeFileChosen(f)
+                          }}
+                        />
                       </div>
                       <div>
                         <p className="text-sm text-gray-500 mb-2">简历文本预览（前 300 字）</p>
                         <div className="bg-gray-50 border rounded-lg p-3 text-sm max-h-40 overflow-auto">
-                          {resumeText ? (resumeText.slice(0, 300) + (resumeText.length > 300 ? "..." : "")) : "尚未上传"}
+                          {resumeText ? resumeText.slice(0, 300) + (resumeText.length > 300 ? "..." : "") : "尚未上传"}
                         </div>
                       </div>
                       <div className="flex justify-end">
-                        <a href="#bounty" onClick={(e) => handleNavClick(e, "#bounty")} className="px-5 py-2 rounded-full bg-green-500 text-white cta-button nav-link">
+                        <a
+                          href="#bounty"
+                          onClick={(e) => handleNavClick(e, "#bounty")}
+                          className="px-5 py-2 rounded-full bg-green-500 text-white cta-button nav-link"
+                        >
                           去机会雷达挑选
                         </a>
                       </div>
@@ -1492,21 +1333,47 @@ export default function Page() {
             <div>
               <h4 className="font-bold mb-4">产品</h4>
               <ul className="space-y-2 text-gray-400">
-                <li><a href="#home" data-scroll-to="features" className="hover:text-white nav-link" onClick={(e) => handleNavClick(e, "#home")}>产品功能</a></li>
-                <li><a href="#pricing" className="hover:text-white nav-link" onClick={(e) => handleNavClick(e, "#pricing")}>定价</a></li>
-                <li><a href="#blog" className="hover:text-white nav-link" onClick={(e) => handleNavClick(e, "#blog")}>求职干货</a></li>
-                <li><a href="#home" data-scroll-to="about" className="hover:text-white nav-link" onClick={(e) => handleNavClick(e, "#home")}>关于我们</a></li>
+                <li>
+                  <a
+                    href="#home"
+                    data-scroll-to="features"
+                    className="hover:text-white nav-link"
+                    onClick={(e) => handleNavClick(e, "#home")}
+                  >
+                    产品功能
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="#pricing"
+                    className="hover:text-white nav-link"
+                    onClick={(e) => handleNavClick(e, "#pricing")}
+                  >
+                    定价
+                  </a>
+                </li>
+                <li>
+                  <a href="#blog" className="hover:text-white nav-link" onClick={(e) => handleNavClick(e, "#blog")}>
+                    求职干货
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="#home"
+                    data-scroll-to="about"
+                    className="hover:text-white nav-link"
+                    onClick={(e) => handleNavClick(e, "#home")}
+                  >
+                    关于我们
+                  </a>
+                </li>
               </ul>
             </div>
             <div>
               <h4 className="font-bold mb-4">法律</h4>
               <ul className="space-y-2 text-gray-400">
                 <li>
-                  <a
-                    href="#terms"
-                    className="hover:text-white nav-link"
-                    onClick={(e) => handleNavClick(e, "#terms")}
-                  >
+                  <a href="#terms" className="hover:text-white nav-link" onClick={(e) => handleNavClick(e, "#terms")}>
                     服务条款
                   </a>
                 </li>
