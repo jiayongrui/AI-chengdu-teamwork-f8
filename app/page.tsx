@@ -5,28 +5,44 @@ import type React from "react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Noto_Sans_SC } from "next/font/google"
 import {
-  List,
-  Files,
-  TreasureChest,
-  Door,
-  PresentationChart,
+  Menu,
+  FileText,
+  Gem,
+  DoorOpen,
+  BarChart3,
   Lightbulb,
-  UsersThree,
+  Users,
   CheckCircle,
   Plus,
-  Pencil,
-  Trash,
-  FloppyDisk,
+  Edit,
+  Trash2,
+  Save,
   X,
-} from "@phosphor-icons/react"
+  Upload,
+  AlertCircle,
+} from "lucide-react"
 
 import { getSupabaseClient } from "@/lib/supabase-client"
 import { signIn, signUp, getLocalUser, setLocalUser } from "@/lib/auth"
 import type { User } from "@/types/user"
 import type { Opportunity } from "@/types/opportunity"
 import { todayOpportunities } from "@/lib/opportunities"
-import { fetchUserResumeText, updateUserResumeText } from "@/lib/user-profile"
-import { generateIcebreakerEmail } from "@/lib/email-template"
+import {
+  fetchUserResumeText,
+  updateUserResumeText,
+  fetchUserResumes,
+  createResume,
+  updateResume,
+  deleteResume,
+  getLocalResumes,
+  createLocalResume,
+  updateLocalResume,
+  deleteLocalResume,
+  extractTextFromFile,
+  validateResumeFile,
+  type Resume,
+} from "@/lib/user-profile"
+import { generateIcebreakerEmail, generateIcebreakerEmailWithAI } from "@/lib/email-template"
 import { logAndAdvanceTask } from "@/lib/email-send"
 
 const noto = Noto_Sans_SC({ subsets: ["latin"], weight: ["400", "500", "700"] })
@@ -74,6 +90,9 @@ export default function Page() {
   const [mailBody, setMailBody] = useState("")
   const [sending, setSending] = useState(false)
   const [sendMsg, setSendMsg] = useState<string | null>(null)
+  // 新增AI生成状态
+  const [aiGenerating, setAiGenerating] = useState(false)
+  const [aiGenerateError, setAiGenerateError] = useState<string | null>(null)
 
   // 网页爬虫状态（管理员功能）
   const [isAdmin, setIsAdmin] = useState(false)
@@ -93,6 +112,23 @@ export default function Page() {
     tags: "",
     reason: "",
   })
+
+  // 简历管理状态
+  const [resumes, setResumes] = useState<Resume[]>([])
+  const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null)
+  const [showResumeForm, setShowResumeForm] = useState(false)
+  const [editingResume, setEditingResume] = useState<Resume | null>(null)
+  const [resumeForm, setResumeForm] = useState({
+    title: "",
+    content: "",
+  })
+  const [resumeLoading, setResumeLoading] = useState(false)
+  const [resumeError, setResumeError] = useState<string | null>(null)
+
+  // 文件上传状态
+  const [fileUploading, setFileUploading] = useState(false)
+  const [fileUploadError, setFileUploadError] = useState<string | null>(null)
+  const [fileUploadSuccess, setFileUploadSuccess] = useState<string | null>(null)
 
   // 合并的机会列表（默认 + 管理员添加的）
   const allOpportunities = useMemo(() => {
@@ -219,11 +255,21 @@ export default function Page() {
           await checkConnection()
           setConnOk(true)
           setConnErr(null)
+
+          // 加载用户的所有简历
+          const userResumes = await fetchUserResumes(user.id)
+          setResumes(userResumes)
+
+          // 兼容旧的简历文本字段
           const txt = await fetchUserResumeText(user.id)
           setResumeText(txt)
         } catch (e: any) {
           setConnOk(false)
           setConnErr(e?.message ?? "连接 Supabase 失败")
+
+          // 降级到本地存储
+          const localResumes = getLocalResumes(user.id)
+          setResumes(localResumes)
         }
       }
     })()
@@ -298,10 +344,47 @@ export default function Page() {
       return
     }
     setSelectedOpp(opp)
-    const draft = generateIcebreakerEmail({ user, resumeText, opp })
-    setMailSubject(draft.subject)
-    setMailBody(draft.body)
+
+    // 先设置空的邮件内容，然后异步生成
+    setMailSubject("")
+    setMailBody("")
+    setAiGenerateError(null)
+
     showPage("#forge")
+
+    // 异步生成AI邮件
+    setAiGenerating(true)
+    try {
+      const draft = await generateIcebreakerEmailWithAI({ user, resumeText, opp })
+      setMailSubject(draft.subject)
+      setMailBody(draft.body)
+    } catch (error: any) {
+      setAiGenerateError(error.message || "AI生成失败，已使用模板生成")
+      // 降级到模板生成
+      const fallbackDraft = generateIcebreakerEmail({ user, resumeText, opp })
+      setMailSubject(fallbackDraft.subject)
+      setMailBody(fallbackDraft.body)
+    } finally {
+      setAiGenerating(false)
+    }
+  }
+
+  // 重新生成邮件
+  const onRegenerateEmail = async () => {
+    if (!user || !selectedOpp) return
+
+    setAiGenerating(true)
+    setAiGenerateError(null)
+
+    try {
+      const draft = await generateIcebreakerEmailWithAI({ user, resumeText, opp: selectedOpp })
+      setMailSubject(draft.subject)
+      setMailBody(draft.body)
+    } catch (error: any) {
+      setAiGenerateError(error.message || "AI生成失败")
+    } finally {
+      setAiGenerating(false)
+    }
   }
 
   // 破冰工坊：确认发送
@@ -320,31 +403,165 @@ export default function Page() {
     }
   }
 
-  // 简历上传
+  // 简历管理函数
+  const handleCreateResume = async () => {
+    if (!user || !resumeForm.title.trim() || !resumeForm.content.trim()) {
+      setResumeError("请填写简历标题和内容")
+      return
+    }
+
+    setResumeLoading(true)
+    setResumeError(null)
+
+    try {
+      let newResume: Resume
+      if (connOk) {
+        newResume = await createResume(user.id, resumeForm.title, resumeForm.content)
+      } else {
+        newResume = createLocalResume(user.id, resumeForm.title, resumeForm.content)
+      }
+
+      setResumes((prev) => [newResume, ...prev])
+      setResumeForm({ title: "", content: "" })
+      setShowResumeForm(false)
+    } catch (error: any) {
+      setResumeError(error.message || "创建简历失败")
+    } finally {
+      setResumeLoading(false)
+    }
+  }
+
+  const handleUpdateResume = async () => {
+    if (!user || !editingResume || !resumeForm.title.trim() || !resumeForm.content.trim()) {
+      setResumeError("请填写简历标题和内容")
+      return
+    }
+
+    setResumeLoading(true)
+    setResumeError(null)
+
+    try {
+      let updatedResume: Resume
+      if (connOk) {
+        updatedResume = await updateResume(editingResume.id, resumeForm.title, resumeForm.content)
+      } else {
+        updatedResume = updateLocalResume(user.id, editingResume.id, resumeForm.title, resumeForm.content)!
+      }
+
+      setResumes((prev) => prev.map((r) => (r.id === editingResume.id ? updatedResume : r)))
+      setResumeForm({ title: "", content: "" })
+      setEditingResume(null)
+    } catch (error: any) {
+      setResumeError(error.message || "更新简历失败")
+    } finally {
+      setResumeLoading(false)
+    }
+  }
+
+  const handleDeleteResume = async (resumeId: string) => {
+    if (!user || !confirm("确定要删除这份简历吗？")) return
+
+    setResumeLoading(true)
+    setResumeError(null)
+
+    try {
+      if (connOk) {
+        await deleteResume(resumeId)
+      } else {
+        deleteLocalResume(user.id, resumeId)
+      }
+
+      setResumes((prev) => prev.filter((r) => r.id !== resumeId))
+      if (selectedResumeId === resumeId) {
+        setSelectedResumeId(null)
+      }
+    } catch (error: any) {
+      setResumeError(error.message || "删除简历失败")
+    } finally {
+      setResumeLoading(false)
+    }
+  }
+
+  const handleEditResume = (resume: Resume) => {
+    setEditingResume(resume)
+    setResumeForm({
+      title: resume.title,
+      content: resume.content,
+    })
+    setShowResumeForm(true)
+  }
+
+  const handleSelectResume = (resumeId: string) => {
+    setSelectedResumeId(resumeId)
+    const resume = resumes.find((r) => r.id === resumeId)
+    if (resume) {
+      setResumeText(resume.content)
+    }
+  }
+
+  const cancelResumeForm = () => {
+    setShowResumeForm(false)
+    setEditingResume(null)
+    setResumeForm({ title: "", content: "" })
+    setResumeError(null)
+  }
+
+  // 改进的简历文件上传处理
   const onResumeFileChosen = async (file: File) => {
     if (!user) return
-    const ext = file.name.split(".").pop()?.toLowerCase()
+
+    // 清除之前的状态
+    setFileUploadError(null)
+    setFileUploadSuccess(null)
+    setFileUploading(true)
+
     try {
-      let text = ""
-      if (ext === "txt" || file.type.startsWith("text/")) {
-        text = await file.text()
-      } else if (ext === "docx") {
-        const mammoth = await import("mammoth/mammoth.browser")
-        const arrayBuffer = await file.arrayBuffer()
-        const result = await mammoth.convertToHtml({ arrayBuffer })
-        text = result.value
-          .replace(/<[^>]+>/g, " ")
-          .replace(/\s+/g, " ")
-          .trim()
-      } else {
-        alert("目前仅支持 .txt 或 .docx 简历文件用于 Demo 提取文本。")
-        return
+      // 验证文件
+      const validation = validateResumeFile(file)
+      if (!validation.valid) {
+        throw new Error(validation.error)
       }
-      await updateUserResumeText(user.id, text)
+
+      // 提取文本内容
+      const text = await extractTextFromFile(file)
+
+      if (!text || text.length < 10) {
+        throw new Error("文件内容过短，请确保简历包含足够的信息")
+      }
+
+      // 生成简历标题
+      const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, "")
+      const title = `${fileNameWithoutExt} - ${new Date().toLocaleDateString("zh-CN")}`
+
+      // 创建新的简历记录
+      let newResume: Resume
+      if (connOk) {
+        newResume = await createResume(user.id, title, text)
+      } else {
+        newResume = createLocalResume(user.id, title, text)
+      }
+
+      // 更新状态
+      setResumes((prev) => [newResume, ...prev])
+      setSelectedResumeId(newResume.id)
       setResumeText(text)
-      alert("简历已更新（文本）")
-    } catch (e: any) {
-      alert(`简历上传失败：${e?.message ?? "未知错误"}`)
+
+      // 兼容旧版本
+      try {
+        await updateUserResumeText(user.id, text)
+      } catch (error) {
+        console.warn("更新旧版本简历字段失败:", error)
+      }
+
+      setFileUploadSuccess(`简历 "${title}" 已成功添加并设为当前使用`)
+
+      // 3秒后清除成功消息
+      setTimeout(() => setFileUploadSuccess(null), 3000)
+    } catch (error: any) {
+      console.error("简历上传失败:", error)
+      setFileUploadError(error.message || "简历上传失败，请重试")
+    } finally {
+      setFileUploading(false)
     }
   }
 
@@ -626,7 +843,7 @@ export default function Page() {
               aria-label="打开菜单"
               onClick={() => setMobileOpen((s) => !s)}
             >
-              <List size={32} />
+              <Menu size={32} />
             </button>
           </div>
         </div>
@@ -790,7 +1007,7 @@ export default function Page() {
                 <div className="grid md:grid-cols-3 gap-10">
                   <div className="text-center p-8 border border-gray-200 rounded-2xl shadow-sm hover:shadow-lg transition-shadow">
                     <div className="flex justify-center items-center mb-6 w-16 h-16 mx-auto bg-red-100 rounded-full">
-                      <Files size={32} className="text-red-500" weight="bold" />
+                      <FileText size={32} className="text-red-500" />
                     </div>
                     <h3 className="text-xl font-bold mb-2">信息海洋，简历被淹没</h3>
                     <p className="text-gray-500">你的优秀，在数千份简历中被轻易忽略。</p>
@@ -798,7 +1015,7 @@ export default function Page() {
 
                   <div className="text-center p-8 border border-gray-200 rounded-2xl shadow-sm hover:shadow-lg transition-shadow">
                     <div className="flex justify-center items-center mb-6 w-16 h-16 mx-auto bg-yellow-100 rounded-full">
-                      <TreasureChest size={32} className="text-yellow-500" weight="bold" />
+                      <Gem size={32} className="text-yellow-500" />
                     </div>
                     <h3 className="text-xl font-bold mb-2">机会黑箱，好公司难寻</h3>
                     <p className="text-gray-500">除了大厂，那些高速成长的"潜力股"在哪？</p>
@@ -806,7 +1023,7 @@ export default function Page() {
 
                   <div className="text-center p-8 border border-gray-200 rounded-2xl shadow-sm hover:shadow-lg transition-shadow">
                     <div className="flex justify-center items-center mb-6 w-16 h-16 mx-auto bg-blue-100 rounded-full">
-                      <Door size={32} className="text-blue-500" weight="bold" />
+                      <DoorOpen size={32} className="text-blue-500" />
                     </div>
                     <h3 className="text-xl font-bold mb-2">主动出击，不知如何开口</h3>
                     <p className="text-gray-500">找到邮箱却写不出第一句话，害怕成为"骚扰邮件"。</p>
@@ -954,7 +1171,7 @@ export default function Page() {
                 <div className="grid md:grid-cols-3 gap-8">
                   <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6">
                     <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mb-4">
-                      <Lightbulb size={24} className="text-emerald-600" weight="bold" />
+                      <Lightbulb size={24} className="text-emerald-600" />
                     </div>
                     <h3 className="font-bold text-lg mb-2">创新为先</h3>
                     <p className="text-gray-600 text-sm">
@@ -963,7 +1180,7 @@ export default function Page() {
                   </div>
                   <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6">
                     <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mb-4">
-                      <UsersThree size={24} className="text-emerald-600" weight="bold" />
+                      <Users size={24} className="text-emerald-600" />
                     </div>
                     <h3 className="font-bold text-lg mb-2">以人为本</h3>
                     <p className="text-gray-600 text-sm">
@@ -972,7 +1189,7 @@ export default function Page() {
                   </div>
                   <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6">
                     <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mb-4">
-                      <PresentationChart size={24} className="text-emerald-600" weight="bold" />
+                      <BarChart3 size={24} className="text-emerald-600" />
                     </div>
                     <h3 className="font-bold text-lg mb-2">结果导向</h3>
                     <p className="text-gray-600 text-sm">
@@ -1118,9 +1335,50 @@ export default function Page() {
                   </div>
                 ) : (
                   <div className="bg-white rounded-2xl shadow-xl p-6">
-                    <p className="text-sm text-gray-500 mb-2">
-                      根据你的简历与目标公司「<b>{selectedOpp.company}</b>」生成邮件草稿。
-                    </p>
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="text-sm text-gray-500">
+                        根据你的简历与目标公司「<b>{selectedOpp.company}</b>」生成邮件草稿。
+                      </p>
+                      <button
+                        onClick={onRegenerateEmail}
+                        disabled={aiGenerating}
+                        className="flex items-center gap-2 px-3 py-1 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-60 transition-colors"
+                      >
+                        {aiGenerating ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            AI生成中...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                              />
+                            </svg>
+                            重新生成
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {aiGenerateError && (
+                      <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                        <p className="text-amber-700 text-sm">⚠️ {aiGenerateError}</p>
+                      </div>
+                    )}
+
+                    {aiGenerating && (
+                      <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                          <p className="text-blue-700 text-sm">AI正在为你量身定制破冰邮件，请稍候...</p>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="grid gap-4">
                       <div>
@@ -1129,6 +1387,7 @@ export default function Page() {
                           value={mailSubject}
                           onChange={(e) => setMailSubject(e.target.value)}
                           className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                          disabled={aiGenerating}
                         />
                       </div>
                       <div>
@@ -1138,12 +1397,13 @@ export default function Page() {
                           onChange={(e) => setMailBody(e.target.value)}
                           rows={12}
                           className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none font-mono text-sm"
+                          disabled={aiGenerating}
                         />
                       </div>
 
                       {!resumeText && (
                         <p className="text-xs text-amber-600">
-                          未检测到你的简历文本，建议先到"个人主页"上传 .txt 或 .docx 以获得更个性化内容。
+                          💡 未检测到你的简历文本，建议先到"个人主页"上传简历以获得更个性化的AI生成内容。
                         </p>
                       )}
 
@@ -1157,7 +1417,7 @@ export default function Page() {
                         </a>
                         <button
                           onClick={onConfirmSend}
-                          disabled={sending}
+                          disabled={sending || aiGenerating || !mailSubject.trim() || !mailBody.trim()}
                           className="px-5 py-2 rounded-full bg-green-500 text-white cta-button disabled:opacity-60"
                         >
                           {sending ? "发送中..." : "确认发送"}
@@ -1384,7 +1644,7 @@ export default function Page() {
                         onClick={editingOpp ? handleUpdateOpportunity : handleAddOpportunity}
                         className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg cta-button"
                       >
-                        <FloppyDisk size={16} />
+                        <Save size={16} />
                         {editingOpp ? "更新" : "保存"}
                       </button>
                     </div>
@@ -1462,14 +1722,14 @@ export default function Page() {
                                   className="p-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded"
                                   title="编辑"
                                 >
-                                  <Pencil size={16} />
+                                  <Edit size={16} />
                                 </button>
                                 <button
                                   onClick={() => handleDeleteOpportunity(opp.id)}
                                   className="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded"
                                   title="删除"
                                 >
-                                  <Trash size={16} />
+                                  <Trash2 size={16} />
                                 </button>
                               </div>
                             </div>
@@ -1516,13 +1776,13 @@ export default function Page() {
                     </p>
                     <ul className="space-y-4 text-gray-600 flex-grow">
                       <li className="flex items-center">
-                        <CheckCircle size={20} className="text-green-500 mr-3" weight="fill" /> 每周 5 个机会情报
+                        <CheckCircle size={20} className="text-green-500 mr-3" /> 每周 5 个机会情报
                       </li>
                       <li className="flex items-center">
-                        <CheckCircle size={20} className="text-green-500 mr-3" weight="fill" /> 基础破冰邮件模板
+                        <CheckCircle size={20} className="text-green-500 mr-3" /> 基础破冰邮件模板
                       </li>
                       <li className="flex items-center">
-                        <CheckCircle size={20} className="text-green-500 mr-3" weight="fill" /> 最多追踪 10 个目标
+                        <CheckCircle size={20} className="text-green-500 mr-3" /> 最多追踪 10 个目标
                       </li>
                     </ul>
                     <a
@@ -1546,21 +1806,19 @@ export default function Page() {
                     </p>
                     <ul className="space-y-4 text-gray-600 flex-grow">
                       <li className="flex items-center">
-                        <CheckCircle size={20} className="text-green-500 mr-3" weight="fill" /> <b>无限</b> 机会情报
+                        <CheckCircle size={20} className="text-green-500 mr-3" /> <b>无限</b> 机会情报
                       </li>
                       <li className="flex items-center">
-                        <CheckCircle size={20} className="text-green-500 mr-3" weight="fill" /> <b>AIGC</b>{" "}
-                        生成个性化破冰邮件
+                        <CheckCircle size={20} className="text-green-500 mr-3" /> <b>AIGC</b> 生成个性化破冰邮件
                       </li>
                       <li className="flex items-center">
-                        <CheckCircle size={20} className="text-green-500 mr-3" weight="fill" /> <b>无限</b>{" "}
-                        目标追踪与管理
+                        <CheckCircle size={20} className="text-green-500 mr-3" /> <b>无限</b> 目标追踪与管理
                       </li>
                       <li className="flex items-center">
-                        <CheckCircle size={20} className="text-green-500 mr-3" weight="fill" /> 关键联系人深度分析
+                        <CheckCircle size={20} className="text-green-500 mr-3" /> 关键联系人深度分析
                       </li>
                       <li className="flex items-center">
-                        <CheckCircle size={20} className="text-green-500 mr-3" weight="fill" /> 优先技术支持
+                        <CheckCircle size={20} className="text-green-500 mr-3" /> 优先技术支持
                       </li>
                     </ul>
                     <a
@@ -1579,16 +1837,16 @@ export default function Page() {
                     <p className="text-4xl font-extrabold mb-6">联系我们</p>
                     <ul className="space-y-4 text-gray-600 flex-grow">
                       <li className="flex items-center">
-                        <CheckCircle size={20} className="text-green-500 mr-3" weight="fill" /> 专业版所有功能
+                        <CheckCircle size={20} className="text-green-500 mr-3" /> 专业版所有功能
                       </li>
                       <li className="flex items-center">
-                        <CheckCircle size={20} className="text-green-500 mr-3" weight="fill" /> 专属学生管理后台
+                        <CheckCircle size={20} className="text-green-500 mr-3" /> 专属学生管理后台
                       </li>
                       <li className="flex items-center">
-                        <CheckCircle size={20} className="text-green-500 mr-3" weight="fill" /> 定制化求职数据报告
+                        <CheckCircle size={20} className="text-green-500 mr-3" /> 定制化求职数据报告
                       </li>
                       <li className="flex items-center">
-                        <CheckCircle size={20} className="text-green-500 mr-3" weight="fill" /> 专属客户成功经理
+                        <CheckCircle size={20} className="text-green-500 mr-3" /> 专属客户成功经理
                       </li>
                     </ul>
                     <a
@@ -1791,14 +2049,14 @@ export default function Page() {
           </div>
         )}
 
-        {/* 个人资料：简历上传 */}
+        {/* 个人资料：简历管理 */}
         {currentPage === "profile" && (
           <div id="page-profile" className="page-content">
             <section className="py-16 bg-white">
-              <div className="container mx-auto px-6 max-w-3xl">
+              <div className="container mx-auto px-6 max-w-4xl">
                 <div className="text-center mb-8">
                   <h2 className="text-3xl font-bold text-gray-800">个人资料</h2>
-                  <p className="text-gray-500 mt-2">上传你的简历（.txt 或 .docx），我们将用于个性化破冰邮件</p>
+                  <p className="text-gray-500 mt-2">管理你的简历，用于个性化破冰邮件生成</p>
                 </div>
 
                 {!user ? (
@@ -1822,36 +2080,256 @@ export default function Page() {
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-white rounded-2xl shadow-lg p-8">
-                    <div className="flex items-center gap-4 mb-6">
-                      <span className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-green-500 text-white font-bold text-lg">
-                        {avatarInitial}
-                      </span>
-                      <div>
-                        <p className="text-sm text-gray-500">用户名</p>
-                        <p className="text-xl font-bold text-gray-800">{user.username}</p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">上传简历（.txt/.docx）</label>
-                        <input
-                          type="file"
-                          accept=".txt,.docx"
-                          onChange={(e) => {
-                            const f = e.target.files?.[0]
-                            if (f) onResumeFileChosen(f)
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500 mb-2">简历文本预览（前 300 字）</p>
-                        <div className="bg-gray-50 border rounded-lg p-3 text-sm max-h-40 overflow-auto">
-                          {resumeText ? resumeText.slice(0, 300) + (resumeText.length > 300 ? "..." : "") : "尚未上传"}
+                  <div className="space-y-8">
+                    {/* 用户信息 */}
+                    <div className="bg-white rounded-2xl shadow-lg p-6">
+                      <div className="flex items-center gap-4 mb-4">
+                        <span className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-green-500 text-white font-bold text-lg">
+                          {avatarInitial}
+                        </span>
+                        <div>
+                          <p className="text-sm text-gray-500">用户名</p>
+                          <p className="text-xl font-bold text-gray-800">{user.username}</p>
                         </div>
                       </div>
-                      <div className="flex justify-end">
+
+                      {connOk === true && <p className="text-sm text-green-600">✅ 已连接云端数据库</p>}
+                      {connOk === false && (
+                        <p className="text-sm text-amber-600">⚠️ 云端连接失败，使用本地存储：{connErr}</p>
+                      )}
+                    </div>
+
+                    {/* 简历管理 */}
+                    <div className="bg-white rounded-2xl shadow-lg p-6">
+                      <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-xl font-bold text-gray-800">简历管理</h3>
+                        <button
+                          onClick={() => setShowResumeForm(true)}
+                          className="flex items-center gap-2 bg-green-500 text-white font-bold py-2 px-4 rounded-lg cta-button"
+                        >
+                          <Plus size={20} />
+                          添加简历
+                        </button>
+                      </div>
+
+                      {/* 添加/编辑表单 */}
+                      {showResumeForm && (
+                        <div className="bg-gray-50 rounded-lg p-6 mb-6 border border-gray-200">
+                          <div className="flex items-center justify-between mb-4">
+                            <h4 className="text-lg font-bold text-gray-800">
+                              {editingResume ? "编辑简历" : "添加新简历"}
+                            </h4>
+                            <button onClick={cancelResumeForm} className="text-gray-500 hover:text-gray-700">
+                              <X size={24} />
+                            </button>
+                          </div>
+
+                          <div className="space-y-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                简历标题 <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={resumeForm.title}
+                                onChange={(e) => setResumeForm({ ...resumeForm, title: e.target.value })}
+                                className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                                placeholder="例如：前端开发简历、产品经理简历"
+                                disabled={resumeLoading}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                简历内容 <span className="text-red-500">*</span>
+                              </label>
+                              <textarea
+                                value={resumeForm.content}
+                                onChange={(e) => setResumeForm({ ...resumeForm, content: e.target.value })}
+                                rows={12}
+                                className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none font-mono text-sm"
+                                placeholder="请输入你的简历内容，包括个人信息、教育背景、工作经历、技能等..."
+                                disabled={resumeLoading}
+                              />
+                            </div>
+
+                            {resumeError && (
+                              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                                <p className="text-red-600 text-sm">{resumeError}</p>
+                              </div>
+                            )}
+
+                            <div className="flex justify-end gap-3">
+                              <button
+                                onClick={cancelResumeForm}
+                                className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition-colors"
+                                disabled={resumeLoading}
+                              >
+                                取消
+                              </button>
+                              <button
+                                onClick={editingResume ? handleUpdateResume : handleCreateResume}
+                                disabled={resumeLoading || !resumeForm.title.trim() || !resumeForm.content.trim()}
+                                className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg cta-button disabled:opacity-60"
+                              >
+                                {resumeLoading ? (
+                                  <>
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                    {editingResume ? "更新中..." : "保存中..."}
+                                  </>
+                                ) : (
+                                  <>
+                                    <Save size={16} />
+                                    {editingResume ? "更新" : "保存"}
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 简历列表 */}
+                      {resumes.length === 0 ? (
+                        <div className="text-center py-12">
+                          <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                            <FileText size={32} className="text-gray-400" />
+                          </div>
+                          <p className="text-gray-500 mb-4">还没有简历，快来添加第一份吧！</p>
+                          <button
+                            onClick={() => setShowResumeForm(true)}
+                            className="text-green-600 hover:text-green-700 font-medium"
+                          >
+                            点击添加简历 →
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {resumes.map((resume) => (
+                            <div
+                              key={resume.id}
+                              className={`border rounded-lg p-4 transition-colors ${
+                                selectedResumeId === resume.id
+                                  ? "border-green-500 bg-green-50"
+                                  : "border-gray-200 hover:border-gray-300"
+                              }`}
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-3 mb-2">
+                                    <h4 className="font-bold text-gray-800">{resume.title}</h4>
+                                    {selectedResumeId === resume.id && (
+                                      <span className="text-xs bg-green-500 text-white px-2 py-1 rounded-full">
+                                        当前使用
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-gray-500 mb-2">
+                                    创建于 {new Date(resume.created_at).toLocaleDateString("zh-CN")}
+                                    {resume.updated_at !== resume.created_at && (
+                                      <span> · 更新于 {new Date(resume.updated_at).toLocaleDateString("zh-CN")}</span>
+                                    )}
+                                  </p>
+                                  <p className="text-sm text-gray-600 line-clamp-2">
+                                    {resume.content.slice(0, 150)}
+                                    {resume.content.length > 150 && "..."}
+                                  </p>
+                                </div>
+                                <div className="flex gap-2 ml-4">
+                                  <button
+                                    onClick={() => handleSelectResume(resume.id)}
+                                    className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                                      selectedResumeId === resume.id
+                                        ? "bg-green-500 text-white"
+                                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                    }`}
+                                  >
+                                    {selectedResumeId === resume.id ? "已选择" : "选择"}
+                                  </button>
+                                  <button
+                                    onClick={() => handleEditResume(resume)}
+                                    className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
+                                    title="编辑"
+                                  >
+                                    <Edit size={16} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteResume(resume.id)}
+                                    className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg"
+                                    title="删除"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* 文件上传区域 */}
+                      <div className="mt-8 pt-6 border-t border-gray-200">
+                        <h4 className="text-lg font-bold text-gray-800 mb-4">或者上传简历文件</h4>
+
+                        {/* 上传状态显示 */}
+                        {fileUploading && (
+                          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                              <p className="text-blue-700 text-sm">正在处理文件，请稍候...</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {fileUploadError && (
+                          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                            <div className="flex items-center gap-2">
+                              <AlertCircle size={16} className="text-red-600" />
+                              <p className="text-red-600 text-sm">{fileUploadError}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {fileUploadSuccess && (
+                          <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle size={16} className="text-green-600" />
+                              <p className="text-green-600 text-sm">{fileUploadSuccess}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              上传简历文件（支持 .txt、.docx、.pdf）
+                            </label>
+                            <div className="flex items-center justify-center w-full">
+                              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                  <Upload className="w-8 h-8 mb-2 text-gray-400" />
+                                  <p className="mb-2 text-sm text-gray-500">
+                                    <span className="font-semibold">点击上传</span> 或拖拽文件到此处
+                                  </p>
+                                  <p className="text-xs text-gray-500">支持 TXT、DOCX、PDF 格式，最大 10MB</p>
+                                </div>
+                                <input
+                                  type="file"
+                                  accept=".txt,.docx,.pdf"
+                                  onChange={(e) => {
+                                    const f = e.target.files?.[0]
+                                    if (f) onResumeFileChosen(f)
+                                  }}
+                                  className="hidden"
+                                  disabled={fileUploading}
+                                />
+                              </label>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-2">上传的文件内容会自动提取并创建为新的简历记录</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end mt-6">
                         <a
                           href="#bounty"
                           onClick={(e) => handleNavClick(e, "#bounty")}
@@ -1917,8 +2395,18 @@ export default function Page() {
               </ul>
             </div>
             <div>
-              <h4 className="font-bold mb-4">法律</h4>
+              <h4 className="font-bold mb-4">联系我们</h4>
               <ul className="space-y-2 text-gray-400">
+                <li>
+                  <a href="mailto:hello@example.com" className="hover:text-white">
+                    hello@example.com
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-white">
+                    加入内测群
+                  </a>
+                </li>
                 <li>
                   <a href="#terms" className="hover:text-white nav-link" onClick={(e) => handleNavClick(e, "#terms")}>
                     服务条款
@@ -1927,39 +2415,11 @@ export default function Page() {
               </ul>
             </div>
           </div>
-
-          <div className="mt-12 pt-8 border-t border-gray-700 text-center text-gray-500 text-sm">
-            <p>{`© 2025 简历冲鸭. All Rights Reserved.`}</p>
+          <div className="mt-12 text-center">
+            <p className="text-gray-500 text-sm">© {new Date().getFullYear()} 简历冲鸭. All rights reserved.</p>
           </div>
         </div>
       </footer>
-
-      {/* 全局样式 */}
-      <style jsx global>{`
-        body {
-          color: #1f2937;
-        }
-        .hero-gradient {
-          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .fade-in-element {
-          animation: fadeIn 0.8s ease-out forwards;
-          opacity: 0;
-        }
-        .cta-button { transition: all 0.3s ease; }
-        .cta-button:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 10px 20px -10px rgba(76, 175, 80, 0.5);
-        }
-        .page-content { animation: fadeIn 0.5s ease-in-out; }
-        .kanban-card {
-          box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-        }
-      `}</style>
     </div>
   )
 }

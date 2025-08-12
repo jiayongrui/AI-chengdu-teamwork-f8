@@ -2,23 +2,63 @@ import type { Opportunity } from "@/types/opportunity"
 import type { User } from "@/types/user"
 
 /**
- * 规则模板化“破冰邮件”生成（无外部模型依赖）。
- * 可在此处替换为 AI SDK：
- *   import { generateText } from "ai"
- *   import { openai } from "@ai-sdk/openai"
- *   await generateText({ model: openai("gpt-4o"), prompt: ... })
- * 以获得更智能的内容生成 [^4]
+ * 使用AI生成个性化破冰邮件
  */
-export function generateIcebreakerEmail(params: {
+export async function generateIcebreakerEmailWithAI(params: {
+  user: User
+  resumeText?: string | null
+  opp: Opportunity
+}): Promise<{ subject: string; body: string }> {
+  try {
+    const response = await fetch("/api/generate-email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        user: params.user,
+        opportunity: params.opp,
+        resumeText: params.resumeText,
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    }
+
+    const data = await response.json()
+
+    if (data.error) {
+      throw new Error(data.error)
+    }
+
+    return {
+      subject: data.subject,
+      body: data.body,
+    }
+  } catch (error: any) {
+    console.error("AI邮件生成失败:", error)
+    // 降级到模板生成
+    return generateIcebreakerEmailTemplate(params)
+  }
+}
+
+/**
+ * 模板化邮件生成（作为AI生成的降级方案）
+ */
+export function generateIcebreakerEmailTemplate(params: {
   user: User
   resumeText?: string | null
   opp: Opportunity
 }) {
   const { user, resumeText, opp } = params
+
   // 从简历中提取一些可能的关键词（极简启发式）
   const topSkills = extractTopSkills(resumeText ?? "")
   const skillLine = topSkills.length ? `我擅长：${topSkills.slice(0, 3).join("、")}。` : ""
+
   const subject = `祝贺${opp.company}${opp.tags?.[0] ?? ""} - 一位对${opp.title.replace(/工程师|开发/g, "")}充满热情的候选人`
+
   const body = [
     "您好！",
     "",
@@ -31,11 +71,27 @@ export function generateIcebreakerEmail(params: {
     "",
     `此致\n${user.username}`,
   ].join("\n")
+
   return { subject, body }
 }
 
 function extractTopSkills(text: string) {
-  const dict = ["NLP", "LLM", "Transformer", "Python", "PyTorch", "Hugging Face", "TypeScript", "React", "Go", "Rust", "K8s", "SQL", "数据分析", "AIGC"]
+  const dict = [
+    "NLP",
+    "LLM",
+    "Transformer",
+    "Python",
+    "PyTorch",
+    "Hugging Face",
+    "TypeScript",
+    "React",
+    "Go",
+    "Rust",
+    "K8s",
+    "SQL",
+    "数据分析",
+    "AIGC",
+  ]
   const found = new Set<string>()
   const lower = text.toLowerCase()
   dict.forEach((k) => {
@@ -45,8 +101,17 @@ function extractTopSkills(text: string) {
 }
 
 function summarizeResume(text: string) {
-  // 截取若干行作为“简历摘要”
+  // 截取若干行作为"简历摘要"
   let t = text.replace(/\r/g, "").split("\n").filter(Boolean).slice(0, 6).join("\n")
   if (t.length > 500) t = t.slice(0, 500) + "..."
   return t
+}
+
+// 保持向后兼容
+export function generateIcebreakerEmail(params: {
+  user: User
+  resumeText?: string | null
+  opp: Opportunity
+}) {
+  return generateIcebreakerEmailTemplate(params)
 }
