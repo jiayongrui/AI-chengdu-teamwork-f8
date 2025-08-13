@@ -2,13 +2,6 @@ import { generateText } from "ai"
 import { createOpenAI } from "@ai-sdk/openai"
 import { type NextRequest, NextResponse } from "next/server"
 
-// Create DeepSeek client using OpenAI-compatible API
-const deepseek = createOpenAI({
-  name: "deepseek",
-  apiKey: "sk-ufnwysgrwnebkczychcgkvzvvinyydmppnrvgyclbwdluvpu",
-  baseURL: "https://api.deepseek.com/v1",
-})
-
 export async function POST(req: NextRequest) {
   try {
     const { user, opportunity, resumeText } = await req.json()
@@ -16,6 +9,18 @@ export async function POST(req: NextRequest) {
     if (!user || !opportunity) {
       return NextResponse.json({ error: "缺少必要参数" }, { status: 400 })
     }
+
+    // Check if API key is available - if not, return error to trigger fallback
+    if (!process.env.DEEPINFRA_API_KEY) {
+      return NextResponse.json({ error: "AI服务未配置，使用模板生成" }, { status: 503 })
+    }
+
+    // Create DeepSeek client using OpenAI-compatible API
+    const deepinfra = createOpenAI({
+      name: "deepinfra",
+      apiKey: process.env.DEEPINFRA_API_KEY,
+      baseURL: "https://api.deepinfra.com/v1/openai",
+    })
 
     // 构建AI提示词
     const prompt = `你是一位专业的求职顾问，请帮助求职者生成一封专业的破冰邮件。
@@ -47,7 +52,7 @@ export async function POST(req: NextRequest) {
 正文：[邮件正文]`
 
     const result = await generateText({
-      model: deepseek("deepseek-chat"),
+      model: deepinfra("meta-llama/Meta-Llama-3.1-70B-Instruct"),
       prompt,
       maxTokens: 800,
       temperature: 0.7,
@@ -67,7 +72,12 @@ export async function POST(req: NextRequest) {
       success: true,
     })
   } catch (error: any) {
-    console.error("DeepSeek邮件生成失败:", error)
-    return NextResponse.json({ error: `邮件生成失败: ${error.message || "未知错误"}` }, { status: 500 })
+    console.error("AI邮件生成失败:", error)
+    return NextResponse.json(
+      {
+        error: `AI生成失败: ${error.message || "服务暂时不可用"}`,
+      },
+      { status: 500 },
+    )
   }
 }

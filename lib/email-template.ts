@@ -22,8 +22,11 @@ export async function generateIcebreakerEmailWithAI(params: {
       }),
     })
 
+    // If API is not configured (503) or other errors, fall back to template
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      const errorData = await response.json().catch(() => ({}))
+      console.log("AI服务不可用，使用模板生成:", errorData.error || response.statusText)
+      throw new Error(errorData.error || `HTTP ${response.status}`)
     }
 
     const data = await response.json()
@@ -37,8 +40,8 @@ export async function generateIcebreakerEmailWithAI(params: {
       body: data.body,
     }
   } catch (error: any) {
-    console.error("AI邮件生成失败:", error)
-    // 降级到模板生成
+    console.log("降级到模板生成，原因:", error.message)
+    // 降级到模板生成 - 这里不再抛出错误
     return generateIcebreakerEmailTemplate(params)
   }
 }
