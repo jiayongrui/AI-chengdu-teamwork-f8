@@ -1418,7 +1418,7 @@ export default function Page() {
                   <div className="bg-white rounded-2xl shadow-xl p-6">
                     <div className="flex items-center justify-between mb-4">
                       <p className="text-sm text-gray-500">
-                        根据你的简历与目标公司「<b>{selectedOpp.company}</b>」生成邮件草稿。
+                        根据你的简历与目标公司「<b>{selectedOpp.company}</b>」生成邮件。
                       </p>
                       <button
                         onClick={onRegenerateEmail}
