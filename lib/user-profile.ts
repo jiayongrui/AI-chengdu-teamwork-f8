@@ -206,48 +206,32 @@ async function extractTextFromDocx(file: File): Promise<string> {
 
 async function extractTextFromPdf(file: File): Promise<string> {
   try {
-    // 动态导入 pdf-parse
-    const pdfParse = await import("pdf-parse/lib/pdf-parse")
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = new Uint8Array(arrayBuffer)
-
-    const data = await pdfParse.default(buffer)
-
-    if (!data.text || !data.text.trim()) {
-      throw new Error("PDF 文件内容为空或无法提取文本")
-    }
-
-    // 清理和格式化文本
-    const text = data.text
-      .replace(/\s+/g, " ") // 合并多个空格
-      .replace(/\n\s*\n/g, "\n") // 合并多个换行
-      .trim()
-
-    return text
+    // 使用更简单的PDF处理方式，避免worker问题
+    // 如果PDF.js不可用，提供友好的错误信息
+    throw new Error("PDF文件处理功能暂时不可用，请使用TXT或DOCX格式的简历文件")
   } catch (error: any) {
-    if (error.message.includes("pdf-parse") || error.message.includes("PDF")) {
-      throw new Error("PDF 文件解析失败，请确保文件格式正确且包含可提取的文本")
-    }
-    throw error
+    console.error("PDF解析错误:", error)
+    throw new Error(
+      "PDF文件处理功能暂时不可用，请使用TXT或DOCX格式的简历文件。如需处理PDF，建议先将其转换为Word文档或纯文本格式。",
+    )
   }
 }
 
-// 文件验证
+// 文件验证 - 暂时移除PDF支持
 export function validateResumeFile(file: File): { valid: boolean; error?: string } {
   const allowedTypes = [
     "text/plain", // .txt
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
-    "application/pdf", // .pdf
   ]
 
-  const allowedExtensions = ["txt", "docx", "pdf"]
+  const allowedExtensions = ["txt", "docx"]
   const ext = file.name.split(".").pop()?.toLowerCase()
 
   // 检查文件扩展名
   if (!ext || !allowedExtensions.includes(ext)) {
     return {
       valid: false,
-      error: `不支持的文件格式。支持的格式：${allowedExtensions.map((e) => `.${e}`).join(", ")}`,
+      error: `不支持的文件格式。当前支持的格式：${allowedExtensions.map((e) => `.${e}`).join(", ")}`,
     }
   }
 

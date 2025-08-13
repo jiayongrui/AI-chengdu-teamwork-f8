@@ -2301,7 +2301,7 @@ export default function Page() {
                         <div className="space-y-4">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                              上传简历文件（支持 .txt、.docx、.pdf）
+                              上传简历文件（支持 .txt、.docx）
                             </label>
                             <div className="flex items-center justify-center w-full">
                               <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
@@ -2310,11 +2310,11 @@ export default function Page() {
                                   <p className="mb-2 text-sm text-gray-500">
                                     <span className="font-semibold">点击上传</span> 或拖拽文件到此处
                                   </p>
-                                  <p className="text-xs text-gray-500">支持 TXT、DOCX、PDF 格式，最大 10MB</p>
+                                  <p className="text-xs text-gray-500">支持 TXT、DOCX 格式，最大 10MB</p>
                                 </div>
                                 <input
                                   type="file"
-                                  accept=".txt,.docx,.pdf"
+                                  accept=".txt,.docx"
                                   onChange={(e) => {
                                     const f = e.target.files?.[0]
                                     if (f) onResumeFileChosen(f)
