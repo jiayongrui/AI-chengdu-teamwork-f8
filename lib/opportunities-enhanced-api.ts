@@ -115,8 +115,11 @@ const LOCAL_OPPORTUNITIES: OpportunityEnhanced[] = [
 
 export async function fetchEnhancedOpportunities(limit = 6): Promise<OpportunityEnhanced[]> {
   try {
-    console.log("Fetching enhanced opportunities from database...")
     const supabase = getSupabaseClient()
+    if (!supabase) {
+      console.warn("Supabase 未配置，使用本地机会数据")
+      return LOCAL_OPPORTUNITIES.slice(0, limit)
+    }
 
     const { data, error } = await supabase
       .from("opportunities_enhanced_view")
@@ -130,7 +133,6 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
       throw error
     }
 
-    console.log(`Fetched ${data?.length || 0} opportunities from database`)
     return data || []
   } catch (error) {
     console.warn("Failed to fetch from database, using local cache:", error)
@@ -140,8 +142,46 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
 
 export async function searchEnhancedOpportunities(filters: OpportunityFilters): Promise<OpportunityEnhanced[]> {
   try {
-    console.log("Searching opportunities with filters:", filters)
     const supabase = getSupabaseClient()
+    if (!supabase) {
+      console.warn("Supabase 未配置，使用本地筛选")
+      // 本地筛选降级
+      let filtered = LOCAL_OPPORTUNITIES
+
+      if (filters.keyword) {
+        const keyword = filters.keyword.toLowerCase()
+        filtered = filtered.filter(
+          (opp) => opp.company_name.toLowerCase().includes(keyword) || opp.job_title.toLowerCase().includes(keyword),
+        )
+      }
+
+      if (filters.location) {
+        filtered = filtered.filter((opp) => opp.location?.toLowerCase().includes(filters.location!.toLowerCase()))
+      }
+
+      if (filters.fundingStage) {
+        filtered = filtered.filter((opp) => opp.funding_stage === filters.fundingStage)
+      }
+
+      if (filters.jobLevel) {
+        filtered = filtered.filter((opp) => opp.job_level?.includes(filters.jobLevel!))
+      }
+
+      if (filters.priority) {
+        const priorityNum = typeof filters.priority === "string" ? Number.parseInt(filters.priority) : Number(filters.priority)
+        if (priorityNum >= 8) {
+          filtered = filtered.filter((opp) => opp.priority >= 8)
+        } else if (priorityNum >= 6) {
+          filtered = filtered.filter((opp) => opp.priority >= 6 && opp.priority < 8)
+        } else if (priorityNum >= 4) {
+          filtered = filtered.filter((opp) => opp.priority >= 4 && opp.priority < 6)
+        } else {
+          filtered = filtered.filter((opp) => opp.priority < 4)
+        }
+      }
+
+      return filtered.slice(0, filters.limit || 6)
+    }
 
     let query = supabase.from("opportunities_enhanced_view").select("*")
 
@@ -167,7 +207,7 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
 
     // 优先级筛选
     if (filters.priority) {
-      const priorityNum = Number.parseInt(filters.priority)
+      const priorityNum = typeof filters.priority === "string" ? Number.parseInt(filters.priority) : Number(filters.priority)
       if (priorityNum >= 8) {
         query = query.gte("priority", 8)
       } else if (priorityNum >= 6) {
@@ -189,7 +229,6 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
       throw error
     }
 
-    console.log(`Found ${data?.length || 0} opportunities matching filters`)
     return data || []
   } catch (error) {
     console.warn("Search failed, using local filtering:", error)
@@ -217,7 +256,7 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
     }
 
     if (filters.priority) {
-      const priorityNum = Number.parseInt(filters.priority)
+      const priorityNum = typeof filters.priority === "string" ? Number.parseInt(filters.priority) : Number(filters.priority)
       if (priorityNum >= 8) {
         filtered = filtered.filter((opp) => opp.priority >= 8)
       } else if (priorityNum >= 6) {
@@ -235,8 +274,27 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
 
 export async function getOpportunityStatistics(): Promise<OpportunityStatistics> {
   try {
-    console.log("Fetching opportunity statistics...")
     const supabase = getSupabaseClient()
+    if (!supabase) {
+      console.warn("Supabase 未配置，使用本地统计数据")
+      const active = LOCAL_OPPORTUNITIES.filter((opp) => opp.is_active)
+      const highPriority = active.filter((opp) => opp.priority >= 8)
+      const expiringSoon = active.filter((opp) => {
+        if (!opp.expires_at) return false
+        const expiryDate = new Date(opp.expires_at)
+        const weekFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        return expiryDate <= weekFromNow
+      })
+      const uniqueCompanies = new Set(active.map((opp) => opp.company_name))
+
+      return {
+        total_opportunities: LOCAL_OPPORTUNITIES.length,
+        active_opportunities: active.length,
+        high_priority_opportunities: highPriority.length,
+        expiring_soon: expiringSoon.length,
+        unique_companies: uniqueCompanies.size,
+      }
+    }
 
     const { data, error } = await supabase.rpc("get_opportunity_statistics")
 
@@ -245,7 +303,6 @@ export async function getOpportunityStatistics(): Promise<OpportunityStatistics>
       throw error
     }
 
-    console.log("Statistics fetched:", data)
     return (
       data || {
         total_opportunities: 0,

@@ -9,16 +9,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "缺少必要参数：收件人、主题或内容" }, { status: 400 })
     }
 
-    // 检查 API 密钥是否配置
-    if (!process.env.RESEND_API_KEY) {
-      console.log("RESEND_API_KEY 未配置，启用演示模式")
+    const isProduction = process.env.NODE_ENV === "production"
+    const isDemoMode = !process.env.RESEND_API_KEY || !isProduction
 
-      // 演示模式：模拟成功发送
+    if (isDemoMode) {
+      console.log("使用演示模式发送邮件", {
+        reason: !process.env.RESEND_API_KEY ? "RESEND_API_KEY 未配置" : "非生产环境",
+      })
       const mockMessageId = `demo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-
-      // 模拟发送延迟
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-
+      await new Promise((resolve) => setTimeout(resolve, 800))
       return NextResponse.json({
         success: true,
         messageId: mockMessageId,
@@ -94,6 +93,11 @@ export async function POST(req: NextRequest) {
 
     if (result.error) {
       console.error("Resend API 错误:", result.error)
+      // 生产环境报错，非生产环境降级为演示成功
+      if (!isProduction) {
+        const mockMessageId = `demo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        return NextResponse.json({ success: true, messageId: mockMessageId, message: "邮件发送成功（演示模式）", demo: true })
+      }
       return NextResponse.json({ error: `邮件发送失败: ${result.error.message}` }, { status: 500 })
     }
 
@@ -105,17 +109,19 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error("邮件发送错误:", error)
 
-    // 提供更详细的错误信息
+    // 非生产环境降级为演示成功
+    if (process.env.NODE_ENV !== "production") {
+      const mockMessageId = `demo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      return NextResponse.json({ success: true, messageId: mockMessageId, message: "邮件发送成功（演示模式）", demo: true })
+    }
+
     let errorMessage = "邮件发送失败"
     if (error.message) {
       errorMessage += `: ${error.message}`
     }
 
     return NextResponse.json(
-      {
-        error: errorMessage,
-        details: process.env.NODE_ENV === "development" ? error.stack : undefined,
-      },
+      { error: errorMessage },
       { status: 500 },
     )
   }
