@@ -113,6 +113,28 @@ const LOCAL_OPPORTUNITIES: OpportunityEnhanced[] = [
   },
 ]
 
+// 转换函数：将数据库记录转换为 OpportunityEnhanced 格式
+function transformToEnhanced(dbRecord: any): OpportunityEnhanced {
+  return {
+    id: dbRecord.id,
+    company_name: dbRecord.company_name,
+    job_title: dbRecord.job_title,
+    location: dbRecord.location,
+    funding_stage: dbRecord.funding_stage || "未知",
+    job_level: dbRecord.job_level || "应届生",
+    tags: dbRecord.tags || [],
+    reason: dbRecord.reason,
+    contact_email: dbRecord.contact_email,
+    contact_person: dbRecord.contact_person,
+    company_logo: dbRecord.company_logo || "/placeholder-logo.png",
+    priority: dbRecord.priority || 5,
+    created_at: dbRecord.created_at,
+    updated_at: dbRecord.updated_at,
+    expires_at: dbRecord.expires_at,
+    is_active: dbRecord.status === "active",
+  }
+}
+
 export async function fetchEnhancedOpportunities(limit = 6): Promise<OpportunityEnhanced[]> {
   try {
     const supabase = getSupabaseClient()
@@ -121,9 +143,11 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
       return LOCAL_OPPORTUNITIES.slice(0, limit)
     }
 
+    // 使用现有的 opportunities 表而不是不存在的视图
     const { data, error } = await supabase
-      .from("opportunities_enhanced_view")
+      .from("opportunities")
       .select("*")
+      .eq("status", "active")
       .limit(limit)
       .order("priority", { ascending: false })
       .order("created_at", { ascending: false })
@@ -133,7 +157,14 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
       throw error
     }
 
-    return data || []
+    // 如果数据库中没有数据，返回本地数据
+    if (!data || data.length === 0) {
+      console.warn("No data in database, using local cache")
+      return LOCAL_OPPORTUNITIES.slice(0, limit)
+    }
+
+    // 转换数据格式
+    return data.map(transformToEnhanced)
   } catch (error) {
     console.warn("Failed to fetch from database, using local cache:", error)
     return LOCAL_OPPORTUNITIES.slice(0, limit)
@@ -145,45 +176,10 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
     const supabase = getSupabaseClient()
     if (!supabase) {
       console.warn("Supabase 未配置，使用本地筛选")
-      // 本地筛选降级
-      let filtered = LOCAL_OPPORTUNITIES
-
-      if (filters.keyword) {
-        const keyword = filters.keyword.toLowerCase()
-        filtered = filtered.filter(
-          (opp) => opp.company_name.toLowerCase().includes(keyword) || opp.job_title.toLowerCase().includes(keyword),
-        )
-      }
-
-      if (filters.location) {
-        filtered = filtered.filter((opp) => opp.location?.toLowerCase().includes(filters.location!.toLowerCase()))
-      }
-
-      if (filters.fundingStage) {
-        filtered = filtered.filter((opp) => opp.funding_stage === filters.fundingStage)
-      }
-
-      if (filters.jobLevel) {
-        filtered = filtered.filter((opp) => opp.job_level?.includes(filters.jobLevel!))
-      }
-
-      if (filters.priority) {
-        const priorityNum = typeof filters.priority === "string" ? Number.parseInt(filters.priority) : Number(filters.priority)
-        if (priorityNum >= 8) {
-          filtered = filtered.filter((opp) => opp.priority >= 8)
-        } else if (priorityNum >= 6) {
-          filtered = filtered.filter((opp) => opp.priority >= 6 && opp.priority < 8)
-        } else if (priorityNum >= 4) {
-          filtered = filtered.filter((opp) => opp.priority >= 4 && opp.priority < 6)
-        } else {
-          filtered = filtered.filter((opp) => opp.priority < 4)
-        }
-      }
-
-      return filtered.slice(0, filters.limit || 6)
+      return performLocalFiltering(filters)
     }
 
-    let query = supabase.from("opportunities_enhanced_view").select("*")
+    let query = supabase.from("opportunities").select("*").eq("status", "active")
 
     // 关键词搜索
     if (filters.keyword) {
@@ -195,19 +191,10 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
       query = query.ilike("location", `%${filters.location}%`)
     }
 
-    // 融资阶段筛选
-    if (filters.fundingStage) {
-      query = query.eq("funding_stage", filters.fundingStage)
-    }
-
-    // 职位级别筛选
-    if (filters.jobLevel) {
-      query = query.ilike("job_level", `%${filters.jobLevel}%`)
-    }
-
     // 优先级筛选
     if (filters.priority) {
-      const priorityNum = typeof filters.priority === "string" ? Number.parseInt(filters.priority) : Number(filters.priority)
+      const priorityNum =
+        typeof filters.priority === "string" ? Number.parseInt(filters.priority) : Number(filters.priority)
       if (priorityNum >= 8) {
         query = query.gte("priority", 8)
       } else if (priorityNum >= 6) {
@@ -229,47 +216,57 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
       throw error
     }
 
-    return data || []
+    // 如果数据库中没有匹配的数据，使用本地筛选
+    if (!data || data.length === 0) {
+      console.warn("No matching data in database, using local filtering")
+      return performLocalFiltering(filters)
+    }
+
+    return data.map(transformToEnhanced)
   } catch (error) {
     console.warn("Search failed, using local filtering:", error)
-
-    // 本地筛选降级
-    let filtered = LOCAL_OPPORTUNITIES
-
-    if (filters.keyword) {
-      const keyword = filters.keyword.toLowerCase()
-      filtered = filtered.filter(
-        (opp) => opp.company_name.toLowerCase().includes(keyword) || opp.job_title.toLowerCase().includes(keyword),
-      )
-    }
-
-    if (filters.location) {
-      filtered = filtered.filter((opp) => opp.location?.toLowerCase().includes(filters.location!.toLowerCase()))
-    }
-
-    if (filters.fundingStage) {
-      filtered = filtered.filter((opp) => opp.funding_stage === filters.fundingStage)
-    }
-
-    if (filters.jobLevel) {
-      filtered = filtered.filter((opp) => opp.job_level?.includes(filters.jobLevel!))
-    }
-
-    if (filters.priority) {
-      const priorityNum = typeof filters.priority === "string" ? Number.parseInt(filters.priority) : Number(filters.priority)
-      if (priorityNum >= 8) {
-        filtered = filtered.filter((opp) => opp.priority >= 8)
-      } else if (priorityNum >= 6) {
-        filtered = filtered.filter((opp) => opp.priority >= 6 && opp.priority < 8)
-      } else if (priorityNum >= 4) {
-        filtered = filtered.filter((opp) => opp.priority >= 4 && opp.priority < 6)
-      } else {
-        filtered = filtered.filter((opp) => opp.priority < 4)
-      }
-    }
-
-    return filtered.slice(0, filters.limit || 6)
+    return performLocalFiltering(filters)
   }
+}
+
+// 本地筛选逻辑
+function performLocalFiltering(filters: OpportunityFilters): OpportunityEnhanced[] {
+  let filtered = LOCAL_OPPORTUNITIES
+
+  if (filters.keyword) {
+    const keyword = filters.keyword.toLowerCase()
+    filtered = filtered.filter(
+      (opp) => opp.company_name.toLowerCase().includes(keyword) || opp.job_title.toLowerCase().includes(keyword),
+    )
+  }
+
+  if (filters.location) {
+    filtered = filtered.filter((opp) => opp.location?.toLowerCase().includes(filters.location!.toLowerCase()))
+  }
+
+  if (filters.fundingStage) {
+    filtered = filtered.filter((opp) => opp.funding_stage === filters.fundingStage)
+  }
+
+  if (filters.jobLevel) {
+    filtered = filtered.filter((opp) => opp.job_level?.includes(filters.jobLevel!))
+  }
+
+  if (filters.priority) {
+    const priorityNum =
+      typeof filters.priority === "string" ? Number.parseInt(filters.priority) : Number(filters.priority)
+    if (priorityNum >= 8) {
+      filtered = filtered.filter((opp) => opp.priority >= 8)
+    } else if (priorityNum >= 6) {
+      filtered = filtered.filter((opp) => opp.priority >= 6 && opp.priority < 8)
+    } else if (priorityNum >= 4) {
+      filtered = filtered.filter((opp) => opp.priority >= 4 && opp.priority < 6)
+    } else {
+      filtered = filtered.filter((opp) => opp.priority < 4)
+    }
+  }
+
+  return filtered.slice(0, filters.limit || 6)
 }
 
 export async function getOpportunityStatistics(): Promise<OpportunityStatistics> {
@@ -277,62 +274,74 @@ export async function getOpportunityStatistics(): Promise<OpportunityStatistics>
     const supabase = getSupabaseClient()
     if (!supabase) {
       console.warn("Supabase 未配置，使用本地统计数据")
-      const active = LOCAL_OPPORTUNITIES.filter((opp) => opp.is_active)
+      return getLocalStatistics()
+    }
+
+    // 尝试使用存储过程，如果不存在则手动计算
+    try {
+      const { data, error } = await supabase.rpc("get_opportunity_statistics")
+
+      if (error) {
+        throw error
+      }
+
+      return data || getLocalStatistics()
+    } catch (rpcError) {
+      console.warn("RPC function not available, calculating manually:", rpcError)
+
+      // 手动计算统计数据
+      const { data: opportunities, error } = await supabase.from("opportunities").select("*")
+
+      if (error) {
+        throw error
+      }
+
+      if (!opportunities || opportunities.length === 0) {
+        return getLocalStatistics()
+      }
+
+      const active = opportunities.filter((opp) => opp.status === "active")
       const highPriority = active.filter((opp) => opp.priority >= 8)
       const expiringSoon = active.filter((opp) => {
-        if (!opp.expires_at) return false
-        const expiryDate = new Date(opp.expires_at)
+        if (!opp.application_deadline) return false
+        const deadline = new Date(opp.application_deadline)
         const weekFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-        return expiryDate <= weekFromNow
+        return deadline <= weekFromNow
       })
       const uniqueCompanies = new Set(active.map((opp) => opp.company_name))
 
       return {
-        total_opportunities: LOCAL_OPPORTUNITIES.length,
+        total_opportunities: opportunities.length,
         active_opportunities: active.length,
         high_priority_opportunities: highPriority.length,
         expiring_soon: expiringSoon.length,
         unique_companies: uniqueCompanies.size,
       }
     }
-
-    const { data, error } = await supabase.rpc("get_opportunity_statistics")
-
-    if (error) {
-      console.error("Statistics error:", error)
-      throw error
-    }
-
-    return (
-      data || {
-        total_opportunities: 0,
-        active_opportunities: 0,
-        high_priority_opportunities: 0,
-        expiring_soon: 0,
-        unique_companies: 0,
-      }
-    )
   } catch (error) {
     console.warn("Failed to fetch statistics, using local data:", error)
+    return getLocalStatistics()
+  }
+}
 
-    // 本地统计降级
-    const active = LOCAL_OPPORTUNITIES.filter((opp) => opp.is_active)
-    const highPriority = active.filter((opp) => opp.priority >= 8)
-    const expiringSoon = active.filter((opp) => {
-      if (!opp.expires_at) return false
-      const expiryDate = new Date(opp.expires_at)
-      const weekFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-      return expiryDate <= weekFromNow
-    })
-    const uniqueCompanies = new Set(active.map((opp) => opp.company_name))
+// 本地统计数据
+function getLocalStatistics(): OpportunityStatistics {
+  const active = LOCAL_OPPORTUNITIES.filter((opp) => opp.is_active)
+  const highPriority = active.filter((opp) => opp.priority >= 8)
+  const expiringSoon = active.filter((opp) => {
+    if (!opp.expires_at) return false
+    const expiryDate = new Date(opp.expires_at)
+    const weekFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    return expiryDate <= weekFromNow
+  })
+  const uniqueCompanies = new Set(active.map((opp) => opp.company_name))
 
-    return {
-      total_opportunities: LOCAL_OPPORTUNITIES.length,
-      active_opportunities: active.length,
-      high_priority_opportunities: highPriority.length,
-      expiring_soon: expiringSoon.length,
-      unique_companies: uniqueCompanies.size,
-    }
+  return {
+    total_opportunities: LOCAL_OPPORTUNITIES.length,
+    active_opportunities: active.length,
+    high_priority_opportunities: highPriority.length,
+    expiring_soon: expiringSoon.length,
+    unique_companies: uniqueCompanies.size,
   }
 }
 
