@@ -111,6 +111,114 @@ const LOCAL_OPPORTUNITIES: OpportunityEnhanced[] = [
     expires_at: new Date(Date.now() + 22 * 24 * 60 * 60 * 1000).toISOString(),
     is_active: true,
   },
+  {
+    id: "7",
+    company_name: "腾讯",
+    job_title: "游戏开发工程师",
+    location: "深圳",
+    funding_stage: "已上市",
+    job_level: "应届生",
+    tags: ["Unity", "C#", "游戏开发"],
+    reason: "腾讯游戏业务全球领先，技术实力雄厚",
+    contact_email: "game@tencent.com",
+    contact_person: "周制作人",
+    company_logo: "/placeholder-logo.png",
+    priority: 9,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString(),
+    is_active: true,
+  },
+  {
+    id: "8",
+    company_name: "阿里巴巴",
+    job_title: "云计算工程师",
+    location: "杭州",
+    funding_stage: "已上市",
+    job_level: "应届生",
+    tags: ["云计算", "Docker", "Kubernetes"],
+    reason: "阿里云是国内云计算领导者，技术前沿",
+    contact_email: "cloud@alibaba.com",
+    contact_person: "李架构师",
+    company_logo: "/placeholder-logo.png",
+    priority: 8,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + 26 * 24 * 60 * 60 * 1000).toISOString(),
+    is_active: true,
+  },
+  {
+    id: "9",
+    company_name: "百度",
+    job_title: "自然语言处理工程师",
+    location: "北京",
+    funding_stage: "已上市",
+    job_level: "应届生",
+    tags: ["NLP", "深度学习", "Python"],
+    reason: "百度在AI领域投入巨大，NLP技术国内领先",
+    contact_email: "ai@baidu.com",
+    contact_person: "张研究员",
+    company_logo: "/placeholder-logo.png",
+    priority: 7,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + 24 * 24 * 60 * 60 * 1000).toISOString(),
+    is_active: true,
+  },
+  {
+    id: "10",
+    company_name: "滴滴出行",
+    job_title: "移动端开发工程师",
+    location: "北京",
+    funding_stage: "D轮及以后",
+    job_level: "应届生",
+    tags: ["iOS", "Android", "移动开发"],
+    reason: "滴滴用户量巨大，移动端技术挑战丰富",
+    contact_email: "mobile@didi.com",
+    contact_person: "王技术总监",
+    company_logo: "/placeholder-logo.png",
+    priority: 6,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
+    is_active: true,
+  },
+  {
+    id: "11",
+    company_name: "京东",
+    job_title: "供应链优化工程师",
+    location: "北京",
+    funding_stage: "已上市",
+    job_level: "应届生",
+    tags: ["算法优化", "供应链", "数据分析"],
+    reason: "京东物流体系完善，供应链优化技术先进",
+    contact_email: "supply@jd.com",
+    contact_person: "陈物流专家",
+    company_logo: "/placeholder-logo.png",
+    priority: 7,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + 19 * 24 * 60 * 60 * 1000).toISOString(),
+    is_active: true,
+  },
+  {
+    id: "12",
+    company_name: "网易",
+    job_title: "音视频开发工程师",
+    location: "杭州",
+    funding_stage: "已上市",
+    job_level: "应届生",
+    tags: ["音视频", "WebRTC", "流媒体"],
+    reason: "网易在音视频技术方面有深厚积累",
+    contact_email: "media@netease.com",
+    contact_person: "李音视频专家",
+    company_logo: "/placeholder-logo.png",
+    priority: 6,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + 17 * 24 * 60 * 60 * 1000).toISOString(),
+    is_active: true,
+  },
 ]
 
 // 转换函数：将数据库记录转换为 OpportunityEnhanced 格式
@@ -135,39 +243,80 @@ function transformToEnhanced(dbRecord: any): OpportunityEnhanced {
   }
 }
 
+// 随机获取本地机会数据
+function getRandomLocalOpportunities(limit: number): OpportunityEnhanced[] {
+  if (LOCAL_OPPORTUNITIES.length <= limit) {
+    return LOCAL_OPPORTUNITIES
+  }
+
+  // 随机打乱数组并返回指定数量
+  const shuffled = [...LOCAL_OPPORTUNITIES].sort(() => Math.random() - 0.5)
+  return shuffled.slice(0, limit)
+}
+
 export async function fetchEnhancedOpportunities(limit = 6): Promise<OpportunityEnhanced[]> {
   try {
     const supabase = getSupabaseClient()
     if (!supabase) {
       console.warn("Supabase 未配置，使用本地机会数据")
-      return LOCAL_OPPORTUNITIES.slice(0, limit)
+      return getRandomLocalOpportunities(limit)
     }
 
-    // 使用现有的 opportunities 表而不是不存在的视图
+    // 首先获取总数，然后随机选择
+    const { count } = await supabase
+      .from("opportunities")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "active")
+
+    if (!count || count === 0) {
+      console.warn("No data in database, using local cache")
+      return getRandomLocalOpportunities(limit)
+    }
+
+    // 随机选择起始位置
+    const maxOffset = Math.max(0, count - limit)
+    const randomOffset = Math.floor(Math.random() * (maxOffset + 1))
+
+    console.log(`随机选择数据：总数 ${count}，偏移量 ${randomOffset}，限制 ${limit}`)
+
     const { data, error } = await supabase
       .from("opportunities")
       .select("*")
       .eq("status", "active")
-      .limit(limit)
       .order("priority", { ascending: false })
       .order("created_at", { ascending: false })
+      .range(randomOffset, randomOffset + limit - 1)
 
     if (error) {
       console.error("Database error:", error)
       throw error
     }
 
-    // 如果数据库中没有数据，返回本地数据
-    if (!data || data.length === 0) {
-      console.warn("No data in database, using local cache")
-      return LOCAL_OPPORTUNITIES.slice(0, limit)
+    // 如果随机选择的数据不足，补充更多数据
+    if (!data || data.length < limit) {
+      console.log("随机数据不足，补充更多数据")
+      const { data: additionalData } = await supabase
+        .from("opportunities")
+        .select("*")
+        .eq("status", "active")
+        .order("priority", { ascending: false })
+        .limit(limit)
+
+      const finalData = data || []
+      if (additionalData) {
+        // 合并数据并去重
+        const existingIds = new Set(finalData.map((item) => item.id))
+        const uniqueAdditional = additionalData.filter((item) => !existingIds.has(item.id))
+        finalData.push(...uniqueAdditional)
+      }
+
+      return finalData.slice(0, limit).map(transformToEnhanced)
     }
 
-    // 转换数据格式
     return data.map(transformToEnhanced)
   } catch (error) {
     console.warn("Failed to fetch from database, using local cache:", error)
-    return LOCAL_OPPORTUNITIES.slice(0, limit)
+    return getRandomLocalOpportunities(limit)
   }
 }
 
@@ -176,7 +325,7 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
     const supabase = getSupabaseClient()
     if (!supabase) {
       console.warn("Supabase 未配置，使用本地筛选")
-      return performLocalFiltering(filters)
+      return performLocalFiltering(filters, true) // 传入 true 表示随机选择
     }
 
     let query = supabase.from("opportunities").select("*").eq("status", "active")
@@ -189,6 +338,16 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
     // 地点筛选
     if (filters.location) {
       query = query.ilike("location", `%${filters.location}%`)
+    }
+
+    // 融资阶段筛选
+    if (filters.fundingStage) {
+      query = query.eq("funding_stage", filters.fundingStage)
+    }
+
+    // 职位级别筛选
+    if (filters.jobLevel) {
+      query = query.ilike("job_level", `%${filters.jobLevel}%`)
     }
 
     // 优先级筛选
@@ -206,31 +365,57 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
       }
     }
 
+    // 首先获取符合条件的总数
+    const { count } = await query.select("*", { count: "exact", head: true })
+
+    if (!count || count === 0) {
+      console.warn("No matching data in database, using local filtering")
+      return performLocalFiltering(filters, true)
+    }
+
+    const limit = filters.limit || 6
+
+    console.log(`筛选搜索：符合条件的总数 ${count}，需要 ${limit} 条`)
+
+    // 如果结果数量少于或等于限制数量，直接返回所有结果
+    if (count <= limit) {
+      const { data, error } = await query
+        .order("priority", { ascending: false })
+        .order("created_at", { ascending: false })
+
+      if (error) {
+        console.error("Search error:", error)
+        throw error
+      }
+
+      return data ? data.map(transformToEnhanced) : []
+    }
+
+    // 随机选择起始位置
+    const maxOffset = Math.max(0, count - limit)
+    const randomOffset = Math.floor(Math.random() * (maxOffset + 1))
+
+    console.log(`随机筛选：偏移量 ${randomOffset}`)
+
     const { data, error } = await query
-      .limit(filters.limit || 6)
       .order("priority", { ascending: false })
       .order("created_at", { ascending: false })
+      .range(randomOffset, randomOffset + limit - 1)
 
     if (error) {
       console.error("Search error:", error)
       throw error
     }
 
-    // 如果数据库中没有匹配的数据，使用本地筛选
-    if (!data || data.length === 0) {
-      console.warn("No matching data in database, using local filtering")
-      return performLocalFiltering(filters)
-    }
-
-    return data.map(transformToEnhanced)
+    return data ? data.map(transformToEnhanced) : []
   } catch (error) {
     console.warn("Search failed, using local filtering:", error)
-    return performLocalFiltering(filters)
+    return performLocalFiltering(filters, true)
   }
 }
 
 // 本地筛选逻辑
-function performLocalFiltering(filters: OpportunityFilters): OpportunityEnhanced[] {
+function performLocalFiltering(filters: OpportunityFilters, randomize = false): OpportunityEnhanced[] {
   let filtered = LOCAL_OPPORTUNITIES
 
   if (filters.keyword) {
@@ -266,7 +451,18 @@ function performLocalFiltering(filters: OpportunityFilters): OpportunityEnhanced
     }
   }
 
-  return filtered.slice(0, filters.limit || 6)
+  const limit = filters.limit || 6
+
+  console.log(`本地筛选：筛选后 ${filtered.length} 条，需要 ${limit} 条，随机选择：${randomize}`)
+
+  // 如果需要随机选择
+  if (randomize && filtered.length > limit) {
+    // 随机打乱数组
+    const shuffled = [...filtered].sort(() => Math.random() - 0.5)
+    return shuffled.slice(0, limit)
+  }
+
+  return filtered.slice(0, limit)
 }
 
 export async function getOpportunityStatistics(): Promise<OpportunityStatistics> {
