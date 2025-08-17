@@ -295,70 +295,97 @@ export default function Page() {
     }
   }, [currentPage])
 
-  const loadEnhancedOpportunities = async () => {
+  // 修复后的加载增强机会函数
+  const loadEnhancedOpportunities = useCallback(async () => {
+    console.log("开始加载增强机会数据...")
     setLoadingOpportunities(true)
+
     try {
-      console.log("Loading enhanced opportunities...")
+      console.log("调用 fetchEnhancedOpportunities...")
       const opportunities = await fetchEnhancedOpportunities(6) // 限制为6个
-      console.log("Loaded opportunities:", opportunities.length)
+      console.log("成功加载机会数据:", opportunities.length, "个机会")
+
       setEnhancedOpportunities(opportunities)
       setFilteredOpportunities(opportunities)
 
       // 加载统计数据
+      console.log("加载统计数据...")
       const stats = await getOpportunityStatistics()
+      console.log("统计数据:", stats)
       setOpportunityStats(stats)
+
+      console.log("机会数据加载完成")
     } catch (error) {
-      console.warn("从数据库获取增强机会失败，使用本地缓存:", error)
+      console.error("加载增强机会失败:", error)
+
+      // 使用本地缓存作为降级方案
+      console.log("使用本地缓存数据")
       const localOpportunities = getLocalEnhancedOpportunities().slice(0, 6)
       setEnhancedOpportunities(localOpportunities)
       setFilteredOpportunities(localOpportunities)
+
+      // 设置默认统计数据
+      setOpportunityStats({
+        total_opportunities: localOpportunities.length,
+        active_opportunities: localOpportunities.length,
+        high_priority_opportunities: localOpportunities.filter((opp) => opp.priority >= 8).length,
+        expiring_soon: 0,
+        unique_companies: new Set(localOpportunities.map((opp) => opp.company_name)).size,
+      })
     } finally {
       setLoadingOpportunities(false)
+      console.log("加载状态重置完成")
     }
-  }
+  }, [])
 
   // 处理筛选变化
-  const handleFiltersChange = async (filters: any) => {
-    setOpportunityFilters(filters)
-    setLoadingOpportunities(true)
+  const handleFiltersChange = useCallback(
+    async (filters: any) => {
+      console.log("筛选条件变化:", filters)
+      setOpportunityFilters(filters)
+      setLoadingOpportunities(true)
 
-    try {
-      if (Object.keys(filters).length === 0) {
-        // 无筛选条件，显示所有机会（限制6个）
-        const opportunities = await fetchEnhancedOpportunities(6)
-        setFilteredOpportunities(opportunities)
-      } else {
-        // 有筛选条件，执行搜索（限制6个）
-        const searchResults = await searchEnhancedOpportunities({ ...filters, limit: 6 })
-        setFilteredOpportunities(searchResults)
+      try {
+        if (Object.keys(filters).length === 0) {
+          // 无筛选条件，显示所有机会（限制6个）
+          console.log("无筛选条件，加载所有机会")
+          const opportunities = await fetchEnhancedOpportunities(6)
+          setFilteredOpportunities(opportunities)
+        } else {
+          // 有筛选条件，执行搜索（限制6个）
+          console.log("执行筛选搜索")
+          const searchResults = await searchEnhancedOpportunities({ ...filters, limit: 6 })
+          setFilteredOpportunities(searchResults)
+        }
+      } catch (error) {
+        console.warn("搜索失败，使用本地筛选:", error)
+        // 本地筛选降级
+        const filtered = enhancedOpportunities.filter((opp) => {
+          if (
+            filters.keyword &&
+            !opp.company_name.toLowerCase().includes(filters.keyword.toLowerCase()) &&
+            !opp.job_title.toLowerCase().includes(filters.keyword.toLowerCase())
+          ) {
+            return false
+          }
+          if (filters.location && !opp.location?.toLowerCase().includes(filters.location.toLowerCase())) {
+            return false
+          }
+          if (filters.fundingStage && opp.funding_stage !== filters.fundingStage) {
+            return false
+          }
+          if (filters.jobLevel && !opp.job_level?.includes(filters.jobLevel)) {
+            return false
+          }
+          return true
+        })
+        setFilteredOpportunities(filtered.slice(0, 6)) // 限制6个
+      } finally {
+        setLoadingOpportunities(false)
       }
-    } catch (error) {
-      console.warn("搜索失败，使用本地筛选:", error)
-      // 本地筛选降级
-      const filtered = enhancedOpportunities.filter((opp) => {
-        if (
-          filters.keyword &&
-          !opp.company_name.toLowerCase().includes(filters.keyword.toLowerCase()) &&
-          !opp.job_title.toLowerCase().includes(filters.keyword.toLowerCase())
-        ) {
-          return false
-        }
-        if (filters.location && !opp.location?.toLowerCase().includes(filters.location.toLowerCase())) {
-          return false
-        }
-        if (filters.fundingStage && opp.funding_stage !== filters.fundingStage) {
-          return false
-        }
-        if (filters.jobLevel && !opp.job_level?.includes(filters.jobLevel)) {
-          return false
-        }
-        return true
-      })
-      setFilteredOpportunities(filtered.slice(0, 6)) // 限制6个
-    } finally {
-      setLoadingOpportunities(false)
-    }
-  }
+    },
+    [enhancedOpportunities],
+  )
 
   // 处理申请机会
   const handleApplyOpportunity = (opportunity: OpportunityEnhanced) => {
@@ -1469,7 +1496,7 @@ export default function Page() {
                       title="刷新机会列表"
                     >
                       <RefreshCw size={16} className={loadingOpportunities ? "animate-spin" : ""} />
-                      刷新
+                      {loadingOpportunities ? "刷新中..." : "刷新"}
                     </button>
                   </div>
                 </div>
@@ -1524,7 +1551,7 @@ export default function Page() {
                     <p className="text-gray-600 mb-2">没有找到匹配的机会</p>
                     <p className="text-sm text-gray-500">尝试调整筛选条件或点击刷新按钮</p>
                     <button
-                      onClick={() => loadEnhancedOpportunities()}
+                      onClick={loadEnhancedOpportunities}
                       className="mt-4 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
                     >
                       重新加载数据

@@ -58,49 +58,169 @@ export function generateIcebreakerEmailTemplate(params: {
 
   // 从简历中提取一些可能的关键词（极简启发式）
   const topSkills = extractTopSkills(resumeText ?? "")
-  const skillLine = topSkills.length ? `我擅长：${topSkills.slice(0, 3).join("、")}。` : ""
+  const personalizedIntro = generatePersonalizedIntro(user, opp, resumeText)
+  const companyInsight = generateCompanyInsight(opp)
 
-  const subject = `祝贺${opp.company}${opp.tags?.[0] ?? ""} - 一位对${opp.title.replace(/工程师|开发/g, "")}充满热情的候选人`
+  const subject = generatePersonalizedSubject(user, opp, topSkills)
 
   const body = [
     "您好！",
     "",
-    `我关注到贵公司「${opp.company}」近期${opp.reason ?? "发展迅速"}，并对贵司的岗位「${opp.title}」非常感兴趣，特此致信。`,
+    personalizedIntro,
     "",
-    skillLine || "我具备扎实的工程基础与自驱力，乐于在快速变化的环境中交付高质量结果。",
-    resumeText ? "我的简历重点包含：\n" + summarizeResume(resumeText) : "我的简历已随信附上，欢迎查阅。",
+    generateSkillsSection(topSkills, opp),
+    generateExperienceSection(resumeText, opp),
     "",
-    "若有机会参与到贵司的下一阶段产品迭代，我将非常珍惜，也乐于先行完成小任务/技术作业以便您评估。",
+    companyInsight,
+    "",
+    generateActionCall(opp),
     "",
     `此致\n${user.username}`,
-  ].join("\n")
+  ]
+    .filter(Boolean)
+    .join("\n")
 
   return { subject, body }
 }
 
+// 生成个性化主题
+function generatePersonalizedSubject(user: User, opp: Opportunity, skills: string[]) {
+  const templates = [
+    `${opp.company} ${opp.title}职位申请 - 具备${skills[0] || "相关"}经验的${user.username}`,
+    `关于${opp.title}职位 - ${user.username}的求职申请`,
+    `${user.username}申请${opp.company}${opp.title}职位`,
+    `${opp.title}候选人推荐 - ${user.username}`,
+  ]
+
+  return templates[Math.floor(Math.random() * templates.length)]
+}
+
+// 生成个性化开场
+function generatePersonalizedIntro(user: User, opp: Opportunity, resumeText?: string | null) {
+  const hasResume = resumeText && resumeText.trim().length > 50
+
+  const intros = [
+    `我是${user.username}，一直关注${opp.company}在${opp.tags?.[0] || "技术"}领域的创新发展。看到贵公司的${opp.title}职位，我认为这是一个绝佳的机会。`,
+    `作为一名${hasResume ? "有经验的" : "充满热情的"}求职者，我对${opp.company}的${opp.reason || "发展理念"}深表认同，希望能加入${opp.title}团队。`,
+    `我是${user.username}，在了解到${opp.company}${opp.reason || "正在快速发展"}后，对贵公司的${opp.title}职位产生了浓厚兴趣。`,
+  ]
+
+  return intros[Math.floor(Math.random() * intros.length)]
+}
+
+// 生成技能匹配段落
+function generateSkillsSection(skills: string[], opp: Opportunity) {
+  if (skills.length === 0) {
+    return "我具备扎实的专业基础和快速学习能力，能够快速适应团队需求。"
+  }
+
+  const matchedSkills = skills.filter((skill) =>
+    opp.tags?.some((tag) => tag.toLowerCase().includes(skill.toLowerCase())),
+  )
+
+  if (matchedSkills.length > 0) {
+    return `我在${matchedSkills.slice(0, 3).join("、")}等技术领域有实际经验，与贵公司的技术栈高度匹配。`
+  }
+
+  return `我掌握${skills.slice(0, 3).join("、")}等技能，相信能为团队带来价值。`
+}
+
+// 生成经验展示段落
+function generateExperienceSection(resumeText?: string | null, opp?: Opportunity) {
+  if (!resumeText || resumeText.trim().length < 50) {
+    return "虽然我是应届生，但我有强烈的学习意愿和实践能力，愿意从基础工作做起，快速成长。"
+  }
+
+  // 提取项目经验
+  const projectKeywords = ["项目", "开发", "设计", "实现", "负责"]
+  const sentences = resumeText.split(/[。！？\n]/).filter((s) => s.trim().length > 10)
+  const projectExperience = sentences.find((sentence) => projectKeywords.some((keyword) => sentence.includes(keyword)))
+
+  if (projectExperience) {
+    return `我的项目经验包括：${projectExperience.slice(0, 100)}${projectExperience.length > 100 ? "..." : ""}，这些经历让我具备了解决实际问题的能力。`
+  }
+
+  return `我的简历详细展示了相关经验和技能，相信能够胜任${opp?.title || "目标"}职位的要求。`
+}
+
+// 生成公司洞察
+function generateCompanyInsight(opp: Opportunity) {
+  if (opp.reason) {
+    return `我特别认同${opp.company}${opp.reason}，这与我的职业发展方向高度一致。`
+  }
+
+  const insights = [
+    `${opp.company}在行业中的领先地位和创新能力令我印象深刻。`,
+    `我一直关注${opp.company}的发展，希望能够参与到公司的成长过程中。`,
+    `${opp.company}的企业文化和发展理念与我的价值观非常契合。`,
+  ]
+
+  return insights[Math.floor(Math.random() * insights.length)]
+}
+
+// 生成行动呼吁
+function generateActionCall(opp: Opportunity) {
+  const calls = [
+    "我非常希望能有机会进一步交流，展示我的能力和对这个职位的热情。",
+    "如果可能，我很乐意先完成一个小的技术任务或项目来证明我的能力。",
+    "期待能够与团队面谈，详细了解职位要求并展示我的相关经验。",
+    "我已准备好迎接挑战，希望能够为团队的成功贡献自己的力量。",
+  ]
+
+  return calls[Math.floor(Math.random() * calls.length)]
+}
+
 function extractTopSkills(text: string) {
   const dict = [
-    "NLP",
-    "LLM",
-    "Transformer",
-    "Python",
-    "PyTorch",
-    "Hugging Face",
-    "TypeScript",
     "React",
+    "Vue",
+    "Angular",
+    "JavaScript",
+    "TypeScript",
+    "Node.js",
+    "Python",
+    "Java",
     "Go",
     "Rust",
-    "K8s",
-    "SQL",
+    "C++",
+    "C#",
+    "MySQL",
+    "PostgreSQL",
+    "MongoDB",
+    "Redis",
+    "Docker",
+    "Kubernetes",
+    "AWS",
+    "Azure",
+    "机器学习",
+    "深度学习",
+    "NLP",
+    "CV",
+    "推荐系统",
+    "产品设计",
+    "用户体验",
     "数据分析",
-    "AIGC",
+    "项目管理",
+    "前端开发",
+    "后端开发",
+    "全栈开发",
+    "移动开发",
+    "DevOps",
+    "测试",
+    "运维",
+    "安全",
   ]
+
   const found = new Set<string>()
   const lower = text.toLowerCase()
-  dict.forEach((k) => {
-    if (lower.includes(k.toLowerCase())) found.add(k)
+
+  dict.forEach((skill) => {
+    if (lower.includes(skill.toLowerCase())) {
+      found.add(skill)
+    }
   })
-  return Array.from(found)
+
+  return Array.from(found).slice(0, 5) // 最多返回5个技能
 }
 
 function summarizeResume(text: string) {
