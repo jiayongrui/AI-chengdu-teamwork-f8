@@ -46,6 +46,14 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // 字体优化配置
+  experimental: {
+    optimizeFonts: true,
+  },
+  // 减少字体预加载警告
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
 }
 
 export default nextConfig

@@ -39,7 +39,13 @@ import {
   getOpportunityStatistics,
 } from "@/lib/opportunities-enhanced-api"
 
-const noto = Noto_Sans_SC({ subsets: ["latin"], weight: ["400", "500", "700"] })
+// 配置字体，禁用预加载以避免警告
+const noto = Noto_Sans_SC({ 
+  subsets: ["latin"], 
+  weight: ["400", "500", "700"],
+  preload: false, // 禁用预加载以避免警告
+  display: 'swap' // 使用 swap 显示策略
+})
 
 type PageKey =
   | "home"

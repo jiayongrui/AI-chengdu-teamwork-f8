@@ -1,0 +1,308 @@
+/* 身份筛选器样式 */
+.screen-center {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+}
+
+/* 步骤容器 */
+.step {
+  width: 100%;
+  max-width: 800px;
+  text-align: center;
+}
+
+/* 选项按钮网格 */
+.options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1rem;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* 身份选择按钮 */
+.identity-btn {
+  min-width: 120px;
+  min-height: 48px;
+  padding: 1rem 1.5rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 50%;
+  background: white;
+  color: #374151;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translate3d(0, 0, 0); /* 硬件加速 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.identity-btn:hover {
+  border-color: #4f46e5;
+  background: #f8fafc;
+  transform: translate3d(0, 0, 0) scale(1.05);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15);
+}
+
+.identity-btn:focus {
+  outline: none;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.identity-btn:active {
+  transform: translate3d(0, 0, 0) scale(0.98);
+}
+
+/* 选中状态 */
+.identity-btn.selected {
+  background: #4f46e5;
+  color: white;
+  border-color: #4f46e5;
+  transform: translate3d(0, 0, 0) scale(1.1);
+  box-shadow: 0 8px 25px rgba(79, 70, 229, 0.3);
+}
+
+/* 禁用状态 */
+.identity-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 标题样式 */
+#headline {
+  font-size: clamp(2rem, 5vw, 3rem);
+  line-height: 1.2;
+  margin-bottom: 3rem;
+  text-align: center;
+  color: #1f2937;
+  font-weight: 700;
+}
+
+/* 副标题样式 */
+.sub {
+  font-size: 1.125rem;
+  color: #6b7280;
+  margin-bottom: 2rem;
+  font-weight: 500;
+}
+
+/* 操作按钮容器 */
+.cta-container {
+  margin-top: 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
+}
+
+/* 主要操作按钮 */
+#cta {
+  background: #4f46e5;
+  color: white;
+  border: none;
+  border-radius: 50px;
+  padding: 1rem 2rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 48px;
+  min-width: 160px;
+}
+
+#cta:hover {
+  background: #4338ca;
+  transform: translate3d(0, 0, 0) scale(1.05);
+  box-shadow: 0 8px 25px rgba(79, 70, 229, 0.3);
+}
+
+#cta:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+/* 重置按钮 */
+#reset {
+  background: none;
+  color: #4f46e5;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+#reset:hover {
+  color: #4338ca;
+}
+
+#reset:focus {
+  outline: none;
+  text-decoration: none;
+}
+
+/* 动画类 */
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.fade-out {
+  animation: fadeOut 0.3s ease-out;
+}
+
+.slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+.slide-down {
+  animation: slideDown 0.3s ease-out;
+}
+
+/* 关键帧动画 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 20px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -20px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .screen-center {
+    padding: 1rem;
+  }
+  
+  .options {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+  
+  .identity-btn {
+    min-width: 100px;
+    min-height: 48px;
+    padding: 0.75rem 1rem;
+    font-size: 14px;
+  }
+  
+  #headline {
+    font-size: 1.75rem;
+    margin-bottom: 2rem;
+  }
+  
+  .sub {
+    font-size: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .cta-container {
+    margin-top: 2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .options {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  
+  .identity-btn {
+    min-width: 200px;
+    min-height: 48px;
+  }
+  
+  #headline {
+    font-size: 1.5rem;
+  }
+}
+
+/* 无障碍支持 */
+@media (prefers-reduced-motion: reduce) {
+  .identity-btn,
+  #cta,
+  .step {
+    transition: none;
+    animation: none;
+  }
+  
+  .identity-btn:hover {
+    transform: none;
+  }
+  
+  .identity-btn.selected {
+    transform: none;
+  }
+}
+
+/* 高对比度模式支持 */
+@media (prefers-contrast: high) {
+  .identity-btn {
+    border-width: 3px;
+  }
+  
+  .identity-btn.selected {
+    border-width: 4px;
+  }
+}
+
+/* 打印样式 */
+@media print {
+  .screen-center {
+    background: white;
+  }
+  
+  .identity-btn {
+    border: 1px solid #000;
+    background: white;
+    color: #000;
+  }
+} 
