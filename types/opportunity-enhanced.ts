@@ -16,6 +16,17 @@ export interface OpportunityEnhanced {
   updated_at: string
   expires_at?: string
   is_active: boolean
+  // BOSS直聘风格新增字段
+  salary_range?: string
+  job_type?: string
+  experience_required?: string
+  education_required?: string
+  job_description?: string
+  company_size?: string
+  industry?: string
+  benefits?: string
+  application_deadline?: string
+  posted_date?: string
 }
 
 // 兼容旧版本的机会类型

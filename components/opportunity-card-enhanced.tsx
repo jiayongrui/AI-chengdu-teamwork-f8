@@ -1,10 +1,12 @@
 "use client"
 
+import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
-import { Building2, MapPin, Clock, Star, Mail, User } from "lucide-react"
+import { Building2, MapPin, Clock, Star, Mail, User, Briefcase, GraduationCap, Calendar, DollarSign } from "lucide-react"
 import type { OpportunityEnhanced } from "@/types/opportunity-enhanced"
+import { OpportunityDetailDialog } from "./opportunity-detail-dialog"
 
 interface OpportunityCardEnhancedProps {
   opportunity: OpportunityEnhanced
@@ -12,6 +14,7 @@ interface OpportunityCardEnhancedProps {
 }
 
 export function OpportunityCardEnhanced({ opportunity, onApply }: OpportunityCardEnhancedProps) {
+  const [showDetail, setShowDetail] = useState(false)
   const getPriorityColor = (priority: number) => {
     if (priority >= 8) return "bg-red-100 text-red-800 border-red-200"
     if (priority >= 6) return "bg-orange-100 text-orange-800 border-orange-200"
@@ -37,7 +40,17 @@ export function OpportunityCardEnhanced({ opportunity, onApply }: OpportunityCar
   }
 
   return (
-    <Card className="h-full flex flex-col hover:shadow-lg transition-shadow duration-200 border border-gray-200">
+    <>
+      <OpportunityDetailDialog 
+        opportunity={opportunity}
+        open={showDetail}
+        onClose={() => setShowDetail(false)}
+        onApply={onApply}
+      />
+      <Card 
+        className="h-full flex flex-col hover:shadow-lg transition-shadow duration-200 border border-gray-200 cursor-pointer"
+        onClick={() => setShowDetail(true)}
+      >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -80,13 +93,42 @@ export function OpportunityCardEnhanced({ opportunity, onApply }: OpportunityCar
 
       <CardContent className="flex-1 pt-0">
         <div className="space-y-3">
-          {/* 位置信息 */}
-          {opportunity.location && (
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <MapPin size={14} className="flex-shrink-0" />
-              <span className="truncate">{opportunity.location}</span>
-            </div>
-          )}
+          {/* 薪资信息 - BOSS直聘风格 */}
+          <div className="flex items-center">
+            <span className="text-red-500 font-bold text-lg">{(opportunity as any).salary_range || "面议"}</span>
+          </div>
+          
+          {/* 工作要求信息 - BOSS直聘风格 */}
+          <div className="flex flex-wrap gap-2 text-sm text-gray-600">
+            {opportunity.location && (
+              <div className="flex items-center gap-1">
+                <MapPin size={14} className="flex-shrink-0" />
+                <span className="truncate">{opportunity.location}</span>
+              </div>
+            )}
+            {(opportunity as any).experience_required && (
+              <div className="flex items-center gap-1">
+                <Briefcase size={14} className="flex-shrink-0" />
+                <span className="truncate">{(opportunity as any).experience_required}</span>
+              </div>
+            )}
+            {(opportunity as any).education_required && (
+              <div className="flex items-center gap-1">
+                <GraduationCap size={14} className="flex-shrink-0" />
+                <span className="truncate">{(opportunity as any).education_required}</span>
+              </div>
+            )}
+          </div>
+
+          {/* 公司信息 - BOSS直聘风格 */}
+          <div className="flex flex-wrap gap-2 text-xs text-gray-500">
+            {(opportunity as any).company_size && (
+              <span className="bg-gray-100 px-2 py-1 rounded">{(opportunity as any).company_size}</span>
+            )}
+            {(opportunity as any).industry && (
+              <span className="bg-gray-100 px-2 py-1 rounded">{(opportunity as any).industry}</span>
+            )}
+          </div>
 
           {/* 联系信息 */}
           <div className="space-y-1">
@@ -120,15 +162,21 @@ export function OpportunityCardEnhanced({ opportunity, onApply }: OpportunityCar
             </div>
           )}
 
-          {/* 融资阶段和职级 */}
-          <div className="flex gap-2 text-xs text-gray-500">
-            {opportunity.funding_stage && (
-              <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded">{opportunity.funding_stage}</span>
-            )}
-            {opportunity.job_level && (
-              <span className="bg-green-50 text-green-700 px-2 py-1 rounded">{opportunity.job_level}</span>
-            )}
-          </div>
+          {/* 福利标签 - BOSS直聘风格 */}
+          {(opportunity as any).benefits && (
+            <div className="flex flex-wrap gap-1">
+              {(opportunity as any).benefits.split('、').slice(0, 3).map((benefit: string, index: number) => (
+                <Badge key={index} variant="outline" className="text-xs px-2 py-1 bg-blue-50 text-blue-700 border-blue-200">
+                  {benefit}
+                </Badge>
+              ))}
+              {(opportunity as any).benefits.split('、').length > 3 && (
+                <Badge variant="outline" className="text-xs px-2 py-1 bg-blue-50 text-blue-700 border-blue-200">
+                  +{(opportunity as any).benefits.split('、').length - 3}
+                </Badge>
+              )}
+            </div>
+          )}
 
           {/* 推荐理由 */}
           {opportunity.reason && (
@@ -146,7 +194,10 @@ export function OpportunityCardEnhanced({ opportunity, onApply }: OpportunityCar
             {opportunity.expires_at && <span className="ml-2">· 截止 {formatDate(opportunity.expires_at)}</span>}
           </div>
           <Button
-            onClick={() => onApply(opportunity)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onApply(opportunity);
+            }}
             size="sm"
             className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors"
           >
@@ -155,5 +206,6 @@ export function OpportunityCardEnhanced({ opportunity, onApply }: OpportunityCar
         </div>
       </CardFooter>
     </Card>
+    </>
   )
 }
