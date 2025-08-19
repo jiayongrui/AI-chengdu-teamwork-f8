@@ -113,6 +113,20 @@ export default function Page() {
     reason: "",
   })
 
+  // 新的机会管理页面状态
+  const [showOpportunityForm, setShowOpportunityForm] = useState(false)
+  const [editingOpportunity, setEditingOpportunity] = useState<Opportunity | null>(null)
+  const [opportunityForm, setOpportunityForm] = useState({
+    company: "",
+    position: "",
+    location: "",
+    salary: "",
+    description: "",
+    requirements: "",
+    contact: "",
+    url: "",
+  })
+
   // 简历管理状态
   const [resumes, setResumes] = useState<Resume[]>([])
   const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null)
@@ -906,6 +920,74 @@ export default function Page() {
       const updated = adminOpportunities.filter((opp) => opp.id !== oppId)
       saveAdminOpportunities(updated)
     }
+  }
+
+  // 新的机会管理页面处理函数
+  const handleAddOpportunityNew = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!opportunityForm.company.trim() || !opportunityForm.position.trim()) {
+      alert("请填写公司名称和职位名称")
+      return
+    }
+
+    const newOpp: Opportunity = {
+      id: `admin-opp-${Date.now()}`,
+      company: opportunityForm.company.trim(),
+      title: opportunityForm.position.trim(),
+      city: opportunityForm.location.trim() || undefined,
+      tags: [],
+      reason: opportunityForm.description.trim() || undefined,
+    }
+
+    const updated = [...adminOpportunities, newOpp]
+    saveAdminOpportunities(updated)
+
+    // 重置表单
+    setOpportunityForm({
+      company: "",
+      position: "",
+      location: "",
+      salary: "",
+      description: "",
+      requirements: "",
+      contact: "",
+      url: "",
+    })
+    setShowOpportunityForm(false)
+  }
+
+  const handleUpdateOpportunityNew = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingOpportunity || !opportunityForm.company.trim() || !opportunityForm.position.trim()) {
+      alert("请填写公司名称和职位名称")
+      return
+    }
+
+    const updatedOpp: Opportunity = {
+      ...editingOpportunity,
+      company: opportunityForm.company.trim(),
+      title: opportunityForm.position.trim(),
+      city: opportunityForm.location.trim() || undefined,
+      tags: [],
+      reason: opportunityForm.description.trim() || undefined,
+    }
+
+    const updated = adminOpportunities.map((opp) => (opp.id === editingOpportunity.id ? updatedOpp : opp))
+    saveAdminOpportunities(updated)
+
+    // 重置编辑状态
+    setEditingOpportunity(null)
+    setOpportunityForm({
+      company: "",
+      position: "",
+      location: "",
+      salary: "",
+      description: "",
+      requirements: "",
+      contact: "",
+      url: "",
+    })
+    setShowOpportunityForm(false)
   }
 
   const navItemClass = (active: boolean) =>
@@ -2520,7 +2602,359 @@ export default function Page() {
           </div>
         )}
 
-        {/* 管理员页面保持不变... */}
+        {/* 网页爬虫页面 */}
+        {currentPage === "scraper" && (
+          <div id="page-scraper" className="page-content">
+            <section className="py-12 bg-gray-50 min-h-screen">
+              <div className="container mx-auto px-6 max-w-4xl">
+                <div className="mb-8">
+                  <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">网页爬虫</h2>
+                  <p className="text-gray-600">爬取网页内容，获取招聘信息和公司动态</p>
+                </div>
+
+                <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-200">
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      目标网址 <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex gap-3">
+                      <input
+                        type="url"
+                        value={crawlUrl}
+                        onChange={(e) => setCrawlUrl(e.target.value)}
+                        placeholder="https://example.com/careers"
+                        className="flex-1 px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                        disabled={crawling}
+                      />
+                      <button
+                        onClick={handleCrawl}
+                        disabled={crawling || !crawlUrl.trim()}
+                        className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-60 transition-colors font-medium"
+                      >
+                        {crawling ? "爬取中..." : "开始爬取"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 爬取状态 */}
+                  {crawling && (
+                    <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                        <p className="text-blue-700 text-sm">正在爬取网页内容，请稍候...</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 错误信息 */}
+                  {crawlError && (
+                    <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                      <p className="text-red-700 text-sm">{crawlError}</p>
+                    </div>
+                  )}
+
+                  {/* 爬取结果 */}
+                  {crawlResult && (
+                    <div className="mb-6">
+                      <h3 className="text-lg font-bold text-gray-800 mb-3">爬取结果</h3>
+                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                        <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono max-h-96 overflow-y-auto">
+                          {crawlResult}
+                        </pre>
+                      </div>
+                      <div className="mt-3 flex gap-3">
+                        <button
+                          onClick={() => navigator.clipboard.writeText(crawlResult)}
+                          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
+                        >
+                          复制内容
+                        </button>
+                        <button
+                          onClick={() => setCrawlResult(null)}
+                          className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm"
+                        >
+                          清除结果
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 使用说明 */}
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <h4 className="font-bold text-yellow-800 mb-2">使用说明</h4>
+                    <ul className="text-sm text-yellow-700 space-y-1">
+                      <li>• 输入完整的网址（包含 https://）</li>
+                      <li>• 支持爬取大部分公开网页内容</li>
+                      <li>• 爬取结果会显示网页的文本内容</li>
+                      <li>• 可以用于获取招聘页面、公司动态等信息</li>
+                      <li>• 请遵守网站的robots.txt和使用条款</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* 机会管理页面 */}
+        {currentPage === "opportunity-manager" && (
+          <div id="page-opportunity-manager" className="page-content">
+            <section className="py-12 bg-gray-50 min-h-screen">
+              <div className="container mx-auto px-6 max-w-6xl">
+                <div className="mb-8">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">机会管理</h2>
+                      <p className="text-gray-600">管理和添加新的职业机会</p>
+                    </div>
+                    <button
+                      onClick={() => setShowOpportunityForm(true)}
+                      className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium"
+                    >
+                      添加新机会
+                    </button>
+                  </div>
+                </div>
+
+                {/* 添加机会表单 */}
+                {showOpportunityForm && (
+                  <div className="mb-8 bg-white rounded-2xl shadow-xl p-6 border border-gray-200">
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="text-xl font-bold text-gray-800">
+                        {editingOpportunity ? "编辑机会" : "添加新机会"}
+                      </h3>
+                      <button
+                        onClick={() => {
+                          setShowOpportunityForm(false)
+                          setEditingOpportunity(null)
+                          setOpportunityForm({
+                            company: "",
+                            position: "",
+                            location: "",
+                            salary: "",
+                            description: "",
+                            requirements: "",
+                            contact: "",
+                            url: "",
+                          })
+                        }}
+                        className="text-gray-500 hover:text-gray-700"
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    <form onSubmit={editingOpportunity ? handleUpdateOpportunityNew : handleAddOpportunityNew} className="space-y-4">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            公司名称 <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={opportunityForm.company}
+                            onChange={(e) => setOpportunityForm({ ...opportunityForm, company: e.target.value })}
+                            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            职位名称 <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={opportunityForm.position}
+                            onChange={(e) => setOpportunityForm({ ...opportunityForm, position: e.target.value })}
+                            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">工作地点</label>
+                          <input
+                            type="text"
+                            value={opportunityForm.location}
+                            onChange={(e) => setOpportunityForm({ ...opportunityForm, location: e.target.value })}
+                            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">薪资范围</label>
+                          <input
+                            type="text"
+                            value={opportunityForm.salary}
+                            onChange={(e) => setOpportunityForm({ ...opportunityForm, salary: e.target.value })}
+                            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                            placeholder="如：15-25K"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">职位描述</label>
+                        <textarea
+                          value={opportunityForm.description}
+                          onChange={(e) => setOpportunityForm({ ...opportunityForm, description: e.target.value })}
+                          rows={4}
+                          className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">任职要求</label>
+                        <textarea
+                          value={opportunityForm.requirements}
+                          onChange={(e) => setOpportunityForm({ ...opportunityForm, requirements: e.target.value })}
+                          rows={3}
+                          className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">联系方式</label>
+                          <input
+                            type="text"
+                            value={opportunityForm.contact}
+                            onChange={(e) => setOpportunityForm({ ...opportunityForm, contact: e.target.value })}
+                            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                            placeholder="邮箱或电话"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">相关链接</label>
+                          <input
+                            type="url"
+                            value={opportunityForm.url}
+                            onChange={(e) => setOpportunityForm({ ...opportunityForm, url: e.target.value })}
+                            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                            placeholder="https://..."
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end gap-3 pt-4">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowOpportunityForm(false)
+                            setEditingOpportunity(null)
+                            setOpportunityForm({
+                              company: "",
+                              position: "",
+                              location: "",
+                              salary: "",
+                              description: "",
+                              requirements: "",
+                              contact: "",
+                              url: "",
+                            })
+                          }}
+                          className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition-colors"
+                        >
+                          取消
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-6 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600 transition-colors font-medium"
+                        >
+                          {editingOpportunity ? "更新机会" : "添加机会"}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                )}
+
+                {/* 机会列表 */}
+                <div className="bg-white rounded-2xl shadow-xl border border-gray-200">
+                  <div className="p-6 border-b border-gray-200">
+                    <h3 className="text-lg font-bold text-gray-800">
+                      管理员机会列表 ({adminOpportunities.length})
+                    </h3>
+                  </div>
+
+                  {adminOpportunities.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500">
+                      <p>还没有添加任何机会</p>
+                      <p className="text-sm mt-1">点击上方"添加新机会"按钮开始添加</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-gray-200">
+                      {adminOpportunities.map((opportunity) => (
+                        <div key={opportunity.id} className="p-6">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-2">
+                                <h4 className="text-lg font-bold text-gray-800">{opportunity.company}</h4>
+                                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                                  {opportunity.position}
+                                </span>
+                              </div>
+                              <div className="text-sm text-gray-600 space-y-1">
+                                {opportunity.location && (
+                                  <p><strong>地点：</strong>{opportunity.location}</p>
+                                )}
+                                {opportunity.salary && (
+                                  <p><strong>薪资：</strong>{opportunity.salary}</p>
+                                )}
+                                {opportunity.description && (
+                                  <p><strong>描述：</strong>{opportunity.description}</p>
+                                )}
+                                {opportunity.requirements && (
+                                  <p><strong>要求：</strong>{opportunity.requirements}</p>
+                                )}
+                                {opportunity.contact && (
+                                  <p><strong>联系：</strong>{opportunity.contact}</p>
+                                )}
+                                {opportunity.url && (
+                                  <p><strong>链接：</strong>
+                                    <a href={opportunity.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline ml-1">
+                                      {opportunity.url}
+                                    </a>
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 ml-4">
+                              <button
+                                onClick={() => {
+                                  setEditingOpportunity(opportunity)
+                                  setOpportunityForm({
+                                    company: opportunity.company,
+                                    position: opportunity.position,
+                                    location: opportunity.location || "",
+                                    salary: opportunity.salary || "",
+                                    description: opportunity.description || "",
+                                    requirements: opportunity.requirements || "",
+                                    contact: opportunity.contact || "",
+                                    url: opportunity.url || "",
+                                  })
+                                  setShowOpportunityForm(true)
+                                }}
+                                className="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
+                              >
+                                编辑
+                              </button>
+                              <button
+                                onClick={() => handleDeleteOpportunity(opportunity.id)}
+                                className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
+                              >
+                                删除
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* 其他管理员页面保持不变... */}
       </main>
     </div>
   )
