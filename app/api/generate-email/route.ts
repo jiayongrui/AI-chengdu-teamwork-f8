@@ -135,21 +135,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "缺少必要参数" }, { status: 400 })
     }
 
-    // If API key is not available, return server-side template fallback (200)
-    if (!process.env.DEEPINFRA_API_KEY) {
-      const { subject, body } = buildTemplateEmail({ user, opportunity, resumeText })
-      return NextResponse.json({ subject, body, success: true, fallback: true })
-    }
+    // DeepSeek API key is now hardcoded, so we can proceed with AI generation
+    // If needed, fallback logic can be added here for error handling
 
     // Create DeepSeek client using OpenAI-compatible API
-    const deepinfra = createOpenAI({
-      name: "deepinfra",
-      apiKey: process.env.DEEPINFRA_API_KEY,
-      baseURL: "https://api.deepinfra.com/v1/openai",
+    const deepseek = createOpenAI({
+      name: "deepseek",
+      apiKey: "sk-ufnwysgrwnebkczychcgkvzvvinyydmppnrvgyclbwdluvpu",
+      baseURL: "https://api.deepseek.com/v1",
     })
 
     // 提取简历亮点
-    const resumeHighlights = extractResumeHighlights(resumeText || "", opportunity.tags || [])
+    const resumeHighlightsObj = extractResumeHighlights(resumeText || "", opportunity.tags || [])
+    const resumeHighlights = `**技能匹配：** ${resumeHighlightsObj.skills.join('、') || '无'}
+
+**项目经验：**
+${resumeHighlightsObj.experiences.map(exp => `- ${exp}`).join('\n') || '- 无相关经验'}
+
+**教育背景：** ${resumeHighlightsObj.education || '未提供'}`
 
     // 生成个性化开场白
     const personalizedGreeting = generatePersonalizedGreeting(
@@ -158,80 +161,100 @@ export async function POST(req: NextRequest) {
       opportunity.reason,
     )
 
-    // 构建更详细和个性化的AI提示词
-    const prompt = `你是一位资深的求职顾问，请帮助求职者生成一封专业且个性化的破冰邮件。
+    // 构建简历优化报告生成的AI提示词，直接分析用户简历信息
+    const prompt = `# 角色与目标 
+你是一位顶级的AI产品经理职业导师和招聘专家。你的唯一目标是基于一个特定的、量化的简历评估模型，帮助我优化简历，以最大限度地提高我成功申请【应届生AI产品经理】岗位的概率。 
 
-## 求职者信息
-- 姓名：${user.username}
-- 简历内容：${resumeText || "暂无详细简历"}
+# 核心评估模型 (Context) 
+你必须严格按照以下五个维度及其权重，来分析和评估我的简历。这是你所有建议的基石。 
 
-## 从简历中提取的关键信息
-- 技能匹配：${resumeHighlights.skills.join("、") || "通用技能"}
-- 项目经验：${resumeHighlights.experiences.join("；") || "相关工作经验"}
-- 教育背景：${resumeHighlights.education || "相关教育背景"}
+* **1. 背景与经验 (权重 20%)**: 评估我的教育背景、专业匹配度、以及实习/项目的相关性。 
+* **2. 专业知识与技能 (权重 30%)**: 评估我简历中体现的AI技术认知（如RAG, Agent）和产品方法论（如用户研究, PRD）。 
+* **3. 产品作品与成果 (权重 20%)**: 评估我提供的可交互作品、产品文档、分析报告等成果的质量和说服力。这是"Show, Don't Tell"的关键。 
+* **4. 核心胜任力 (权重 15%)**: 通过简历的语言和结构，评估我的逻辑思维和结果导向意识。重点是项目描述是否量化，是否使用STAR法则。 
+* **5. 发展潜力 (权重 15%)**: 寻找简历中体现自驱力、产品热情和主动性的信号，如个人博客、GitHub项目、开源贡献等。 
 
-## 目标公司与职位
-- 公司名称：${opportunity.company}
-- 职位：${opportunity.title}
-- 城市：${opportunity.city || "不限"}
-- 技能要求：${opportunity.tags?.join("、") || "无特殊要求"}
-- 公司亮点：${opportunity.reason || "行业领先企业"}
+# 目标岗位信息
+**公司**: ${opportunity.company}
+**职位**: ${opportunity.title}
+**城市**: ${opportunity.city || '未指定'}
+**岗位标签**: ${(opportunity.tags || []).join(', ')}
+**岗位描述**: ${opportunity.reason || '暂无详细描述'}
 
-## 个性化要求
-1. **开场白**：使用这个个性化开场："${personalizedGreeting}"，然后自然过渡到求职意图
-2. **技能匹配**：重点突出简历中与职位要求匹配的技能：${resumeHighlights.skills.slice(0, 3).join("、")}
-3. **经验展示**：简要提及1-2个相关项目或经验，体现实际能力
-4. **公司认知**：体现对公司业务和发展的了解，引用公司亮点
-5. **个人价值**：明确表达能为公司带来的价值和贡献
-6. **行动导向**：提出具体的下一步行动建议
+# 我的简历信息 (Input) 
+${resumeHighlights}
 
-## 邮件风格要求
-- 语气：专业而真诚，不卑不亢
-- 长度：250-350字，简洁有力
-- 结构：开场问候 → 个人介绍 → 技能匹配 → 价值主张 → 行动呼吁 → 礼貌结尾
-- 避免：过度谦虚、模板化表达、冗长描述
+# 你的任务 (Instructions) 
+请严格按照以下步骤，以清晰、专业、鼓励的语气，为我提供一份完整的简历优化报告： 
 
-## 特别注意
-- 如果简历信息不足，重点突出学习能力和工作热情
-- 针对不同类型职位（技术/产品/运营等）调整重点
-- 体现对行业趋势的理解和个人成长规划
+1.  **量化评估诊断 (Score & Diagnose)**: 
+    * 首先，根据上述评估模型和我的简历信息，为我的简历进行打分（满分100）。 
+    * 然后，清晰地列出五个维度各自的得分（例如：背景与经验 15/20），并简要说明得分原因。这能让我直观地看到自己的长板和短板。 
 
-请按以下格式返回：
-主题：[简洁有力的邮件主题，体现价值定位]
-正文：[个性化的邮件正文]`
+2.  **分维度优化建议 (Actionable Advice)**: 
+    * 针对每一个维度，特别是失分较多的维度，提供**具体、可执行**的优化建议。 
+    * 例如，如果"作品成果"维度失分，你应该建议我："可以尝试将你在XX项目中的需求文档整理成一份简洁的PDF，并添加到作品集链接中。" 
 
-    const result = await generateText({
-      model: deepinfra("meta-llama/Meta-Llama-3.1-70B-Instruct"),
-      prompt,
-      maxTokens: 1000,
-      temperature: 0.8, // 提高创造性
+3.  **核心描述改写 (Rewrite Key Points)**: 
+    * 从我的"实习经历"或"项目经历"中，**挑选出2-3条最薄弱的描述**。 
+    * 展示一个**"优化前"**和**"优化后"**的对比。 
+    * "优化后"的版本必须运用**STAR法则**，并尽可能地**加入量化结果或业务影响**。这是报告中最核心的部分。 
+
+4.  **机会点挖掘 (Uncover Opportunities)**: 
+    * 最后，总结出我的简历目前**缺失的关键信息或"加分项"**。 
+    * 例如："你的简历缺少一个可交互的作品，强烈建议你花一天时间，使用Coze或Dify搭建一个能解决身边小问题的AI Bot，并将链接附上，这将是决定性的加分项。" 
+
+请开始你的分析和优化吧！`
+
+    // 使用 DeepSeek API 生成简历优化报告
+    // 清理prompt中可能导致编码问题的字符
+    const cleanPrompt = prompt.replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim()
+    
+    const { text } = await generateText({
+      model: deepseek('deepseek-chat'),
+      prompt: cleanPrompt,
+      maxTokens: 4000,
+      temperature: 0.7,
     })
 
-    // 解析AI生成的内容
-    const content = result.text
-    const subjectMatch = content.match(/主题：([\s\S]+?)(?:\n|正文：)/)
-    const bodyMatch = content.match(/正文：([\s\S]+)$/)
-
-    let subject = subjectMatch?.[1]?.trim() || `${opportunity.title}求职申请 - ${user.username}`
-    let body = bodyMatch?.[1]?.trim() || content
-
-    // 如果主题过长，进行优化
-    if (subject.length > 50) {
-      subject = `${opportunity.company} ${opportunity.title}职位申请 - ${user.username}`
-    }
-
-    // 确保邮件正文包含基本要素
-    if (body.length < 100) {
-      const { subject: fallbackSubject, body: fallbackBody } = buildTemplateEmail({ user, opportunity, resumeText })
-      subject = fallbackSubject
-      body = fallbackBody
-    }
-
-    return NextResponse.json({ subject, body, success: true })
+    return NextResponse.json({
+      body: text,
+      subject: '简历优化报告',
+      success: true
+    })
   } catch (error: any) {
-    console.error("AI邮件生成失败，降级为模板:", error)
-    // Graceful fallback on any failure (200)
-    const { subject, body } = buildTemplateEmail({ user, opportunity, resumeText })
-    return NextResponse.json({ subject, body, success: true, fallback: true })
+    console.error("AI简历优化生成失败:", error)
+    // 返回基础的简历优化模板
+    const fallbackResumeHighlightsObj = resumeText ? extractResumeHighlights(resumeText, opportunity.tags || []) : null
+    const fallbackResumeHighlights = fallbackResumeHighlightsObj ? 
+      `**技能匹配：** ${fallbackResumeHighlightsObj.skills.join('、') || '无'}
+
+**项目经验：**
+${fallbackResumeHighlightsObj.experiences.map(exp => `- ${exp}`).join('\n') || '- 无相关经验'}
+
+**教育背景：** ${fallbackResumeHighlightsObj.education || '未提供'}` : 
+      "未提供简历内容"
+    const fallbackBody = `# 简历优化报告
+
+## 目标职位信息
+- 公司：${opportunity.company}
+- 职位：${opportunity.title}
+- 地点：${opportunity.city || '未指定'}
+- 标签：${opportunity.tags?.join(', ') || '无'}
+
+## 简历内容分析
+${fallbackResumeHighlights}
+
+## 优化建议
+由于AI服务暂时不可用，请稍后重试获取详细的优化建议。
+
+当前简历内容已显示在上方，您可以根据目标职位要求进行相应调整。`
+    
+    return NextResponse.json({
+      body: fallbackBody,
+      subject: '简历优化报告',
+      success: true,
+      fallback: true
+    })
   }
 }
