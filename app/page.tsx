@@ -516,28 +516,40 @@ export default function Page() {
 
     showPage("#forge")
 
-    // 异步生成AI邮件
+    // 异步生成简历优化报告
     setAiGenerating(true)
     try {
-      const draft = await generateIcebreakerEmailWithAI({ user, resumeText, opp })
-      setMailSubject(draft.subject)
-      setMailBody(draft.body)
-      // 清除错误信息，因为生成成功了
+      const response = await fetch("/api/generate-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user: user,
+          opportunity: opp,
+          resumeText: resumeText,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      setMailSubject(data.subject)
+      setMailBody(data.body)
       setAiGenerateError(null)
     } catch (error: any) {
-      // 这个catch应该不会被触发，因为我们在generateIcebreakerEmailWithAI中已经处理了降级
-      console.error("意外错误:", error)
-      setAiGenerateError("生成过程中出现问题，已使用模板生成")
-      // 作为最后的保险，再次尝试模板生成
-      const fallbackDraft = generateIcebreakerEmail({ user, resumeText, opp })
-      setMailSubject(fallbackDraft.subject)
-      setMailBody(fallbackDraft.body)
+      console.error("简历优化报告生成失败:", error)
+      setAiGenerateError("生成简历优化报告时出现问题")
+      setMailSubject("简历优化报告")
+      setMailBody("生成失败，请稍后重试")
     } finally {
       setAiGenerating(false)
     }
   }
 
-  // 重新生成邮件
+  // 重新生成简历优化报告
   const onRegenerateEmail = async () => {
     if (!user || !selectedOpp) return
 
@@ -545,17 +557,31 @@ export default function Page() {
     setAiGenerateError(null)
 
     try {
-      const draft = await generateIcebreakerEmailWithAI({ user, resumeText, opp: selectedOpp })
-      setMailSubject(draft.subject)
-      setMailBody(draft.body)
+      const response = await fetch("/api/generate-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user: user,
+          opportunity: selectedOpp,
+          resumeText: resumeText,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      setMailSubject(data.subject)
+      setMailBody(data.body)
       setAiGenerateError(null)
     } catch (error: any) {
-      // 同样，这个catch也不应该被触发
-      console.error("重新生成时出现意外错误:", error)
-      setAiGenerateError("重新生成失败，已使用模板生成")
-      const fallbackDraft = generateIcebreakerEmail({ user, resumeText, opp: selectedOpp })
-      setMailSubject(fallbackDraft.subject)
-      setMailBody(fallbackDraft.body)
+      console.error("重新生成简历优化报告失败:", error)
+      setAiGenerateError("重新生成简历优化报告时出现问题")
+      setMailSubject("简历优化报告")
+      setMailBody("重新生成失败，请稍后重试")
     } finally {
       setAiGenerating(false)
     }
@@ -1407,9 +1433,9 @@ export default function Page() {
                     </div>
                     <div className="md:w-1/2">
                       <span className="text-yellow-500 font-bold">02</span>
-                      <h3 className="text-2xl font-bold mt-2 mb-4">AIGC生成破冰弹药</h3>
+                      <h3 className="text-2xl font-bold mt-2 mb-4">AI简历优化报告</h3>
                       <p className="text-gray-600 mb-6">
-                        从关键联系人到邮件第一句话，AI为你量身定制沟通策略，让你的出击不再尴尬，给HR留下深刻第一印象。
+                        基于五维评估模型，AI为你生成专业的简历优化报告，提供量化评分、具体建议和STAR法则改写，助你打造完美简历。
                       </p>
                       <a
                         href="#forge"
@@ -1596,7 +1622,7 @@ export default function Page() {
                     <div>
                       <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">机会雷达</h2>
                       <p className="text-gray-600">发现最新的职业机会，精准匹配你的技能和期望</p>
-                      {!user && <p className="text-sm text-amber-600 mt-2">💡 登录后可发送破冰邮件</p>}
+                      {!user && <p className="text-sm text-amber-600 mt-2">💡 登录后可生成简历优化报告</p>}
                     </div>
                     <button
                       onClick={loadEnhancedOpportunities}
@@ -1774,7 +1800,7 @@ export default function Page() {
                       </li>
                       <li className="flex items-center text-gray-600">
                         <span className="text-green-500 mr-2">✓</span>
-                        AI个性化邮件生成
+                        AI个性化简历优化
                       </li>
                       <li className="flex items-center text-gray-600">
                         <span className="text-green-500 mr-2">✓</span>
@@ -2263,7 +2289,7 @@ export default function Page() {
 
                 {!user ? (
                   <div className="bg-gray-50 rounded-2xl p-8 text-center border border-gray-200">
-                    <p className="text-gray-700">请先登录后生成邮件</p>
+                    <p className="text-gray-700">请先登录后生成简历优化报告</p>
                     <div className="mt-4">
                       <a
                         href="#login"
@@ -2291,7 +2317,7 @@ export default function Page() {
                   <div className="bg-white rounded-2xl shadow-xl p-6">
                     <div className="flex items-center justify-between mb-4">
                       <p className="text-sm text-gray-500">
-                        根据你的简历与目标公司「<b>{selectedOpp.company}</b>」生成邮件。
+                        根据你的简历与目标公司「<b>{selectedOpp.company}</b>」生成简历优化报告。
                       </p>
                       <button
                         onClick={onRegenerateEmail}
@@ -2313,7 +2339,7 @@ export default function Page() {
                                 d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                               />
                             </svg>
-                            重新生成
+                            重新生成报告
                           </>
                         )}
                       </button>
@@ -2329,57 +2355,31 @@ export default function Page() {
                       <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                         <div className="flex items-center gap-3">
                           <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                          <p className="text-blue-700 text-sm">AI正在为你量身定制破冰邮件，请稍候...</p>
+                          <p className="text-blue-700 text-sm">AI正在为你生成简历优化报告，请稍候...</p>
                         </div>
                       </div>
                     )}
 
                     <div className="grid gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          收件人邮箱 <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="email"
-                          value={recipientEmail}
-                          onChange={(e) => setRecipientEmail(e.target.value)}
-                          placeholder="hr@company.com 或 cto@company.com"
-                          className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
-                          disabled={aiGenerating}
-                          required
-                        />
-                        <p className="text-xs text-gray-500 mt-1">💡 建议发送给HR、技术负责人或创始人邮箱</p>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">你的邮箱（可选）</label>
-                        <input
-                          type="email"
-                          value={senderEmail}
-                          onChange={(e) => setSenderEmail(e.target.value)}
-                          placeholder="your.email@gmail.com"
-                          className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
-                          disabled={aiGenerating}
-                        />
-                        <p className="text-xs text-gray-500 mt-1">用于接收回复，不填写将使用系统默认邮箱</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">主题</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">报告标题</label>
                         <input
                           value={mailSubject}
                           onChange={(e) => setMailSubject(e.target.value)}
                           className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
                           disabled={aiGenerating}
+                          readOnly
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">正文</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">简历优化报告</label>
                         <textarea
                           value={mailBody}
                           onChange={(e) => setMailBody(e.target.value)}
-                          rows={12}
-                          className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none font-mono text-sm"
+                          rows={20}
+                          className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none text-sm"
                           disabled={aiGenerating}
+                          style={{ whiteSpace: 'pre-wrap' }}
                         />
                       </div>
 
@@ -2395,21 +2395,25 @@ export default function Page() {
                           onClick={(e) => handleNavClick(e, "#bounty")}
                           className="px-4 py-2 rounded-full border border-gray-300 hover:bg-gray-100 nav-link"
                         >
-                          取消
+                          返回机会雷达
                         </a>
                         <button
-                          onClick={onConfirmSend}
-                          disabled={sending || aiGenerating || !mailSubject.trim() || !mailBody.trim()}
-                          className="px-5 py-2 rounded-full bg-green-500 text-white cta-button disabled:opacity-60"
+                          onClick={() => {
+                            // 复制报告内容到剪贴板
+                            if (mailBody) {
+                              navigator.clipboard.writeText(mailBody).then(() => {
+                                alert('报告内容已复制到剪贴板！')
+                              }).catch(() => {
+                                alert('复制失败，请手动选择文本复制')
+                              })
+                            }
+                          }}
+                          disabled={aiGenerating || !mailBody.trim()}
+                          className="px-5 py-2 rounded-full bg-blue-500 text-white cta-button disabled:opacity-60"
                         >
-                          {sending ? "发送中..." : "确认发送"}
+                          复制报告
                         </button>
                       </div>
-                      {sendMsg && (
-                        <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                          <p className="text-sm text-gray-700 whitespace-pre-line">{sendMsg}</p>
-                        </div>
-                      )}
                     </div>
                   </div>
                 )}
