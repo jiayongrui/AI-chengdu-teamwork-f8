@@ -218,7 +218,7 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
   // 测试数据库连接（使用更简单的查询避免网络问题）
   try {
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 5000) // 5秒超时
+    const timeoutId = setTimeout(() => controller.abort(), 3000) // 3秒超时
     
     const { error: testError } = await supabase
       .from('opportunities')
@@ -243,18 +243,18 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
   try {
     // 先获取总数（添加超时控制）
     const countController = new AbortController()
-    const countTimeoutId = setTimeout(() => countController.abort(), 8000) // 8秒超时
+    const countTimeoutId = setTimeout(() => countController.abort(), 5000) // 5秒超时
     
     const { count, error: countError } = await supabase
       .from("opportunities")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .eq("is_active", true)
       .abortSignal(countController.signal)
 
     clearTimeout(countTimeoutId)
 
     if (countError) {
-      console.error("获取数据总数失败:", countError.message || countError)
+      console.error("获取数据总数失败:", countError)
       console.log("数据库查询失败，使用本地数据")
       return getRandomLocalOpportunities(limit)
     }
@@ -275,7 +275,7 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
 
     // 获取随机数据（添加超时控制）
     const dataController = new AbortController()
-    const dataTimeoutId = setTimeout(() => dataController.abort(), 10000) // 10秒超时
+    const dataTimeoutId = setTimeout(() => dataController.abort(), 8000) // 8秒超时
     
     const { data, error } = await supabase
       .from("opportunities")
@@ -330,6 +330,28 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
     return filterLocalOpportunities(filters)
   }
 
+  // 添加数据库连接测试
+  try {
+    const testController = new AbortController()
+    const testTimeoutId = setTimeout(() => testController.abort(), 3000)
+    
+    const { error: testError } = await supabase
+      .from('opportunities')
+      .select('id')
+      .limit(1)
+      .abortSignal(testController.signal)
+    
+    clearTimeout(testTimeoutId)
+    
+    if (testError) {
+      console.error("搜索时数据库连接失败:", testError)
+      return filterLocalOpportunities(filters)
+    }
+  } catch (error) {
+    console.error("搜索时数据库连接异常:", error)
+    return filterLocalOpportunities(filters)
+  }
+
   try {
     let query = supabase.from("opportunities").select("*").eq("is_active", true)
 
@@ -354,8 +376,15 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
       query = query.gte("priority", filters.priority)
     }
 
-    // 先获取符合条件的总数
-    const { count, error: countError } = await query.select("*", { count: "exact", head: true })
+    // 先获取符合条件的总数（添加超时控制）
+    const countController = new AbortController()
+    const countTimeoutId = setTimeout(() => countController.abort(), 5000)
+    
+    const { count, error: countError } = await query
+      .select("*", { count: "exact", head: true })
+      .abortSignal(countController.signal)
+    
+    clearTimeout(countTimeoutId)
 
     if (countError) {
       console.error("获取筛选结果总数失败:", countError.message || countError)
@@ -374,7 +403,14 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
 
     // 如果结果数量少于等于限制数量，直接返回所有结果
     if (totalCount <= limit) {
-      const { data, error } = await query.order("priority", { ascending: false })
+      const dataController = new AbortController()
+      const dataTimeoutId = setTimeout(() => dataController.abort(), 8000)
+      
+      const { data, error } = await query
+        .order("priority", { ascending: false })
+        .abortSignal(dataController.signal)
+      
+      clearTimeout(dataTimeoutId)
 
       if (error) {
         console.error("获取筛选结果失败:", error.message || error)
@@ -391,10 +427,16 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
 
     console.log(`筛选结果随机偏移量: ${randomOffset}, 最大偏移量: ${maxOffset}`)
 
-    // 获取随机筛选结果
+    // 获取随机筛选结果（添加超时控制）
+    const finalController = new AbortController()
+    const finalTimeoutId = setTimeout(() => finalController.abort(), 8000)
+    
     const { data, error } = await query
       .order("priority", { ascending: false })
       .range(randomOffset, randomOffset + limit - 1)
+      .abortSignal(finalController.signal)
+    
+    clearTimeout(finalTimeoutId)
 
     if (error) {
       console.error("获取随机筛选结果失败:", error.message || error)
@@ -424,11 +466,11 @@ export async function getOpportunityStatistics(): Promise<OpportunityStatistics>
   try {
     // 首先测试数据库连接（添加超时控制）
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 3000) // 3秒超时
+    const timeoutId = setTimeout(() => controller.abort(), 2000) // 2秒超时
     
-    const { error: connectionError } = await supabase
+    const { data: testData, error: connectionError } = await supabase
       .from('opportunities')
-      .select('id', { count: 'exact', head: true })
+      .select('id')
       .limit(1)
       .abortSignal(controller.signal)
     
@@ -442,8 +484,15 @@ export async function getOpportunityStatistics(): Promise<OpportunityStatistics>
     
     console.log("统计查询数据库连接正常")
 
-    // 使用RPC函数获取统计信息（如果存在）
-    const { data: rpcData, error: rpcError } = await supabase.rpc("get_opportunity_statistics")
+    // 使用RPC函数获取统计信息（如果存在，添加超时控制）
+    const rpcController = new AbortController()
+    const rpcTimeoutId = setTimeout(() => rpcController.abort(), 5000)
+    
+    const { data: rpcData, error: rpcError } = await supabase
+      .rpc("get_opportunity_statistics")
+      .abortSignal(rpcController.signal)
+    
+    clearTimeout(rpcTimeoutId)
 
     if (!rpcError && rpcData) {
       console.log("成功通过RPC获取统计信息:", rpcData)
@@ -452,8 +501,16 @@ export async function getOpportunityStatistics(): Promise<OpportunityStatistics>
 
     console.log("RPC函数不可用，手动计算统计信息")
 
-    // 手动计算统计信息
-    const { data: allOpportunities, error } = await supabase.from("opportunities").select("*")
+    // 手动计算统计信息（添加超时控制）
+    const statsController = new AbortController()
+    const statsTimeoutId = setTimeout(() => statsController.abort(), 10000)
+    
+    const { data: allOpportunities, error } = await supabase
+      .from("opportunities")
+      .select("*")
+      .abortSignal(statsController.signal)
+    
+    clearTimeout(statsTimeoutId)
 
     if (error) {
       console.error("获取机会数据失败:", error)
