@@ -165,67 +165,13 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     expires_at: "2025-06-30T23:59:59Z",
     is_active: true,
   },
-  {
-    id: "local-10",
-    company_name: "网易",
-    job_title: "游戏开发工程师",
-    location: "广州",
-    funding_stage: "已上市",
-    job_level: "初级",
-    tags: ["Unity", "C#", "游戏引擎"],
-    reason: "游戏行业领导者，创新游戏产品持续推出",
-    contact_email: "game@netease.com",
-    contact_person: "游戏制作人",
-    company_logo: "/placeholder-logo.png",
-    priority: 6,
-    created_at: "2024-01-06T09:45:00Z",
-    updated_at: "2024-01-06T09:45:00Z",
-    expires_at: "2024-02-06T23:59:59Z",
-    is_active: true,
-  },
-  {
-    id: "local-11",
-    company_name: "滴滴出行",
-    job_title: "运维工程师",
-    location: "北京",
-    funding_stage: "F轮",
-    job_level: "中级",
-    tags: ["Kubernetes", "Docker", "监控"],
-    reason: "出行服务平台，大规模分布式系统运维挑战",
-    contact_email: "ops@didi.com",
-    contact_person: "运维负责人",
-    company_logo: "/placeholder-logo.png",
-    priority: 5,
-    created_at: "2024-01-05T14:30:00Z",
-    updated_at: "2024-01-05T14:30:00Z",
-    expires_at: "2024-02-05T23:59:59Z",
-    is_active: true,
-  },
-  {
-    id: "local-12",
-    company_name: "京东",
-    job_title: "测试工程师",
-    location: "北京",
-    funding_stage: "已上市",
-    job_level: "初级",
-    tags: ["自动化测试", "性能测试", "质量保证"],
-    reason: "电商和物流技术创新，测试体系完善",
-    contact_email: "qa@jd.com",
-    contact_person: "测试主管",
-    company_logo: "/placeholder-logo.png",
-    priority: 6,
-    created_at: "2024-01-04T11:20:00Z",
-    updated_at: "2024-01-04T11:20:00Z",
-    expires_at: "2024-02-04T23:59:59Z",
-    is_active: true,
-  },
 ]
 
 /**
  * 获取增强版机会列表（支持随机选择）
  */
 export async function fetchEnhancedOpportunities(limit = 6): Promise<OpportunityEnhanced[]> {
-  console.log(`开始获取增强机会数据，限制数量: ${limit}`)
+  console.log(`获取增强机会数据，限制: ${limit}`)
 
   const supabase = getSupabaseClient()
   if (!supabase) {
@@ -233,15 +179,47 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
     return getRandomLocalOpportunities(limit)
   }
 
+  // 测试数据库连接（使用更简单的查询避免网络问题）
   try {
-    // 先获取总数
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 5000) // 5秒超时
+    
+    const { error: testError } = await supabase
+      .from('opportunities')
+      .select('id', { count: 'exact', head: true })
+      .limit(1)
+      .abortSignal(controller.signal)
+    
+    clearTimeout(timeoutId)
+    
+    if (testError) {
+      console.error("数据库连接测试失败:", testError)
+      console.log("数据库连接异常，使用本地数据")
+      return getRandomLocalOpportunities(limit)
+    }
+    console.log("数据库连接正常")
+  } catch (error) {
+    console.error("数据库连接测试异常:", error)
+    console.log("网络连接失败或超时，使用本地数据")
+    return getRandomLocalOpportunities(limit)
+  }
+
+  try {
+    // 先获取总数（添加超时控制）
+    const countController = new AbortController()
+    const countTimeoutId = setTimeout(() => countController.abort(), 8000) // 8秒超时
+    
     const { count, error: countError } = await supabase
       .from("opportunities")
       .select("*", { count: "exact", head: true })
       .eq("is_active", true)
+      .abortSignal(countController.signal)
+
+    clearTimeout(countTimeoutId)
 
     if (countError) {
       console.error("获取数据总数失败:", countError)
+      console.log("数据库查询失败，使用本地数据")
       return getRandomLocalOpportunities(limit)
     }
 
@@ -259,16 +237,23 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
 
     console.log(`随机偏移量: ${randomOffset}, 最大偏移量: ${maxOffset}`)
 
-    // 获取随机数据
+    // 获取随机数据（添加超时控制）
+    const dataController = new AbortController()
+    const dataTimeoutId = setTimeout(() => dataController.abort(), 10000) // 10秒超时
+    
     const { data, error } = await supabase
       .from("opportunities")
       .select("*")
       .eq("is_active", true)
       .order("priority", { ascending: false })
       .range(randomOffset, randomOffset + limit - 1)
+      .abortSignal(dataController.signal)
+
+    clearTimeout(dataTimeoutId)
 
     if (error) {
       console.error("获取机会数据失败:", error)
+      console.log("数据查询失败，使用本地数据")
       return getRandomLocalOpportunities(limit)
     }
 
@@ -401,6 +386,26 @@ export async function getOpportunityStatistics(): Promise<OpportunityStatistics>
   }
 
   try {
+    // 首先测试数据库连接（添加超时控制）
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 3000) // 3秒超时
+    
+    const { error: connectionError } = await supabase
+      .from('opportunities')
+      .select('id', { count: 'exact', head: true })
+      .limit(1)
+      .abortSignal(controller.signal)
+    
+    clearTimeout(timeoutId)
+    
+    if (connectionError) {
+      console.error("数据库连接失败:", connectionError)
+      console.log("数据库不可用，使用本地统计数据")
+      return getLocalStatistics()
+    }
+    
+    console.log("统计查询数据库连接正常")
+
     // 使用RPC函数获取统计信息（如果存在）
     const { data: rpcData, error: rpcError } = await supabase.rpc("get_opportunity_statistics")
 
@@ -416,6 +421,7 @@ export async function getOpportunityStatistics(): Promise<OpportunityStatistics>
 
     if (error) {
       console.error("获取机会数据失败:", error)
+      console.log("数据库查询失败，使用本地统计数据")
       return getLocalStatistics()
     }
 
@@ -445,6 +451,7 @@ export async function getOpportunityStatistics(): Promise<OpportunityStatistics>
     return stats
   } catch (error) {
     console.error("获取统计信息时出错:", error)
+    console.log("统计信息获取异常，使用本地统计数据")
     return getLocalStatistics()
   }
 }

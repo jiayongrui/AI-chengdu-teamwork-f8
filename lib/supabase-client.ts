@@ -6,9 +6,20 @@ let client: SupabaseClient | null = null
 export function getSupabaseClient(): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !key) return null
+  
+  if (!url || !key) {
+    console.warn("Supabase环境变量未配置，将使用本地数据")
+    return null
+  }
+  
   if (!client) {
-    client = createClient(url, key)
+    try {
+      client = createClient(url, key)
+      console.log("Supabase客户端初始化成功")
+    } catch (error) {
+      console.error("Supabase客户端初始化失败:", error)
+      return null
+    }
   }
   return client
 }
