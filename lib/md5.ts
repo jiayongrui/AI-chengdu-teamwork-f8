@@ -5,13 +5,22 @@
  */
 export function md5(input: string): string {
   function toBytes(str: string) {
+    // 使用TextEncoder来正确处理UTF-8编码
+    if (typeof TextEncoder !== 'undefined') {
+      const encoder = new TextEncoder()
+      return Array.from(encoder.encode(str))
+    }
+    
+    // 降级处理：手动UTF-8编码
     const utf8: number[] = []
     for (let i = 0; i < str.length; i++) {
       let c = str.charCodeAt(i)
-      if (c < 128) utf8.push(c)
-      else if (c < 2048) {
+      if (c < 128) {
+        utf8.push(c)
+      } else if (c < 2048) {
         utf8.push((c >> 6) | 192, (c & 63) | 128)
       } else if ((c & 0xfc00) === 0xd800 && i + 1 < str.length && (str.charCodeAt(i + 1) & 0xfc00) === 0xdc00) {
+        // 处理代理对（surrogate pairs）
         c = 0x10000 + ((c & 0x3ff) << 10) + (str.charCodeAt(++i) & 0x3ff)
         utf8.push((c >> 18) | 240, ((c >> 12) & 63) | 128, ((c >> 6) & 63) | 128, (c & 63) | 128)
       } else {

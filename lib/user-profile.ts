@@ -197,14 +197,14 @@ async function extractTextFromDocx(file: File): Promise<string> {
       mammoth = await import("mammoth/mammoth.browser")
     } catch (importError) {
       console.error("Mammoth库导入失败:", importError)
-      throw new Error("DOCX解析库加载失败，请刷新页面重试")
+      throw new Error("DOCX parsing library failed to load, please refresh and retry")
     }
 
     const arrayBuffer = await file.arrayBuffer()
 
     // 检查文件是否为空
     if (arrayBuffer.byteLength === 0) {
-      throw new Error("DOCX文件为空")
+      throw new Error("DOCX file is empty")
     }
 
     // 检查文件头，确保是ZIP格式（DOCX本质上是ZIP文件）
@@ -213,7 +213,7 @@ async function extractTextFromDocx(file: File): Promise<string> {
     const isZip = zipSignature.every((byte, index) => uint8Array[index] === byte)
 
     if (!isZip) {
-      throw new Error("文件格式不正确，请确保是有效的DOCX文件")
+      throw new Error("Invalid file format, please ensure it is a valid DOCX file")
     }
 
     console.log("开始解析DOCX文件...")
@@ -221,7 +221,7 @@ async function extractTextFromDocx(file: File): Promise<string> {
 
     // 检查解析结果
     if (!result || typeof result.value !== "string") {
-      throw new Error("DOCX文件解析失败，返回结果无效")
+      throw new Error("DOCX file parsing failed, invalid result returned")
     }
 
     // 记录警告信息（如果有）
@@ -243,7 +243,7 @@ async function extractTextFromDocx(file: File): Promise<string> {
       .trim()
 
     if (!text || text.length < 10) {
-      throw new Error("DOCX文件解析后内容过少，请检查文件是否包含有效文本")
+      throw new Error("Insufficient content after DOCX parsing, please check if file contains valid text")
     }
 
     console.log(`DOCX解析成功，提取文本长度: ${text.length}`)
@@ -251,21 +251,22 @@ async function extractTextFromDocx(file: File): Promise<string> {
   } catch (error: any) {
     console.error("DOCX解析详细错误:", error)
 
-    // 提供更具体的错误信息
-    if (error.message.includes("mammoth")) {
+    // 提供更具体的错误信息，使用安全的字符编码
+    const errorMsg = error.message || 'Unknown error'
+    if (errorMsg.includes("mammoth")) {
       throw new Error(
-        "DOCX解析库出现问题，请尝试以下解决方案：\n1. 刷新页面重试\n2. 将文件另存为新的DOCX格式\n3. 或者将内容复制到TXT文件中上传",
+        "DOCX parsing library error. Please try: 1. Refresh and retry 2. Save file as new DOCX 3. Copy content to TXT file"
       )
-    } else if (error.message.includes("ZIP") || error.message.includes("格式")) {
+    } else if (errorMsg.includes("ZIP") || errorMsg.includes("format")) {
       throw new Error(
-        "文件可能已损坏或不是有效的DOCX格式，请尝试：\n1. 用Word重新保存文件\n2. 检查文件是否完整下载\n3. 或者将内容复制到TXT文件中上传",
+        "File may be corrupted or invalid DOCX format. Please try: 1. Re-save with Word 2. Check file integrity 3. Copy content to TXT file"
       )
-    } else if (error.message.includes("内容")) {
+    } else if (errorMsg.includes("content")) {
       throw new Error(
-        "DOCX文件中没有找到足够的文本内容，请确保：\n1. 文件包含文字内容（不只是图片）\n2. 文件没有密码保护\n3. 文件格式正确",
+        "Insufficient text content found in DOCX. Please ensure: 1. File contains text (not just images) 2. File is not password protected 3. File format is correct"
       )
     } else {
-      throw new Error(`DOCX文件处理失败: ${error.message}\n\n建议：将简历内容复制到TXT文件中上传，或联系技术支持`)
+      throw new Error(`DOCX processing failed: ${errorMsg}. Suggestion: Copy resume content to TXT file or contact support`)
     }
   }
 }

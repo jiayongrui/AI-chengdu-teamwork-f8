@@ -12,6 +12,7 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     job_level: "中级",
     tags: ["AI", "产品经理", "前沿技术", "Agent"],
     reason: "深度追踪全球AI技术前沿动态，包括大型语言模型演进、Agent架构等，构思突破性AI产品概念",
+    job_description: "<h3>职位职责：</h3><ul><li>深度追踪全球AI技术前沿动态，包括大型语言模型演进、Agent架构等核心技术发展</li><li>构思突破性AI产品概念，制定产品战略规划和路线图</li><li>与技术团队紧密合作，推动AI产品从概念到落地的全流程管理</li><li>分析市场需求和竞品动态，识别产品机会点</li><li>协调跨部门资源，确保产品按时高质量交付</li></ul><h3>任职要求：</h3><ul><li>计算机、人工智能相关专业本科及以上学历</li><li>3年以上AI产品管理经验，熟悉大模型、Agent等前沿技术</li><li>具备优秀的产品思维和用户体验设计能力</li><li>良好的沟通协调能力和项目管理经验</li><li>对AI技术发展趋势有深刻理解和敏锐洞察</li></ul>",
     contact_email: "请通过招聘平台联系",
     contact_person: "HR",
     company_logo: "/placeholder-logo.png",
@@ -30,6 +31,7 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     job_level: "中级",
     tags: ["AI", "产品经理", "项目管理", "应届生"],
     reason: "主导AI软件产品全生命周期，与内部各部门紧密协作，推动产品开发落地",
+    job_description: "<h3>职位职责：</h3><ul><li>主导AI软件产品全生命周期管理，从需求分析到产品上线</li><li>与研发、设计、运营等内部各部门紧密协作，确保产品顺利交付</li><li>制定产品规划和迭代计划，推动产品功能优化和用户体验提升</li><li>进行市场调研和用户需求分析，识别产品改进机会</li><li>跟踪产品数据表现，制定数据驱动的产品决策</li></ul><h3>任职要求：</h3><ul><li>本科及以上学历，计算机、软件工程等相关专业优先</li><li>2-4年产品管理经验，有AI相关产品经验者优先</li><li>具备良好的项目管理和跨部门协作能力</li><li>熟悉产品设计流程和用户体验设计原则</li><li>欢迎优秀应届生投递简历</li></ul>",
     contact_email: "请通过招聘平台联系",
     contact_person: "HR",
     company_logo: "/placeholder-logo.png",
@@ -48,6 +50,7 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     job_level: "中级",
     tags: ["AI", "产品经理", "AIGC", "应届生"],
     reason: "主导创作者平台与官网产品迭代，深度接触AI艺术家群体，优化产品功能与服务",
+    job_description: "<h3>职位职责：</h3><ul><li>主导创作者平台与官网产品的迭代升级，提升用户体验</li><li>深度接触AI艺术家群体，了解用户需求和痛点</li><li>优化AIGC相关产品功能与服务，推动产品商业化</li><li>制定产品路线图，协调技术资源实现产品目标</li><li>分析用户行为数据，持续优化产品功能</li></ul><h3>任职要求：</h3><ul><li>本科及以上学历，产品、设计、计算机相关专业优先</li><li>对AIGC、AI艺术创作领域有浓厚兴趣和深入了解</li><li>具备良好的用户洞察能力和产品设计思维</li><li>优秀的沟通协调能力，能与艺术家群体有效交流</li><li>欢迎应届生和转行人员投递</li></ul>",
     contact_email: "请通过招聘平台联系",
     contact_person: "HR",
     company_logo: "/placeholder-logo.png",
@@ -66,6 +69,7 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     job_level: "中级",
     tags: ["AI", "产品经理", "医疗健康", "应届生"],
     reason: "负责产品需求调研与分析，洞察行业发展趋势，设计开发解决方案",
+    job_description: "<h3>职位职责：</h3><ul><li>负责AI医疗健康产品的需求调研与分析</li><li>洞察医疗健康行业发展趋势，识别产品机会</li><li>设计开发AI驱动的医疗健康解决方案</li><li>与医疗专家和技术团队协作，确保产品专业性</li><li>制定产品商业化策略和市场推广计划</li></ul><h3>任职要求：</h3><ul><li>本科及以上学历，医学、生物、计算机相关专业优先</li><li>对医疗健康和AI技术结合有深入理解</li><li>具备产品需求分析和解决方案设计能力</li><li>良好的跨领域沟通协调能力</li><li>欢迎医疗背景应届生投递</li></ul>",
     contact_email: "请通过招聘平台联系",
     contact_person: "HR",
     company_logo: "/placeholder-logo.png",
@@ -84,6 +88,7 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     job_level: "中级",
     tags: ["AI", "产品经理", "婚恋平台", "应届生"],
     reason: "打造下一代AI婚恋平台，懂AI产品底层逻辑，有从0到1完整主导产品经验",
+    job_description: "<h3>职位职责：</h3><ul><li>打造下一代AI驱动的智能婚恋平台产品</li><li>深入理解AI产品底层逻辑，设计智能匹配算法产品化方案</li><li>拥有从0到1完整主导产品的全流程经验</li><li>负责用户需求分析和产品功能规划</li><li>与算法团队协作，将AI技术转化为用户价值</li></ul><h3>任职要求：</h3><ul><li>本科及以上学历，计算机、心理学、社会学相关专业优先</li><li>深入理解AI技术在社交领域的应用</li><li>具备从0到1产品孵化的完整经验</li><li>对用户心理和社交行为有深刻洞察</li><li>优秀的产品设计和用户体验能力</li></ul>",
     contact_email: "请通过招聘平台联系",
     contact_person: "HR",
     company_logo: "/placeholder-logo.png",
@@ -102,6 +107,7 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     job_level: "中级",
     tags: ["AI", "产品经理", "声乐教育", "应届生"],
     reason: "负责AI声乐教练产品全生命周期管理，结合声乐教学与AI技术创新",
+    job_description: "<h3>职位职责：</h3><ul><li>负责AI声乐教练产品的全生命周期管理</li><li>结合声乐教学专业知识与AI技术进行产品创新</li><li>设计智能化声乐教学解决方案和用户体验</li><li>与音乐教育专家和技术团队协作开发产品功能</li><li>分析用户学习数据，优化AI教学算法效果</li></ul><h3>任职要求：</h3><ul><li>本科及以上学历，音乐、教育、计算机相关专业优先</li><li>对声乐教学和音乐教育有深入了解</li><li>熟悉AI技术在教育领域的应用</li><li>具备产品设计和用户体验优化能力</li><li>欢迎音乐教育背景应届生投递</li></ul>",
     contact_email: "请通过招聘平台联系",
     contact_person: "HR",
     company_logo: "/placeholder-logo.png",
@@ -120,6 +126,7 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     job_level: "中级",
     tags: ["AI", "产品经理", "雄安新区", "应届生"],
     reason: "负责AI产品市场调研，设计产品原型，规划产品商业化路径",
+    job_description: "<h3>职位职责：</h3><ul><li>负责AI产品的市场调研和竞品分析</li><li>设计产品原型和用户交互流程</li><li>规划产品商业化路径和盈利模式</li><li>与技术团队协作，推动产品从概念到落地</li><li>参与雄安新区智慧城市建设相关AI项目</li></ul><h3>任职要求：</h3><ul><li>本科及以上学历，产品、计算机、管理相关专业优先</li><li>对AI技术和智慧城市建设有浓厚兴趣</li><li>具备市场调研和商业分析能力</li><li>良好的产品设计和原型制作能力</li><li>愿意在雄安新区发展的应届生优先</li></ul>",
     contact_email: "请通过招聘平台联系",
     contact_person: "HR",
     company_logo: "/placeholder-logo.png",
@@ -138,6 +145,7 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     job_level: "中级",
     tags: ["产品经理", "光电技术", "应届生", "硕士"],
     reason: "协助执行产品线市场洞察，参与产品规划与路标制定，支持产品开发项目",
+    job_description: "<h3>职位职责：</h3><ul><li>协助执行光电产品线的市场洞察和需求分析</li><li>参与产品规划与技术路标的制定工作</li><li>支持光电产品开发项目的全流程管理</li><li>与研发团队协作，推动产品技术创新</li><li>分析行业趋势，识别新的产品机会</li></ul><h3>任职要求：</h3><ul><li>硕士及以上学历，光电、物理、电子工程相关专业</li><li>对光电技术和产业发展有深入了解</li><li>具备良好的技术理解和产品思维能力</li><li>优秀的项目管理和团队协作能力</li><li>2026届应届硕士毕业生优先</li></ul>",
     contact_email: "请通过招聘平台联系",
     contact_person: "HR",
     company_logo: "/placeholder-logo.png",
@@ -156,6 +164,7 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     job_level: "中级",
     tags: ["产品经理", "金融科技", "信贷", "应届生"],
     reason: "负责助贷产品全生命周期管理，深入分析业务问题，优化产品流程",
+    job_description: "<h3>职位职责：</h3><ul><li>负责助贷产品的全生命周期管理</li><li>深入分析信贷业务问题，提出解决方案</li><li>优化产品流程，提升用户体验和业务效率</li><li>与风控、技术、运营团队协作推进产品迭代</li><li>监控产品数据表现，制定数据驱动的优化策略</li></ul><h3>任职要求：</h3><ul><li>本科及以上学历，金融、计算机、数学相关专业优先</li><li>对金融科技和信贷业务有深入理解</li><li>具备优秀的业务分析和产品设计能力</li><li>熟悉移动APP产品开发流程</li><li>欢迎金融背景应届生投递简历</li></ul>",
     contact_email: "请通过招聘平台联系",
     contact_person: "HR",
     company_logo: "/placeholder-logo.png",
@@ -218,7 +227,7 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
     clearTimeout(countTimeoutId)
 
     if (countError) {
-      console.error("获取数据总数失败:", countError)
+      console.error("获取数据总数失败:", countError.message || countError)
       console.log("数据库查询失败，使用本地数据")
       return getRandomLocalOpportunities(limit)
     }
@@ -252,7 +261,7 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
     clearTimeout(dataTimeoutId)
 
     if (error) {
-      console.error("获取机会数据失败:", error)
+      console.error("获取机会数据失败:", error.message || error)
       console.log("数据查询失败，使用本地数据")
       return getRandomLocalOpportunities(limit)
     }
@@ -322,7 +331,7 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
     const { count, error: countError } = await query.select("*", { count: "exact", head: true })
 
     if (countError) {
-      console.error("获取筛选结果总数失败:", countError)
+      console.error("获取筛选结果总数失败:", countError.message || countError)
       return filterLocalOpportunities(filters)
     }
 
@@ -341,7 +350,7 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
       const { data, error } = await query.order("priority", { ascending: false })
 
       if (error) {
-        console.error("获取筛选结果失败:", error)
+        console.error("获取筛选结果失败:", error.message || error)
         return filterLocalOpportunities(filters)
       }
 
@@ -361,14 +370,14 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
       .range(randomOffset, randomOffset + limit - 1)
 
     if (error) {
-      console.error("获取随机筛选结果失败:", error)
+      console.error("获取随机筛选结果失败:", error.message || error)
       return filterLocalOpportunities(filters)
     }
 
     console.log(`成功获取 ${data?.length || 0} 条随机筛选结果`)
     return (data || []).map(transformDatabaseToEnhanced)
   } catch (error) {
-    console.error("搜索增强机会时出错:", error)
+    console.error("搜索增强机会时出错:", error.message || error)
     return filterLocalOpportunities(filters)
   }
 }
@@ -399,7 +408,7 @@ export async function getOpportunityStatistics(): Promise<OpportunityStatistics>
     clearTimeout(timeoutId)
     
     if (connectionError) {
-      console.error("数据库连接失败:", connectionError)
+      console.error("数据库连接失败:", connectionError.message || connectionError)
       console.log("数据库不可用，使用本地统计数据")
       return getLocalStatistics()
     }
@@ -550,5 +559,16 @@ function transformDatabaseToEnhanced(dbData: any): OpportunityEnhanced {
     updated_at: dbData.updated_at || new Date().toISOString(),
     expires_at: dbData.expires_at,
     is_active: dbData.is_active !== false,
+    // 添加职位描述字段映射
+    job_description: dbData.job_description || dbData.description || dbData.reason,
+    salary_range: dbData.salary_range,
+    job_type: dbData.job_type,
+    experience_required: dbData.experience_required,
+    education_required: dbData.education_required,
+    company_size: dbData.company_size,
+    industry: dbData.industry,
+    benefits: dbData.benefits,
+    application_deadline: dbData.application_deadline,
+    posted_date: dbData.posted_date,
   }
 }

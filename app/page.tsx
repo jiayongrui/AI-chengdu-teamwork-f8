@@ -269,8 +269,26 @@ export default function Page() {
   // 连接检测
   const checkConnection = useCallback(async () => {
     if (!supabase) throw new Error("缺少环境变量 NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY")
-    const { error } = await supabase.from("users").select("id", { count: "exact", head: true })
-    if (error) throw error
+    
+    // 添加超时控制
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 3000) // 3秒超时
+    
+    try {
+      const { error } = await supabase
+        .from("users")
+        .select("id", { count: "exact", head: true })
+        .abortSignal(controller.signal)
+      
+      clearTimeout(timeoutId)
+      
+      if (error) throw error
+      console.log("用户连接测试成功")
+    } catch (error) {
+      clearTimeout(timeoutId)
+      console.error("用户连接测试失败:", error)
+      throw error
+    }
   }, [supabase])
 
   // 切到 profile/forge 时加载简历
@@ -811,7 +829,16 @@ export default function Page() {
     try {
       // 这里使用一个简单的代理服务来获取网页内容
       // 在实际应用中，你可能需要使用专门的爬虫服务
-      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(crawlUrl)}`
+      let encodedUrl: string
+      try {
+        encodedUrl = encodeURIComponent(crawlUrl)
+      } catch (encodeError) {
+        console.error('URL编码失败:', encodeError)
+        setCrawlError('URL格式不正确，无法进行编码')
+        return
+      }
+      
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodedUrl}`
       const response = await fetch(proxyUrl)
       const data = await response.json()
 
