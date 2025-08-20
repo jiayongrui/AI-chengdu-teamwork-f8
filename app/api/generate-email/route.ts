@@ -138,13 +138,6 @@ export async function POST(req: NextRequest) {
     // DeepSeek API key is now hardcoded, so we can proceed with AI generation
     // If needed, fallback logic can be added here for error handling
 
-    // Create DeepSeek client using OpenAI-compatible API
-    const deepseek = createOpenAI({
-      name: "deepseek",
-      apiKey: "sk-ufnwysgrwnebkczychcgkvzvvinyydmppnrvgyclbwdluvpu",
-      baseURL: "https://api.deepseek.com/v1",
-    })
-
     // 提取简历亮点
     const resumeHighlightsObj = extractResumeHighlights(resumeText || "", opportunity.tags || [])
     const resumeHighlights = `**技能匹配：** ${resumeHighlightsObj.skills.join('、') || '无'}
@@ -206,16 +199,34 @@ ${resumeHighlights}
 
 请开始你的分析和优化吧！`
 
-    // 使用 DeepSeek API 生成简历优化报告
-    // 清理prompt中可能导致编码问题的字符
+    // 使用直接HTTP请求调用SiliconFlow API
     const cleanPrompt = prompt.replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim()
     
-    const { text } = await generateText({
-      model: deepseek('deepseek-chat'),
-      prompt: cleanPrompt,
-      maxTokens: 4000,
-      temperature: 0.7,
+    const response = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer sk-ufnwysgrwnebkczychcgkvzvvinyydmppnrvgyclbwdluvpu'
+      },
+      body: JSON.stringify({
+        model: 'deepseek-ai/DeepSeek-V3',
+        messages: [
+          {
+            role: 'user',
+            content: cleanPrompt
+          }
+        ],
+        max_tokens: 4000,
+        temperature: 0.7
+      })
     })
+
+    if (!response.ok) {
+      throw new Error(`API调用失败: ${response.status} ${response.statusText}`)
+    }
+
+    const apiResult = await response.json()
+    const text = apiResult.choices[0].message.content
 
     return NextResponse.json({
       body: text,
