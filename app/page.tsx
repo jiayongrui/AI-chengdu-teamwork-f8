@@ -289,6 +289,7 @@ export default function Page() {
   const [scoringOpportunities, setScoringOpportunities] = useState(false)
   const [opportunityScores, setOpportunityScores] = useState<Record<string, number>>({})
   const [scoringError, setScoringError] = useState<string | null>(null)
+  const [resumeScore, setResumeScore] = useState<number | null>(null) // 简历总分
 
   // 合并的机会列表（默认 + 管理员添加的）
   const allOpportunities = useMemo(() => {
@@ -618,10 +619,36 @@ export default function Page() {
 
     setScoringOpportunities(true)
     setScoringError(null)
+    setResumeScore(null)
     const newScores: Record<string, number> = {}
 
     try {
-      // 对当前筛选出的机会进行评分
+      // 第一步：对简历进行基础评分，获取简历总分
+      console.log("开始对简历进行基础评分...")
+      const resumeResponse = await fetch("/api/score", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          resumeText: resumeText,
+          jobPosition: "AI产品经理", // 使用通用职位进行基础评分
+          jobLocation: "不限",
+        }),
+      })
+
+      if (!resumeResponse.ok) {
+        throw new Error(`简历评分失败: HTTP ${resumeResponse.status}`)
+      }
+
+      const resumeScoreData = await resumeResponse.json()
+      console.log("简历基础评分响应:", resumeScoreData)
+      const baseResumeScore = resumeScoreData.success ? (resumeScoreData.data?.total_score || 0) : 0
+      setResumeScore(baseResumeScore)
+      console.log("简历总分:", baseResumeScore)
+
+      // 第二步：对每个机会进行评分，但只显示分数小于等于简历总分的机会
+      console.log("开始对机会进行评分...")
       for (const opportunity of filteredOpportunities) {
         try {
           const response = await fetch("/api/score", {
@@ -631,8 +658,8 @@ export default function Page() {
             },
             body: JSON.stringify({
               resumeText: resumeText,
-              position: opportunity.job_title,
-              location: opportunity.location,
+              jobPosition: opportunity.job_title,
+              jobLocation: opportunity.location,
             }),
           })
 
@@ -642,17 +669,27 @@ export default function Page() {
 
           const scoreData = await response.json()
           console.log(`${opportunity.company_name} 评分响应:`, scoreData)
-          // API返回的数据结构中使用 total_score 而不是 totalScore
           const score = scoreData.success ? (scoreData.data?.total_score || 0) : 0
-          newScores[opportunity.id] = score
+          
+          // 只保存分数小于等于简历总分的机会评分
+          if (score <= baseResumeScore) {
+            newScores[opportunity.id] = score
+            console.log(`${opportunity.company_name}: ${score}分 (符合条件，简历总分: ${baseResumeScore})`)
+          } else {
+            console.log(`${opportunity.company_name}: ${score}分 (超出简历总分 ${baseResumeScore}，不显示)`)
+          }
         } catch (error) {
           console.error(`评分失败 - ${opportunity.company_name}:`, error)
-          newScores[opportunity.id] = 0
+          // 评分失败的机会不显示
         }
       }
 
       setOpportunityScores(newScores)
-      console.log("评分完成:", newScores)
+      console.log("评分完成，符合条件的机会:", newScores)
+      
+      if (Object.keys(newScores).length === 0) {
+        setScoringError(`暂无符合您简历水平的机会（简历总分: ${baseResumeScore}分）`)
+      }
     } catch (error) {
       console.error("评分过程出错:", error)
       setScoringError("评分过程中出现错误")
@@ -2072,22 +2109,42 @@ export default function Page() {
                 ) : (
                   <>
                     <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-                      {filteredOpportunities.map((opportunity) => (
-                        <OpportunityCardEnhanced
-                          key={opportunity.id}
-                          opportunity={opportunity}
-                          onApply={handleApplyOpportunity}
-                          score={opportunityScores[opportunity.id]}
-                        />
-                      ))}
+                      {(() => {
+                        // 如果已经评分，只显示有评分的机会；否则显示所有筛选后的机会
+                        const displayOpportunities = Object.keys(opportunityScores).length > 0 
+                          ? filteredOpportunities.filter(opp => opportunityScores[opp.id] !== undefined)
+                          : filteredOpportunities
+                        
+                        return displayOpportunities.map((opportunity) => (
+                          <OpportunityCardEnhanced
+                            key={opportunity.id}
+                            opportunity={opportunity}
+                            onApply={handleApplyOpportunity}
+                            score={opportunityScores[opportunity.id]}
+                          />
+                        ))
+                      })()
+                      }
                     </div>
 
                     {/* 显示限制提示 */}
                     <div className="mt-8 text-center">
-                      <p className="text-sm text-gray-500">
-                        当前显示 {filteredOpportunities.length} 个机会（每次最多显示6个）
-                      </p>
-                      <p className="text-xs text-gray-400 mt-1">点击刷新按钮获取更多机会，或使用筛选条件精准匹配</p>
+                      {Object.keys(opportunityScores).length > 0 ? (
+                        <>
+                          <p className="text-sm text-gray-500">
+                            显示 {Object.keys(opportunityScores).length} 个符合您简历水平的机会
+                            {resumeScore && ` (简历总分: ${resumeScore}分)`}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1">只显示评分小于等于您简历总分的机会</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-sm text-gray-500">
+                            当前显示 {filteredOpportunities.length} 个机会（每次最多显示6个）
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1">点击刷新按钮获取更多机会，或使用筛选条件精准匹配</p>
+                        </>
+                      )}
                     </div>
                   </>
                 )}
