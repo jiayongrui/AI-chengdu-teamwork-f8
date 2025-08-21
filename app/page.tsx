@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Noto_Sans_SC } from "next/font/google"
-import { Menu, FileText, Gem, DoorOpen, BarChart3, Lightbulb, Users, Info, RefreshCw } from "lucide-react"
+import { Menu, FileText, Gem, DoorOpen, BarChart3, Lightbulb, Users, Info, RefreshCw, Calculator } from "lucide-react"
 
 import { getSupabaseClient } from "@/lib/supabase-client"
 import { signIn, signUp, getLocalUser, setLocalUser } from "@/lib/auth"
@@ -156,6 +156,11 @@ export default function Page() {
     expiring_soon: 0,
     unique_companies: 0,
   })
+
+  // 评分功能状态
+  const [scoringOpportunities, setScoringOpportunities] = useState(false)
+  const [opportunityScores, setOpportunityScores] = useState<Record<string, number>>({})
+  const [scoringError, setScoringError] = useState<string | null>(null)
 
   // 合并的机会列表（默认 + 管理员添加的）
   const allOpportunities = useMemo(() => {
@@ -438,6 +443,61 @@ export default function Page() {
 
     onGoForge(simpleOpp)
   }
+
+  // 评分功能
+  const handleScoreOpportunities = useCallback(async () => {
+    console.log("评分按钮被点击")
+    console.log("用户状态:", user)
+    console.log("简历文本:", resumeText ? "已上传" : "未上传")
+    console.log("筛选机会数量:", filteredOpportunities.length)
+    
+    if (!user || !resumeText) {
+      console.log("评分失败: 用户未登录或未上传简历")
+      setScoringError("请先登录并上传简历")
+      return
+    }
+
+    setScoringOpportunities(true)
+    setScoringError(null)
+    const newScores: Record<string, number> = {}
+
+    try {
+      // 对当前筛选出的机会进行评分
+      for (const opportunity of filteredOpportunities) {
+        try {
+          const response = await fetch("/api/score", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              resumeText: resumeText,
+              position: opportunity.job_title,
+              location: opportunity.location,
+            }),
+          })
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`)
+          }
+
+          const scoreData = await response.json()
+          newScores[opportunity.id] = scoreData.totalScore || 0
+        } catch (error) {
+          console.error(`评分失败 - ${opportunity.company_name}:`, error)
+          newScores[opportunity.id] = 0
+        }
+      }
+
+      setOpportunityScores(newScores)
+      console.log("评分完成:", newScores)
+    } catch (error) {
+      console.error("评分过程出错:", error)
+      setScoringError("评分过程中出现错误")
+    } finally {
+      setScoringOpportunities(false)
+    }
+  }, [user, resumeText, filteredOpportunities])
 
   // 登录
   const handleLoginSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -1624,15 +1684,26 @@ export default function Page() {
                       <p className="text-gray-600">发现最新的职业机会，精准匹配你的技能和期望</p>
                       {!user && <p className="text-sm text-amber-600 mt-2">💡 登录后可生成简历优化报告</p>}
                     </div>
-                    <button
-                      onClick={loadEnhancedOpportunities}
-                      disabled={loadingOpportunities}
-                      className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-60 transition-colors"
-                      title="刷新机会列表"
-                    >
-                      <RefreshCw size={16} className={loadingOpportunities ? "animate-spin" : ""} />
-                      {loadingOpportunities ? "刷新中..." : "刷新"}
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={loadEnhancedOpportunities}
+                        disabled={loadingOpportunities}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-60 transition-colors"
+                        title="刷新机会列表"
+                      >
+                        <RefreshCw size={16} className={loadingOpportunities ? "animate-spin" : ""} />
+                        {loadingOpportunities ? "刷新中..." : "刷新"}
+                      </button>
+                      <button
+                         onClick={handleScoreOpportunities}
+                         disabled={scoringOpportunities || !user || !resumeText}
+                         className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-60 transition-colors"
+                         title={!user ? "请先登录" : !resumeText ? "请先上传简历" : "对符合条件的机会进行评分"}
+                       >
+                         <Calculator size={16} className={scoringOpportunities ? "animate-pulse" : ""} />
+                         {scoringOpportunities ? "评分中..." : "评分"}
+                       </button>
+                    </div>
                   </div>
                 </div>
 
@@ -1664,6 +1735,13 @@ export default function Page() {
                     <div className="text-sm text-gray-500">合作企业</div>
                   </div>
                 </div>
+
+                {/* 评分错误信息 */}
+                {scoringError && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-red-600 text-sm">{scoringError}</p>
+                  </div>
+                )}
 
                 {/* 机会列表 */}
                 {loadingOpportunities ? (
@@ -1700,6 +1778,7 @@ export default function Page() {
                           key={opportunity.id}
                           opportunity={opportunity}
                           onApply={handleApplyOpportunity}
+                          score={opportunityScores[opportunity.id]}
                         />
                       ))}
                     </div>

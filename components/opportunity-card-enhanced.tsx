@@ -11,9 +11,10 @@ import { OpportunityDetailDialog } from "./opportunity-detail-dialog"
 interface OpportunityCardEnhancedProps {
   opportunity: OpportunityEnhanced
   onApply: (opportunity: OpportunityEnhanced) => void
+  score?: number
 }
 
-export function OpportunityCardEnhanced({ opportunity, onApply }: OpportunityCardEnhancedProps) {
+export function OpportunityCardEnhanced({ opportunity, onApply, score }: OpportunityCardEnhancedProps) {
   const [showDetail, setShowDetail] = useState(false)
   const getPriorityColor = (priority: number) => {
     if (priority >= 8) return "bg-red-100 text-red-800 border-red-200"
@@ -77,6 +78,11 @@ export function OpportunityCardEnhanced({ opportunity, onApply }: OpportunityCar
             </div>
           </div>
           <div className="flex flex-col gap-1 items-end flex-shrink-0">
+            {score !== undefined && (
+              <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs px-2 py-1 font-semibold">
+                评分: {score.toFixed(1)}
+              </Badge>
+            )}
             <Badge className={`text-xs px-2 py-1 ${getPriorityColor(opportunity.priority)}`}>
               <Star size={12} className="mr-1" />
               {getPriorityLabel(opportunity.priority)}
