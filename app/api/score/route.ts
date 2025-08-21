@@ -114,19 +114,29 @@ ${resumeText}
 
     const apiResult = await response.json()
     const aiResponse = apiResult.choices[0].message.content
+    
+    // 添加详细日志
+    console.log('AI原始响应:', aiResponse)
+    console.log('AI响应长度:', aiResponse.length)
 
     // 尝试解析 AI 返回的 JSON
     let scoreResult
     try {
       // 提取 JSON 部分（如果 AI 返回了额外的文本）
       const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
+      console.log('JSON匹配结果:', jsonMatch ? '找到JSON' : '未找到JSON')
       if (jsonMatch) {
+        console.log('提取的JSON:', jsonMatch[0])
         scoreResult = JSON.parse(jsonMatch[0])
+        console.log('解析后的结果:', scoreResult)
+        console.log('total_score值:', scoreResult.total_score)
       } else {
+        console.error('未找到有效的JSON格式，AI响应:', aiResponse)
         throw new Error('未找到有效的JSON格式')
       }
     } catch (parseError) {
       console.error('JSON解析失败:', parseError)
+      console.error('解析失败的内容:', aiResponse)
       // 返回默认的评分结果
       scoreResult = {
         scores: {
