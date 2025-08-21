@@ -2234,18 +2234,7 @@ export default function Page() {
                     </p>
                   </div>
 
-                  {/* 演示账户提示 */}
-                  <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 className="font-bold text-blue-800 mb-2">演示账户</h4>
-                    <div className="text-sm text-blue-700 space-y-1">
-                      <p>
-                        <strong>管理员：</strong>offergungun / careericebreaker
-                      </p>
-                      <p>
-                        <strong>普通用户：</strong>可以注册任意用户名和密码
-                      </p>
-                    </div>
-                  </div>
+
                 </div>
               </div>
             </section>
@@ -2355,16 +2344,7 @@ export default function Page() {
                   <p className="text-sm text-red-600 mb-4">云端连接失败：{connErr || "未知错误"}（本地演示）</p>
                 )}
 
-                {/* 演示模式提示 */}
-                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Info size={16} className="text-blue-600" />
-                    <p className="text-blue-700 text-sm">
-                      <strong>演示模式：</strong>
-                      当前未配置真实邮件服务，发送的邮件为模拟发送。要启用真实邮件发送，请配置 RESEND_API_KEY 环境变量。
-                    </p>
-                  </div>
-                </div>
+
 
                 {!user ? (
                   <div className="bg-gray-50 rounded-2xl p-8 text-center border border-gray-200">
@@ -2440,16 +2420,7 @@ export default function Page() {
                     )}
 
                     <div className="grid gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">报告标题</label>
-                        <input
-                          value={mailSubject}
-                          onChange={(e) => setMailSubject(e.target.value)}
-                          className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
-                          disabled={aiGenerating}
-                          readOnly
-                        />
-                      </div>
+
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">简历优化报告</label>
                         <textarea
