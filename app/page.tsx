@@ -333,6 +333,32 @@ export default function Page() {
     }
   }, [currentPage])
 
+  // 加载管理员页面统计数据
+  useEffect(() => {
+    if (currentPage === "opportunity-manager") {
+      loadAdminOpportunities()
+      // 加载统计数据
+      const loadStats = async () => {
+        try {
+          const stats = await getOpportunityStatistics()
+          setOpportunityStats(stats)
+          console.log("管理员页面统计数据加载完成:", stats)
+        } catch (error) {
+          console.error("加载管理员页面统计数据失败:", error)
+          // 使用默认统计数据
+          setOpportunityStats({
+            total_opportunities: 0,
+            active_opportunities: 0,
+            high_priority_opportunities: 0,
+            expiring_soon: 0,
+            unique_companies: 0,
+          })
+        }
+      }
+      loadStats()
+    }
+  }, [currentPage])
+
   // 修复后的加载增强机会函数
   const loadEnhancedOpportunities = useCallback(async () => {
     console.log("开始加载增强机会数据...")
@@ -1080,7 +1106,7 @@ export default function Page() {
   }
 
   // 新的机会管理页面处理函数
-  const handleAddOpportunityNew = (e: React.FormEvent) => {
+  const handleAddOpportunityNew = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!opportunityForm.company.trim() || !opportunityForm.position.trim()) {
       alert("请填写公司名称和职位名称")
@@ -1098,6 +1124,15 @@ export default function Page() {
 
     const updated = [...adminOpportunities, newOpp]
     saveAdminOpportunities(updated)
+
+    // 刷新统计数据
+    try {
+      const stats = await getOpportunityStatistics()
+      setOpportunityStats(stats)
+      console.log("统计数据已更新:", stats)
+    } catch (error) {
+      console.error("更新统计数据失败:", error)
+    }
 
     // 重置表单
     setOpportunityForm({
@@ -1754,31 +1789,7 @@ export default function Page() {
                 {/* 筛选器 */}
                 <OpportunityFilters onFiltersChange={handleFiltersChange} />
 
-                {/* 统计信息 */}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-                  <div className="bg-white rounded-lg p-4 border border-gray-200">
-                    <div className="text-2xl font-bold text-green-600">{opportunityStats.total_opportunities}</div>
-                    <div className="text-sm text-gray-500">总机会数</div>
-                  </div>
-                  <div className="bg-white rounded-lg p-4 border border-gray-200">
-                    <div className="text-2xl font-bold text-blue-600">{filteredOpportunities.length}</div>
-                    <div className="text-sm text-gray-500">当前显示</div>
-                  </div>
-                  <div className="bg-white rounded-lg p-4 border border-gray-200">
-                    <div className="text-2xl font-bold text-red-600">
-                      {opportunityStats.high_priority_opportunities}
-                    </div>
-                    <div className="text-sm text-gray-500">高优先级</div>
-                  </div>
-                  <div className="bg-white rounded-lg p-4 border border-gray-200">
-                    <div className="text-2xl font-bold text-orange-600">{opportunityStats.expiring_soon}</div>
-                    <div className="text-sm text-gray-500">即将过期</div>
-                  </div>
-                  <div className="bg-white rounded-lg p-4 border border-gray-200">
-                    <div className="text-2xl font-bold text-purple-600">{opportunityStats.unique_companies}</div>
-                    <div className="text-sm text-gray-500">合作企业</div>
-                  </div>
-                </div>
+
 
                 {/* 评分错误信息 */}
                 {scoringError && (
@@ -2860,6 +2871,20 @@ export default function Page() {
                     </button>
                   </div>
                 </div>
+
+                {/* 统计信息 */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                  <div className="bg-white rounded-lg p-4 border border-gray-200 fade-in-element">
+                    <div className="text-2xl font-bold text-green-600">{opportunityStats.total_opportunities}</div>
+                    <div className="text-sm text-gray-500">总机会数</div>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 border border-gray-200 fade-in-element">
+                    <div className="text-2xl font-bold text-orange-600">{opportunityStats.expiring_soon}</div>
+                    <div className="text-sm text-gray-500">即将过期</div>
+                  </div>
+                </div>
+
+
 
                 {/* 添加机会表单 */}
                 {showOpportunityForm && (
