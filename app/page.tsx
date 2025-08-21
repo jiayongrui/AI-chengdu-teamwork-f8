@@ -486,7 +486,10 @@ export default function Page() {
           }
 
           const scoreData = await response.json()
-          newScores[opportunity.id] = scoreData.totalScore || 0
+          console.log(`${opportunity.company_name} 评分响应:`, scoreData)
+          // API返回的数据结构中使用 total_score 而不是 totalScore
+          const score = scoreData.success ? (scoreData.data?.total_score || 0) : 0
+          newScores[opportunity.id] = score
         } catch (error) {
           console.error(`评分失败 - ${opportunity.company_name}:`, error)
           newScores[opportunity.id] = 0
