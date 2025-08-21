@@ -83,16 +83,7 @@ export function OpportunityCardEnhanced({ opportunity, onApply, score }: Opportu
                 评分: {score.toFixed(1)}
               </Badge>
             )}
-            <Badge className={`text-xs px-2 py-1 ${getPriorityColor(opportunity.priority)}`}>
-              <Star size={12} className="mr-1" />
-              {getPriorityLabel(opportunity.priority)}
-            </Badge>
-            {isExpiringSoon && (
-              <Badge className="bg-red-100 text-red-800 border-red-200 text-xs px-2 py-1">
-                <Clock size={12} className="mr-1" />
-                即将过期
-              </Badge>
-            )}
+
           </div>
         </div>
       </CardHeader>
