@@ -451,9 +451,13 @@ export default function Page() {
     console.log("简历文本:", resumeText ? "已上传" : "未上传")
     console.log("筛选机会数量:", filteredOpportunities.length)
     
-    if (!user || !resumeText) {
-      console.log("评分失败: 用户未登录或未上传简历")
-      setScoringError("请先登录并上传简历")
+    if (!user) {
+      alert("请先登录后再进行评分")
+      return
+    }
+    
+    if (!resumeText) {
+      alert("需上传简历，才可评分。")
       return
     }
 
