@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
 2. **在简历原文中定位**能佐证该项的事实；若无可佐证内容则给 0 分。
 3. **按 0–5 整数评分**，并写一句 ≤30 字的理由（必须引用简历原文）。
 4. **计算加权总分** = Σ(得分 × 权重) × 20（转换为百分制）。
+   **注意：最终total_score必须是百分制分数，即0-100之间的数值！**
 5. **输出推荐等级**：
    - 90–100：强烈推荐
    - 75–89：推荐
@@ -62,7 +63,11 @@ ${resumeText}
 3. 推荐等级
 4. 总体评价
 
-**重要：total_score必须是0-100的百分制分数**
+**重要：total_score必须是0-100的百分制分数，不能是0-5分！**
+
+**计算示例：**
+假设各项得分为：3×7% + 2×12% + 1×12% + 2×8% + 0×18% + 1×8% + 3×5% + 2×10% + 1×11% + 2×5% + 1×2% + 0×2% = 2.6分
+转换为百分制：2.6 × 20 = 52.0分
 
 输出格式示例：
 {
@@ -129,7 +134,14 @@ ${resumeText}
         console.log('提取的JSON:', jsonMatch[0])
         scoreResult = JSON.parse(jsonMatch[0])
         console.log('解析后的结果:', scoreResult)
-        console.log('total_score值:', scoreResult.total_score)
+        console.log('原始total_score值:', scoreResult.total_score)
+        
+        // 检查并修正total_score：如果小于等于5，说明AI没有转换为百分制，需要乘以20
+        if (scoreResult.total_score && scoreResult.total_score <= 5) {
+          console.log('检测到非百分制分数，自动转换为百分制')
+          scoreResult.total_score = scoreResult.total_score * 20
+          console.log('转换后的total_score值:', scoreResult.total_score)
+        }
       } else {
         console.error('未找到有效的JSON格式，AI响应:', aiResponse)
         throw new Error('未找到有效的JSON格式')
