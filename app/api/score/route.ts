@@ -9,7 +9,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "无效的请求体" }, { status: 400 })
   }
 
-  const { resumeText, jobPosition, jobLocation } = payload || {}
+  const { 
+    resumeText, 
+    jobPosition, 
+    jobLocation,
+    salaryRange,
+    experienceRequired,
+    educationRequired,
+    jobDescription,
+    companyName,
+    companySize,
+    industry,
+    benefits,
+    tags
+  } = payload || {}
 
   try {
     if (!resumeText) {
@@ -19,15 +32,18 @@ export async function POST(req: NextRequest) {
     // 构建评分系统的 Prompt
     const scoringPrompt = `# AI 产品经理岗位简历量化打分指南
 
-你是一名**严格遵守评分维度表**的 AI 招聘官，仅依据候选人提供的简历文本进行打分，禁止脑补。
+你是一名**严格遵守评分维度表**的 AI 招聘官，需要综合评估候选人简历与目标职位的匹配度。
+
+**重要：你需要同时考虑简历内容和目标职位的完整信息（包括学历要求、经验要求、薪资水平、公司背景、职位描述等）来进行匹配度评估。**
 
 执行步骤：
 1. **逐条读取**下方 12 项二级评估项（含权重）。
 2. **在简历原文中定位**能佐证该项的事实；若无可佐证内容则给 0 分。
-3. **按 0–5 整数评分**，并写一句 ≤30 字的理由（必须引用简历原文）。
-4. **计算加权总分** = Σ(得分 × 权重) × 20（转换为百分制）。
+3. **结合目标职位信息**评估匹配度：考虑学历匹配、经验匹配、技能匹配、薪资匹配等。
+4. **按 0–5 整数评分**，并写一句 ≤30 字的理由（必须引用简历原文和职位要求）。
+5. **计算加权总分** = Σ(得分 × 权重) × 20（转换为百分制）。
    **注意：最终total_score必须是百分制分数，即0-100之间的数值！**
-5. **输出推荐等级**：
+6. **输出推荐等级**：
    - 90–100：强烈推荐
    - 75–89：推荐
    - 60–74：谨慎推荐
@@ -37,7 +53,7 @@ export async function POST(req: NextRequest) {
 
 | 一级维度 | 二级评估项 | 权重 | 评分标准 (0-5 分) |
 |---|---|---|---|
-| **1. 背景与经验** | 1.1 学历与专业 | 7% | 5 顶尖院校+CS/AI 或复合学位<br>4 知名院校+CS/AI 或顶尖+设计/商科<br>3 普通院校+CS/AI 或知名+设计/商科<br>2 普通院校+设计/商科 或知名+其他<br>1 普通院校+其他 |
+| **1. 背景与经验** | 1.1 学历与专业匹配 | 7% | 5 学历超出职位要求且专业高度相关<br>4 学历符合职位要求且专业相关<br>3 学历符合职位要求但专业一般相关<br>2 学历略低于职位要求但专业相关<br>1 学历或专业与职位要求差距较大<br>0 学历专业完全不符合 |
 |  | 1.2 AI 相关实习/项目 | 12% | 5 知名公司 AI PM 实习或主导已上线 AI 项目<br>3 AI 相关实习/完整课程项目<br>1-2 其他 PM 实习或低贡献参与<br>0 无 |
 | **2. 专业知识与技能** | 2.1 AI 技术认知 | 12% | 5 项目体现 RAG/Agent/Fine-tuning 深度应用<br>3-4 提及关键词并简单应用<br>1 仅罗列关键词<br>0 无 |
 |  | 2.2 产品方法论 | 8% | 5 完整 PM 闭环（调研→需求→设计→分析）<br>3 部分技能体现<br>1-2 仅提及未结合项目<br>0 无 |
@@ -47,15 +63,24 @@ export async function POST(req: NextRequest) {
 |  | 4.2 结果导向 | 10% | 5 多处量化结果（用户增长 %/效率提升 %）<br>3-4 至少一处量化或业务影响<br>1-2 定性描述<br>0 无 |
 | **5. 发展潜力** | 5.1 自驱与热情 | 11% | 5 活跃技术博客/GitHub/产品社区，内容高质相关<br>3-4 有个人项目或开源，但活跃度一般<br>1-2 仅提及兴趣无作品<br>0 无 |
 |  | 5.2 创新与主动性 | 5% | 5 创始人/负责人或顶级竞赛最高奖<br>3-4 实习/项目中主动发现并推动解决<br>1-2 普通竞赛/学生干部<br>0 无 |
-| **6. 企业认知与匹配** | 6.1 业务领域匹配 | 2% | 3-5 项目经验与公司领域高度相关<br>1-2 仅兴趣/课程项目<br>0 无 |
-|  | 6.2 企业认知与动机 | 2% | 3-5 简历巧妙体现对公司了解与热情<br>1-2 通用陈述<br>0 无 |
+| **6. 企业认知与匹配** | 6.1 业务领域匹配 | 2% | 5 项目经验与目标公司业务高度相关<br>3-4 有相关行业经验<br>1-2 仅兴趣/课程项目相关<br>0 完全无相关经验 |
+|  | 6.2 薪资期望匹配 | 2% | 5 简历体现的能力完全匹配薪资水平<br>3-4 能力基本匹配薪资水平<br>1-2 能力略低于薪资要求<br>0 能力明显不匹配薪资 |
 
 ## 候选人简历内容：
 ${resumeText}
 
-## 目标岗位信息：
-- 岗位：${jobPosition || 'AI产品经理'}
-- 地点：${jobLocation || '不限'}
+## 目标岗位完整信息：
+- 公司名称：${companyName || '未知公司'}
+- 岗位名称：${jobPosition || 'AI产品经理'}
+- 工作地点：${jobLocation || '不限'}
+- 薪资范围：${salaryRange || '面议'}
+- 经验要求：${experienceRequired || '不限'}
+- 学历要求：${educationRequired || '不限'}
+- 所属行业：${industry || '未知'}
+- 公司规模：${companySize || '未知'}
+- 公司福利：${benefits || '未提及'}
+- 职位标签：${tags ? tags.join('、') : '无'}
+- 职位描述：${jobDescription || '暂无详细描述'}
 
 请严格按照以上评分标准，对简历进行逐项评分，并输出JSON格式的结果，包含：
 1. 每个二级评估项的得分（0-5分）、理由
@@ -72,7 +97,7 @@ ${resumeText}
 输出格式示例：
 {
   "scores": {
-    "education_background": { "score": 3, "reason": "普通院校计算机专业" },
+    "education_background": { "score": 3, "reason": "本科学历符合要求，计算机专业相关" },
     "ai_experience": { "score": 2, "reason": "有AI相关课程项目经验" },
     "ai_technical_knowledge": { "score": 1, "reason": "仅提及机器学习关键词" },
     "product_methodology": { "score": 2, "reason": "简历中体现部分产品技能" },
@@ -82,12 +107,12 @@ ${resumeText}
     "result_oriented": { "score": 2, "reason": "有定性描述但缺乏量化" },
     "self_motivation": { "score": 1, "reason": "提及兴趣但无作品" },
     "innovation_initiative": { "score": 2, "reason": "有学生干部经历" },
-    "business_matching": { "score": 1, "reason": "仅有课程项目经验" },
-    "company_awareness": { "score": 0, "reason": "未体现企业认知" }
+    "business_matching": { "score": 1, "reason": "项目经验与目标行业一般相关" },
+    "salary_matching": { "score": 3, "reason": "能力基本匹配薪资水平" }
   },
   "total_score": 52.0,
   "recommendation_level": "谨慎推荐",
-  "overall_comment": "候选人具备基础的技术背景和产品意识，但在AI实践经验和作品展示方面有待加强。建议补充可交互的AI产品作品和量化的项目成果。"
+  "overall_comment": "候选人学历和专业与职位要求匹配，具备基础的技术背景和产品意识，但在AI实践经验和作品展示方面有待加强。薪资期望与能力水平基本匹配。"
 }`
 
     // 清理 prompt 中的特殊字符
@@ -163,7 +188,7 @@ ${resumeText}
           self_motivation: { score: 0, reason: "AI解析失败，请重试" },
           innovation_initiative: { score: 0, reason: "AI解析失败，请重试" },
           business_matching: { score: 0, reason: "AI解析失败，请重试" },
-          company_awareness: { score: 0, reason: "AI解析失败，请重试" }
+          salary_matching: { score: 0, reason: "AI解析失败，请重试" }
         },
         total_score: 0,
         recommendation_level: "系统错误",
@@ -197,7 +222,7 @@ ${resumeText}
           self_motivation: { score: 0, reason: "服务异常" },
           innovation_initiative: { score: 0, reason: "服务异常" },
           business_matching: { score: 0, reason: "服务异常" },
-          company_awareness: { score: 0, reason: "服务异常" }
+          salary_matching: { score: 0, reason: "服务异常" }
         },
         total_score: 0,
         recommendation_level: "服务异常",
