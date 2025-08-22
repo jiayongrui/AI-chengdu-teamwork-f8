@@ -51,6 +51,7 @@ type PageKey =
   | "home"
   | "bounty" // 机会雷达
   | "forge" // 破冰工坊
+  | "resume-optimizer" // 简历优化
   | "scraper" // 网页爬虫（管理员）
   | "opportunity-manager" // 机会管理（管理员）
   | "pricing" // 定价
@@ -86,10 +87,137 @@ export default function Page() {
   // 破冰工坊上下文
   const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null)
   const [resumeText, setResumeText] = useState<string | null>(null)
+  
+  // 邮件生成相关状态
   const [mailSubject, setMailSubject] = useState("")
   const [mailBody, setMailBody] = useState("")
   const [sending, setSending] = useState(false)
   const [sendMsg, setSendMsg] = useState<string | null>(null)
+  
+  // 简历优化相关状态
+  const [resumeOptimizationReport, setResumeOptimizationReport] = useState<any>(null)
+  const [resumeReportTitle, setResumeReportTitle] = useState("")
+  const [resumeReportContent, setResumeReportContent] = useState("")
+
+  // 格式化简历优化报告为可读文本
+  const formatResumeOptimizationReport = (report: any) => {
+    if (!report) return "报告数据无效"
+    
+    let formattedText = "# 简历优化报告\n\n"
+    
+    // 1. 量化评估诊断
+    if (report.quantitativeAssessment) {
+      formattedText += "## 📊 量化评估诊断\n\n"
+      formattedText += `**总体评分：** ${report.quantitativeAssessment.totalScore || '待评估'}/100\n\n`
+      
+      if (report.quantitativeAssessment.dimensionScores) {
+        formattedText += "**各维度得分：**\n"
+        Object.entries(report.quantitativeAssessment.dimensionScores).forEach(([dimension, scoreData]: [string, any]) => {
+          formattedText += `- **${dimension}：** ${scoreData.score}/${scoreData.maxScore} - ${scoreData.reason}\n`
+        })
+        formattedText += "\n"
+      }
+    }
+    
+    // 2. 分维度优化建议
+    if (report.dimensionalOptimization) {
+      formattedText += "## 🎯 分维度优化建议\n\n"
+      Object.entries(report.dimensionalOptimization).forEach(([dimension, advice]: [string, any]) => {
+        formattedText += `### ${dimension}\n`
+        
+        // 处理数组格式的建议
+        if (Array.isArray(advice)) {
+          formattedText += `**优化建议：**\n`
+          advice.forEach((suggestion: string) => {
+            formattedText += `- ${suggestion}\n`
+          })
+        }
+        // 处理对象格式的建议（兼容旧格式）
+        else if (typeof advice === 'object' && advice !== null) {
+          if (advice.currentStatus) {
+            formattedText += `**现状分析：** ${advice.currentStatus}\n`
+          }
+          if (advice.suggestions && advice.suggestions.length > 0) {
+            formattedText += `**优化建议：**\n`
+            advice.suggestions.forEach((suggestion: string) => {
+              formattedText += `- ${suggestion}\n`
+            })
+          }
+          if (advice.priority) {
+            formattedText += `**优先级：** ${advice.priority}\n`
+          }
+        }
+        // 处理字符串格式的建议
+        else if (typeof advice === 'string') {
+          formattedText += `**优化建议：** ${advice}\n`
+        }
+        
+        formattedText += "\n"
+      })
+    }
+    
+    // 3. 核心描述改写
+    if (report.coreDescriptionRewrite && report.coreDescriptionRewrite.length > 0) {
+      formattedText += "## ✏️ 核心描述改写（STAR法则）\n\n"
+      report.coreDescriptionRewrite.forEach((rewrite: any, index: number) => {
+        formattedText += `### 改写示例 ${index + 1}\n`
+        if (rewrite.type) {
+          formattedText += `**类型：** ${rewrite.type}\n\n`
+        }
+        formattedText += `**优化前：**\n${rewrite.original || rewrite.before}\n\n`
+        formattedText += `**优化后：**\n${rewrite.optimized || rewrite.after}\n\n`
+        if (rewrite.improvements && rewrite.improvements.length > 0) {
+          formattedText += `**改进要点：**\n`
+          rewrite.improvements.forEach((improvement: string) => {
+            formattedText += `- ${improvement}\n`
+          })
+        }
+        formattedText += "\n"
+      })
+    }
+    
+    // 4. 机会点挖掘
+    if (report.opportunityMining) {
+      formattedText += "## 🔍 机会点挖掘\n\n"
+      if (report.opportunityMining.missingElements && report.opportunityMining.missingElements.length > 0) {
+        formattedText += `**缺失的关键信息：**\n`
+        report.opportunityMining.missingElements.forEach((element: string) => {
+          formattedText += `- ${element}\n`
+        })
+        formattedText += "\n"
+      }
+      if (report.opportunityMining.actionableSteps && report.opportunityMining.actionableSteps.length > 0) {
+        formattedText += `**可执行的行动步骤：**\n`
+        report.opportunityMining.actionableSteps.forEach((step: string) => {
+          formattedText += `- ${step}\n`
+        })
+        formattedText += "\n"
+      }
+      if (report.opportunityMining.gameChangers && report.opportunityMining.gameChangers.length > 0) {
+        formattedText += `**决定性加分项：**\n`
+        report.opportunityMining.gameChangers.forEach((gameChanger: string) => {
+          formattedText += `- ${gameChanger}\n`
+        })
+        formattedText += "\n"
+      }
+      // 兼容旧格式
+      if (report.opportunityMining.bonusOpportunities && report.opportunityMining.bonusOpportunities.length > 0) {
+        formattedText += `**加分项建议：**\n`
+        report.opportunityMining.bonusOpportunities.forEach((opportunity: string) => {
+          formattedText += `- ${opportunity}\n`
+        })
+        formattedText += "\n"
+      }
+      if (report.opportunityMining.nextSteps && report.opportunityMining.nextSteps.length > 0) {
+        formattedText += `**下一步行动：**\n`
+        report.opportunityMining.nextSteps.forEach((step: string) => {
+          formattedText += `- ${step}\n`
+        })
+      }
+    }
+    
+    return formattedText
+  }
   // 新增AI生成状态
   const [aiGenerating, setAiGenerating] = useState(false)
   const [aiGenerateError, setAiGenerateError] = useState<string | null>(null)
@@ -217,6 +345,7 @@ export default function Page() {
       home: "home",
       bounty: "bounty",
       forge: "forge",
+      "resume-optimizer": "resume-optimizer",
       scraper: "scraper",
       "opportunity-manager": "opportunity-manager",
       pricing: "pricing",
@@ -502,7 +631,7 @@ export default function Page() {
       return
     }
 
-    // 转换为简化格式用于破冰工坊
+    // 转换为简化格式用于邮件生成
     const simpleOpp = {
       id: opportunity.id,
       company: opportunity.company_name,
@@ -689,7 +818,173 @@ export default function Page() {
     }
   }
 
-  // 机会卡片 -> 破冰工坊
+  // 机会卡片 -> 简历优化页面
+  const onGoResumeOptimizer = async (opp: Opportunity) => {
+    if (!user) {
+      showPage("#login")
+      return
+    }
+    setSelectedOpp(opp)
+
+    // 先设置空的简历优化内容，然后异步生成
+    setResumeReportTitle("")
+    setResumeReportContent("")
+    setAiGenerateError(null)
+
+    showPage("#resume-optimizer")
+
+    // 异步生成简历优化报告
+    setAiGenerating(true)
+    try {
+      const response = await fetch("/api/resume-optimization", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user: user,
+          opportunity: opp,
+          resumeText: resumeText,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      
+      // 处理简历优化报告数据
+      if (data.report) {
+        setResumeOptimizationReport(data.report)
+        // 将报告内容格式化为可显示的文本
+        const reportText = formatResumeOptimizationReport(data.report)
+        setResumeReportTitle("简历优化报告")
+        setResumeReportContent(reportText)
+      } else if (data.rawText) {
+        // 如果没有结构化报告，使用原始文本
+        setResumeReportTitle("简历优化报告")
+        setResumeReportContent(data.rawText)
+        setResumeOptimizationReport(null)
+      } else {
+        // 兼容旧格式
+        setResumeReportTitle("简历优化报告")
+        setResumeReportContent("报告生成失败，请重试")
+        setResumeOptimizationReport(null)
+      }
+      setAiGenerateError(null)
+    } catch (error: any) {
+      console.error("简历优化报告生成失败:", error)
+      setAiGenerateError("生成简历优化报告时出现问题")
+      setResumeReportTitle("简历优化报告")
+      setResumeReportContent("生成失败，请稍后重试")
+    } finally {
+      setAiGenerating(false)
+    }
+  }
+
+  // 重新生成邮件
+  const onRegenerateEmail = async () => {
+    if (!user || !selectedOpp) return
+
+    setAiGenerating(true)
+    setAiGenerateError(null)
+    
+    // 根据当前页面决定调用哪个API和使用哪些状态变量
+    if (currentPage === "resume-optimizer") {
+      // 简历优化页面：生成简历优化报告
+      setResumeReportTitle("")
+      setResumeReportContent("")
+      
+      try {
+        const response = await fetch("/api/resume-optimization", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            user: user,
+            opportunity: selectedOpp,
+            resumeText: resumeText,
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`)
+        }
+
+        const data = await response.json()
+        
+        // 处理简历优化报告数据
+        if (data.report) {
+          setResumeOptimizationReport(data.report)
+          const reportText = formatResumeOptimizationReport(data.report)
+          setResumeReportTitle("简历优化报告")
+          setResumeReportContent(reportText)
+        } else if (data.rawText) {
+          setResumeReportTitle("简历优化报告")
+          setResumeReportContent(data.rawText)
+          setResumeOptimizationReport(null)
+        } else {
+          setResumeReportTitle("简历优化报告")
+          setResumeReportContent("报告生成失败，请重试")
+          setResumeOptimizationReport(null)
+        }
+        setAiGenerateError(null)
+      } catch (error: any) {
+        console.error("简历优化报告生成失败:", error)
+        setAiGenerateError("生成简历优化报告时出现问题")
+        setResumeReportTitle("简历优化报告")
+        setResumeReportContent("生成失败，请稍后重试")
+        setResumeOptimizationReport(null)
+      }
+    } else {
+      // 破冰工坊页面：生成邮件
+      setMailSubject("")
+      setMailBody("")
+      
+      try {
+        const response = await fetch("/api/generate-email", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            user: user,
+            opportunity: selectedOpp,
+            resumeText: resumeText,
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`)
+        }
+
+        const data = await response.json()
+        
+        if (data.subject && data.body) {
+          setMailSubject(data.subject)
+          setMailBody(data.body)
+        } else if (data.rawText) {
+          setMailSubject("求职邮件")
+          setMailBody(data.rawText)
+        } else {
+          setMailSubject("求职邮件")
+          setMailBody("邮件生成失败，请重试")
+        }
+        setAiGenerateError(null)
+      } catch (error: any) {
+        console.error("邮件生成失败:", error)
+        setAiGenerateError("生成邮件时出现问题")
+        setMailSubject("求职邮件")
+        setMailBody("生成失败，请稍后重试")
+      }
+    }
+    
+    setAiGenerating(false)
+  }
+
+  // 机会卡片 -> 破冰工坊（简历优化报告生成）
   const onGoForge = async (opp: Opportunity) => {
     if (!user) {
       showPage("#login")
@@ -704,7 +999,7 @@ export default function Page() {
 
     showPage("#forge")
 
-    // 异步生成简历优化报告
+    // 异步生成求职邮件
     setAiGenerating(true)
     try {
       const response = await fetch("/api/generate-email", {
@@ -724,56 +1019,28 @@ export default function Page() {
       }
 
       const data = await response.json()
-      setMailSubject(data.subject)
-      setMailBody(data.body)
+      
+      // 处理邮件数据
+      if (data.email) {
+        setMailSubject(data.email.subject || "求职邮件")
+        setMailBody(data.email.body || "邮件生成失败，请重试")
+      } else {
+        // 兼容旧格式
+        setMailSubject(data.subject || "求职邮件")
+        setMailBody(data.body || "邮件生成失败，请重试")
+      }
       setAiGenerateError(null)
     } catch (error: any) {
-      console.error("简历优化报告生成失败:", error)
-      setAiGenerateError("生成简历优化报告时出现问题")
-      setMailSubject("简历优化报告")
+      console.error("求职邮件生成失败:", error)
+      setAiGenerateError("生成求职邮件时出现问题")
+      setMailSubject("求职邮件")
       setMailBody("生成失败，请稍后重试")
     } finally {
       setAiGenerating(false)
     }
   }
 
-  // 重新生成简历优化报告
-  const onRegenerateEmail = async () => {
-    if (!user || !selectedOpp) return
 
-    setAiGenerating(true)
-    setAiGenerateError(null)
-
-    try {
-      const response = await fetch("/api/generate-email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          user: user,
-          opportunity: selectedOpp,
-          resumeText: resumeText,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
-      }
-
-      const data = await response.json()
-      setMailSubject(data.subject)
-      setMailBody(data.body)
-      setAiGenerateError(null)
-    } catch (error: any) {
-      console.error("重新生成简历优化报告失败:", error)
-      setAiGenerateError("重新生成简历优化报告时出现问题")
-      setMailSubject("简历优化报告")
-      setMailBody("重新生成失败，请稍后重试")
-    } finally {
-      setAiGenerating(false)
-    }
-  }
 
   // 添加邮件发送相关的状态
   const [recipientEmail, setRecipientEmail] = useState("")
@@ -1307,6 +1574,13 @@ export default function Page() {
                     >
                       破冰工坊
                     </a>
+                    <a
+                      href="#resume-optimizer"
+                      className={navItemClass(currentPage === "resume-optimizer")}
+                      onClick={(e) => handleNavClick(e, "#resume-optimizer")}
+                    >
+                      简历优化
+                    </a>
                   </>
                 )}
               </>
@@ -1469,6 +1743,13 @@ export default function Page() {
                     onClick={(e) => handleNavClick(e, "#forge")}
                   >
                     破冰工坊
+                  </a>
+                  <a
+                    href="#resume-optimizer"
+                    className={`block py-2 ${navItemClass(currentPage === "resume-optimizer")}`}
+                    onClick={(e) => handleNavClick(e, "#resume-optimizer")}
+                  >
+                    简历优化
                   </a>
                 </>
               )}
@@ -2491,18 +2772,16 @@ export default function Page() {
           </div>
         )}
 
-        {/* 破冰工坊页面 */}
-        {currentPage === "forge" && (
-          <div id="page-forge" className="page-content">
+        {/* 简历优化页面 */}
+        {currentPage === "resume-optimizer" && (
+          <div id="page-resume-optimizer" className="page-content">
             <section className="py-12">
               <div className="container mx-auto px-6 max-w-3xl">
-                <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">破冰工坊</h2>
+                <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">简历优化</h2>
                 {connOk === true && <p className="text-sm text-green-600 mb-4">已成功链接云端数据（Supabase）</p>}
                 {connOk === false && (
                   <p className="text-sm text-red-600 mb-4">云端连接失败：{connErr || "未知错误"}（本地演示）</p>
                 )}
-
-
 
                 {!user ? (
                   <div className="bg-gray-50 rounded-2xl p-8 text-center border border-gray-200">
@@ -2556,7 +2835,7 @@ export default function Page() {
                                 d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                               />
                             </svg>
-                            重新生成报告
+                            生成报告
                           </>
                         )}
                       </button>
@@ -2578,12 +2857,11 @@ export default function Page() {
                     )}
 
                     <div className="grid gap-4">
-
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">简历优化报告</label>
                         <textarea
-                          value={mailBody}
-                          onChange={(e) => setMailBody(e.target.value)}
+                          value={resumeReportContent}
+                          onChange={(e) => setResumeReportContent(e.target.value)}
                           rows={20}
                           className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none text-sm"
                           disabled={aiGenerating}
@@ -2608,18 +2886,169 @@ export default function Page() {
                         <button
                           onClick={() => {
                             // 复制报告内容到剪贴板
-                            if (mailBody) {
-                              navigator.clipboard.writeText(mailBody).then(() => {
+                            if (resumeReportContent) {
+                              navigator.clipboard.writeText(resumeReportContent).then(() => {
                                 alert('报告内容已复制到剪贴板！')
                               }).catch(() => {
                                 alert('复制失败，请手动选择文本复制')
                               })
                             }
                           }}
-                          disabled={aiGenerating || !mailBody.trim()}
+                          disabled={aiGenerating || !resumeReportContent.trim()}
                           className="px-5 py-2 rounded-full bg-blue-500 text-white cta-button disabled:opacity-60"
                         >
                           复制报告
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* 破冰工坊页面 - 简历优化报告生成功能 */}
+        {currentPage === "forge" && (
+          <div id="page-forge" className="page-content">
+            <section className="py-12">
+              <div className="container mx-auto px-6 max-w-3xl">
+                <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">破冰工坊</h2>
+                <p className="text-gray-600 mb-6">AI分析简历与目标职位匹配度，生成个性化的求职邮件</p>
+                {connOk === true && <p className="text-sm text-green-600 mb-4">已成功链接云端数据（Supabase）</p>}
+                {connOk === false && (
+                  <p className="text-sm text-red-600 mb-4">云端连接失败：{connErr || "未知错误"}（本地演示）</p>
+                )}
+
+                {!user ? (
+                  <div className="bg-gray-50 rounded-2xl p-8 text-center border border-gray-200">
+                    <p className="text-gray-700">请先登录后生成求职邮件</p>
+                    <div className="mt-4">
+                      <a
+                        href="#login"
+                        className="px-6 py-2 rounded-full border border-gray-300 hover:bg-gray-100 nav-link"
+                        onClick={(e) => handleNavClick(e, "#login")}
+                      >
+                        去登录
+                      </a>
+                    </div>
+                  </div>
+                ) : !selectedOpp ? (
+                  <div className="bg-gray-50 rounded-2xl p-8 text-center border border-gray-200">
+                    <p className="text-gray-700">请先在"机会雷达"中选择一个机会</p>
+                    <div className="mt-4">
+                      <a
+                        href="#bounty"
+                        className="px-6 py-2 rounded-full bg-green-500 text-white cta-button nav-link"
+                        onClick={(e) => handleNavClick(e, "#bounty")}
+                      >
+                        前往选择
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-2xl shadow-xl p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="text-sm text-gray-500">
+                        AI分析简历与「<b>{selectedOpp.company}</b>」的「<b>{selectedOpp.title}</b>」职位匹配度，生成个性化求职邮件。
+                      </p>
+                      <button
+                        onClick={onRegenerateEmail}
+                        disabled={aiGenerating}
+                        className="flex items-center gap-2 px-3 py-1 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-60 transition-colors"
+                      >
+                        {aiGenerating ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            AI生成中...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                              />
+                            </svg>
+                            重新生成邮件
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {aiGenerateError && (
+                      <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                        <p className="text-amber-700 text-sm">⚠️ {aiGenerateError}</p>
+                      </div>
+                    )}
+
+                    {aiGenerating && (
+                      <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                          <p className="text-blue-700 text-sm">AI正在为你生成求职邮件，请稍候...</p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">邮件主题</label>
+                        <input
+                          type="text"
+                          value={mailSubject}
+                          onChange={(e) => setMailSubject(e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                          disabled={aiGenerating}
+                          placeholder="邮件主题将自动生成..."
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">邮件正文</label>
+                        <textarea
+                          value={mailBody}
+                          onChange={(e) => setMailBody(e.target.value)}
+                          rows={15}
+                          className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none text-sm"
+                          disabled={aiGenerating}
+                          style={{ whiteSpace: 'pre-wrap' }}
+                          placeholder="邮件正文将自动生成..."
+                        />
+                      </div>
+
+                      {!resumeText && (
+                        <p className="text-xs text-amber-600">
+                          💡 未检测到你的简历文本，建议先到"个人主页"上传简历以获得更个性化的AI生成内容。
+                        </p>
+                      )}
+
+                      <div className="flex justify-end gap-3">
+                        <a
+                          href="#resume-optimizer"
+                          onClick={(e) => handleNavClick(e, "#resume-optimizer")}
+                          className="px-4 py-2 rounded-full border border-gray-300 hover:bg-gray-100 nav-link"
+                        >
+                          去往简历优化
+                        </a>
+                        <button
+                          onClick={() => {
+                            // 复制邮件内容到剪贴板
+                            const emailContent = `主题: ${mailSubject}\n\n${mailBody}`
+                            if (emailContent.trim()) {
+                              navigator.clipboard.writeText(emailContent).then(() => {
+                                alert('邮件内容已复制到剪贴板！')
+                              }).catch(() => {
+                                alert('复制失败，请手动选择文本复制')
+                              })
+                            }
+                          }}
+                          disabled={aiGenerating || (!mailSubject.trim() && !mailBody.trim())}
+                          className="px-5 py-2 rounded-full bg-green-500 text-white cta-button disabled:opacity-60"
+                        >
+                          复制邮件
                         </button>
                       </div>
                     </div>
