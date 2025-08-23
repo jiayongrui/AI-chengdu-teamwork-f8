@@ -32,6 +32,7 @@ import { logAndAdvanceTask, sendEmail } from "@/lib/email-send"
 import type { OpportunityEnhanced } from "@/types/opportunity-enhanced"
 import { OpportunityCardEnhanced } from "@/components/opportunity-card-enhanced"
 import { OpportunityFilters } from "@/components/opportunity-filters"
+import { ScoreBreakdownTest } from "@/components/score-breakdown-test"
 import {
   fetchEnhancedOpportunities,
   searchEnhancedOpportunities,
@@ -54,6 +55,7 @@ type PageKey =
   | "resume-optimizer" // 简历优化
   | "scraper" // 网页爬虫（管理员）
   | "opportunity-manager" // 机会管理（管理员）
+  | "score-breakdown-test" // 评分详情测试
   | "pricing" // 定价
   | "blog"
   | "login"
@@ -1557,6 +1559,13 @@ export default function Page() {
                     >
                       机会管理
                     </a>
+                    <a
+                      href="#score-breakdown-test"
+                      className={navItemClass(currentPage === "score-breakdown-test")}
+                      onClick={(e) => handleNavClick(e, "#score-breakdown-test")}
+                    >
+                      评分测试
+                    </a>
                   </>
                 ) : (
                   <>
@@ -1726,6 +1735,13 @@ export default function Page() {
                     onClick={(e) => handleNavClick(e, "#opportunity-manager")}
                   >
                     机会管理
+                  </a>
+                  <a
+                    href="#score-breakdown-test"
+                    className={`block py-2 ${navItemClass(currentPage === "score-breakdown-test")}`}
+                    onClick={(e) => handleNavClick(e, "#score-breakdown-test")}
+                  >
+                    评分测试
                   </a>
                 </>
               ) : (
@@ -2179,6 +2195,7 @@ export default function Page() {
                             opportunity={opportunity}
                             onApply={handleApplyOpportunity}
                             score={opportunityScores[opportunity.id]}
+                            userId={user?.id}
                           />
                         ))
                       })()
@@ -3631,6 +3648,21 @@ export default function Page() {
                     </div>
                   )}
                 </div>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* 评分详情测试页面 */}
+        {currentPage === "score-breakdown-test" && (
+          <div id="page-score-breakdown-test" className="page-content">
+            <section className="py-12 bg-gray-50 min-h-screen">
+              <div className="container mx-auto px-6">
+                <div className="mb-8">
+                  <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">评分详情测试</h2>
+                  <p className="text-gray-600">测试新的 /api/score-breakdown 接口和 ScoreBreakdown 组件</p>
+                </div>
+                <ScoreBreakdownTest />
               </div>
             </section>
           </div>

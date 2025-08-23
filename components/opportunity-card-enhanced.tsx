@@ -4,18 +4,145 @@ import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
-import { Building2, MapPin, Clock, Star, Mail, User, Briefcase, GraduationCap, Calendar, DollarSign } from "lucide-react"
+import { Building2, MapPin, Clock, Star, Mail, User, Briefcase, GraduationCap, Calendar, DollarSign, ChevronDown, ChevronUp, Loader2 } from "lucide-react"
 import type { OpportunityEnhanced } from "@/types/opportunity-enhanced"
 import { OpportunityDetailDialog } from "./opportunity-detail-dialog"
+import ScoreBreakdown from "./score-breakdown"
+import GapAnalysisView from "./gap-analysis-view"
 
 interface OpportunityCardEnhancedProps {
   opportunity: OpportunityEnhanced
   onApply: (opportunity: OpportunityEnhanced) => void
   score?: number
+  userId?: string
 }
 
-export function OpportunityCardEnhanced({ opportunity, onApply, score }: OpportunityCardEnhancedProps) {
+interface ScoreData {
+  dimension: string
+  score: number
+  weight: number
+}
+
+interface GapAnalysisData {
+  overall_score: number
+  dimension_scores: Array<{
+    dimension: string
+    score: number
+    weight: number
+    strengths: Array<{
+      point: string
+      resume_evidence: string
+      jd_requirement: string
+    }>
+    gaps: Array<{
+      point: string
+      suggestion: string
+    }>
+  }>
+  optimization_suggestions: Array<{
+    category: string
+    suggestions: string[]
+  }>
+  description_rewrite_examples: Array<{
+    original: string
+    optimized: string
+    improvement_points: string[]
+  }>
+  missing_opportunities: Array<{
+    opportunity: string
+    impact: string
+    action_plan: string
+  }>
+}
+
+export function OpportunityCardEnhanced({ opportunity, onApply, score, userId }: OpportunityCardEnhancedProps) {
   const [showDetail, setShowDetail] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false)
+  const [isLoadingBreakdown, setIsLoadingBreakdown] = useState(false)
+  const [scoreBreakdown, setScoreBreakdown] = useState<ScoreData[] | null>(null)
+  const [showGapAnalysis, setShowGapAnalysis] = useState(false)
+  const [isLoadingGapAnalysis, setIsLoadingGapAnalysis] = useState(false)
+  const [gapAnalysisData, setGapAnalysisData] = useState<GapAnalysisData | null>(null)
+  const [gapAnalysisError, setGapAnalysisError] = useState<string | null>(null)
+
+  const fetchScoreBreakdown = async () => {
+    if (!userId || !opportunity.id || scoreBreakdown) return
+    
+    setIsLoadingBreakdown(true)
+    try {
+      const response = await fetch('/api/score-breakdown', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: userId,
+          opportunityId: opportunity.id
+        })
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        console.log('Score breakdown API response:', data)
+        // API返回的数据结构：{ breakdown: [...] }
+        setScoreBreakdown(data.breakdown || [])
+      } else {
+        console.error('Score breakdown API error:', response.status, response.statusText)
+      }
+    } catch (error) {
+      console.error('Failed to fetch score breakdown:', error)
+    } finally {
+      setIsLoadingBreakdown(false)
+    }
+  }
+
+  const fetchGapAnalysis = async () => {
+    if (!userId || !opportunity.id || gapAnalysisData) return
+    
+    setIsLoadingGapAnalysis(true)
+    setGapAnalysisError(null)
+    try {
+      const response = await fetch('/api/gap-analysis', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: userId,
+          opportunityId: opportunity.id
+        })
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        setGapAnalysisData(data)
+      } else {
+        setGapAnalysisError('获取分析数据失败，请稍后重试')
+      }
+    } catch (error) {
+      console.error('Failed to fetch gap analysis:', error)
+      setGapAnalysisError('网络错误，请检查网络连接')
+    } finally {
+      setIsLoadingGapAnalysis(false)
+    }
+  }
+
+  const handleGapAnalysisClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setShowGapAnalysis(!showGapAnalysis)
+    if (!showGapAnalysis && !gapAnalysisData) {
+      fetchGapAnalysis()
+    }
+  }
+
+  const handleScoreClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setIsExpanded(!isExpanded)
+    if (!isExpanded && !scoreBreakdown) {
+      fetchScoreBreakdown()
+    }
+  }
+
   const getPriorityColor = (priority: number) => {
     if (priority >= 8) return "bg-red-100 text-red-800 border-red-200"
     if (priority >= 6) return "bg-orange-100 text-orange-800 border-orange-200"
@@ -28,6 +155,20 @@ export function OpportunityCardEnhanced({ opportunity, onApply, score }: Opportu
     if (priority >= 6) return "中优先级"
     if (priority >= 4) return "普通"
     return "低优先级"
+  }
+
+  // 根据评分返回对应的颜色样式
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return "bg-green-100 text-green-800 border-green-200"
+    if (score >= 60) return "bg-yellow-100 text-yellow-800 border-yellow-200"
+    return "bg-red-100 text-red-800 border-red-200"
+  }
+
+  // 根据评分返回对应的等级标签
+  const getScoreLabel = (score: number) => {
+    if (score >= 80) return "高匹配"
+    if (score >= 60) return "中等匹配"
+    return "低匹配"
   }
 
   const isExpiringSoon =
@@ -49,7 +190,11 @@ export function OpportunityCardEnhanced({ opportunity, onApply, score }: Opportu
         onApply={onApply}
       />
       <Card 
-        className="h-full flex flex-col hover:shadow-lg transition-shadow duration-200 border border-gray-200 cursor-pointer"
+        className={`h-full flex flex-col hover:shadow-lg transition-all duration-200 cursor-pointer ${
+          score !== undefined 
+            ? `border-2 ${score >= 80 ? 'border-green-300 bg-green-50/30' : score >= 60 ? 'border-yellow-300 bg-yellow-50/30' : 'border-red-300 bg-red-50/30'}` 
+            : 'border border-gray-200'
+        }`}
         onClick={() => setShowDetail(true)}
       >
       <CardHeader className="pb-3">
@@ -79,11 +224,22 @@ export function OpportunityCardEnhanced({ opportunity, onApply, score }: Opportu
           </div>
           <div className="flex flex-col gap-1 items-end flex-shrink-0">
             {score !== undefined && (
-              <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs px-2 py-1 font-semibold">
-                评分: {score.toFixed(1)}
-              </Badge>
+              <div 
+                className="cursor-pointer hover:opacity-80 rounded-lg p-1 transition-all duration-200"
+                onClick={handleScoreClick}
+              >
+                <Badge className={`${getScoreColor(score)} text-xs px-2 py-1 font-semibold flex items-center gap-1 border`}>
+                  {getScoreLabel(score)} {score.toFixed(1)}
+                  {isLoadingBreakdown ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : isExpanded ? (
+                    <ChevronUp size={12} />
+                  ) : (
+                    <ChevronDown size={12} />
+                  )}
+                </Badge>
+              </div>
             )}
-
           </div>
         </div>
       </CardHeader>
@@ -179,6 +335,85 @@ export function OpportunityCardEnhanced({ opportunity, onApply, score }: Opportu
           {opportunity.reason && (
             <div className="bg-gray-50 rounded-lg p-3">
               <p className="text-sm text-gray-700 leading-relaxed line-clamp-3">{opportunity.reason}</p>
+            </div>
+          )}
+
+          {/* 评分详情展开区域 */}
+          {isExpanded && (
+            <div className="mt-4 border-t border-gray-200 pt-4">
+              {isLoadingBreakdown ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 size={20} className="animate-spin text-blue-500" />
+                  <span className="ml-2 text-sm text-gray-600">加载评分详情...</span>
+                </div>
+              ) : scoreBreakdown && scoreBreakdown.length > 0 ? (
+                <div className="space-y-4">
+                  <ScoreBreakdown scoreData={scoreBreakdown} />
+                  
+                  {/* 简历分析按钮 */}
+                  <div className="border-t border-gray-200 pt-4">
+                    <Button
+                      onClick={handleGapAnalysisClick}
+                      variant="outline"
+                      className="w-full bg-gradient-to-r from-purple-50 to-blue-50 hover:from-purple-100 hover:to-blue-100 border-purple-200 text-purple-700 font-medium"
+                      disabled={isLoadingGapAnalysis}
+                    >
+                      {isLoadingGapAnalysis ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin mr-2" />
+                          AI分析中，请稍候...
+                        </>
+                      ) : showGapAnalysis ? (
+                        <>
+                          <ChevronUp size={16} className="mr-2" />
+                          收起简历与岗位匹配度分析
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown size={16} className="mr-2" />
+                          进行简历与岗位匹配度分析
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  
+                  {/* 简历分析结果展示区域 */}
+                  {showGapAnalysis && (
+                    <div className="border-t border-gray-200 pt-4">
+                      {isLoadingGapAnalysis ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 size={24} className="animate-spin text-purple-500" />
+                          <span className="ml-3 text-sm text-gray-600">AI正在分析您的简历与岗位匹配度，请稍候...</span>
+                        </div>
+                      ) : gapAnalysisError ? (
+                        <div className="text-center py-6">
+                          <p className="text-red-500 text-sm mb-2">{gapAnalysisError}</p>
+                          <Button
+                            onClick={() => {
+                              setGapAnalysisError(null)
+                              fetchGapAnalysis()
+                            }}
+                            size="sm"
+                            variant="outline"
+                          >
+                            重试
+                          </Button>
+                        </div>
+                      ) : gapAnalysisData ? (
+                        <GapAnalysisView analysisData={gapAnalysisData} />
+                      ) : (
+                        <div className="text-center py-4 text-sm text-gray-500">
+                          暂无分析数据
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-4 text-sm text-gray-500">
+                  暂无评分详情数据
+                </div>
+              )}
             </div>
           )}
         </div>
