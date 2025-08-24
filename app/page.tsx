@@ -904,7 +904,11 @@ export default function Page() {
 
         const data = await response.json()
         
-        if (data.subject && data.body) {
+        // 优先处理email对象格式
+        if (data.email && data.email.subject && data.email.body) {
+          setMailSubject(data.email.subject)
+          setMailBody(data.email.body)
+        } else if (data.subject && data.body) {
           setMailSubject(data.subject)
           setMailBody(data.body)
         } else if (data.rawText) {

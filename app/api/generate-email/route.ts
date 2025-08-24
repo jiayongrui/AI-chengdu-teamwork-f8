@@ -2,37 +2,123 @@ import { generateText } from "ai"
 import { createOpenAI } from "@ai-sdk/openai"
 import { type NextRequest, NextResponse } from "next/server"
 
+// 从简历中提取个人信息（姓名和联系方式）
+function extractPersonalInfo(resumeText: string) {
+  if (!resumeText || resumeText.trim().length === 0) {
+    return {
+      name: '',
+      phone: '',
+      email: ''
+    }
+  }
+
+  const text = resumeText.trim()
+  const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0)
+  
+  let name = ''
+  let phone = ''
+  let email = ''
+  
+  // 提取邮箱
+  const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g
+  const emailMatch = text.match(emailRegex)
+  if (emailMatch && emailMatch.length > 0) {
+    email = emailMatch[0]
+  }
+  
+  // 提取手机号
+  const phoneRegex = /(?:1[3-9]\d{9}|\+86\s*1[3-9]\d{9}|\(?\d{3}\)?[-\s]?\d{3}[-\s]?\d{4})/g
+  const phoneMatch = text.match(phoneRegex)
+  if (phoneMatch && phoneMatch.length > 0) {
+    phone = phoneMatch[0].replace(/\s+/g, '').replace(/[()\-]/g, '')
+  }
+  
+  // 提取姓名（通常在简历开头，寻找可能的姓名模式）
+  for (let i = 0; i < Math.min(5, lines.length); i++) {
+    const line = lines[i]
+    // 跳过包含常见简历关键词的行
+    if (line.includes('简历') || line.includes('求职') || line.includes('应聘') || 
+        line.includes('联系方式') || line.includes('个人信息') || line.includes('基本信息')) {
+      continue
+    }
+    // 跳过包含邮箱或电话的行
+    if (line.includes('@') || /\d{11}/.test(line)) {
+      continue
+    }
+    // 寻找可能的姓名（2-4个中文字符，或者英文名）
+    const nameMatch = line.match(/^([\u4e00-\u9fa5]{2,4}|[A-Za-z]+\s+[A-Za-z]+)$/)
+    if (nameMatch) {
+      name = nameMatch[1]
+      break
+    }
+    // 如果行很短且不包含特殊字符，可能是姓名
+    if (line.length >= 2 && line.length <= 10 && !/[\d@#$%^&*()_+=\[\]{}|;:,.<>?]/.test(line)) {
+      name = line
+      break
+    }
+  }
+  
+  return {
+    name: name || '',
+    phone: phone || '',
+    email: email || ''
+  }
+}
+
 function buildTemplateEmail(params: {
   user: { username: string }
-  opportunity: {
-    company: string
-    title: string
-    city?: string
-    tags?: string[]
-    reason?: string
-  }
+  opportunity: any
   resumeText?: string | null
+  topRequirements?: string[]
 }) {
-  const { user, opportunity, resumeText } = params
-  const subject = `关于${opportunity.title}职位的求职申请 - ${user.username}`
-  const skillHint =
-    resumeText && resumeText.trim().length > 0
-      ? "我简历中的关键经历与技能与岗位高度匹配。"
-      : "我具备扎实的工程基础与自驱力，乐于在快速变化的环境中交付高质量结果。"
+  const { user, opportunity, resumeText, topRequirements } = params
+  const companyName = opportunity.company || opportunity.company_name
+  const jobTitle = opportunity.title || opportunity.job_title
+  
+  // 从简历中提取个人信息
+  const personalInfo = extractPersonalInfo(resumeText || '')
+  const displayName = personalInfo.name || user.username
+  
+  // 统一的主题格式
+  const subject = `应聘${jobTitle} - ${displayName}`
+  
+  // 构建联系方式信息
+  const contactInfo = []
+  if (personalInfo.phone) {
+    contactInfo.push(`电话：${personalInfo.phone}`)
+  }
+  if (personalInfo.email) {
+    contactInfo.push(`邮箱：${personalInfo.email}`)
+  }
+  
+  // 构建格式规范的邮件正文
   const body = [
-    "您好！",
+    `您好！我对贵公司的${jobTitle}职位非常感兴趣。`,
     "",
-    `我关注到贵公司「${opportunity.company}」${opportunity.reason ?? "发展迅速"}，对岗位「${opportunity.title}」非常感兴趣。`,
+    "针对岗位核心要求，我的匹配情况如下：",
+    // 分点列出匹配要求
+    ...(topRequirements && topRequirements.length > 0 
+      ? topRequirements.slice(0, 3).map(req => `• ${req.replace(/^\d+\.\s*/, '').slice(0, 50)}${req.length > 50 ? '...' : ''}`)
+      : [
+          "• 具备扎实的专业技术基础和学习能力",
+          "• 拥有相关项目开发和实践经验", 
+          "• 具备良好的团队协作和沟通能力"
+        ]),
     "",
-    skillHint,
-    resumeText
-      ? "我的简历重点包含：\n" + (resumeText.slice(0, 300) + (resumeText.length > 300 ? "..." : ""))
-      : "我的简历已随信附上，欢迎查阅。",
+    "个人亮点：",
+    resumeText && resumeText.trim().length > 0
+      ? `${resumeText.slice(0, 120)}${resumeText.length > 120 ? '...' : ''}`
+      : "具备相关技术栈经验，能够快速适应团队需求并贡献价值。",
     "",
-    "若有机会参与到贵司的下一阶段产品迭代，我将非常珍惜，也乐于先行完成小任务以便您评估。",
+    "期待有机会进一步交流，感谢您的时间！",
     "",
-    `此致\n${user.username}`,
+    "此致",
+    "敬礼！",
+    "",
+    displayName,
+    ...(contactInfo.length > 0 ? ["", ...contactInfo] : []),
   ].join("\n")
+  
   return { subject, body }
 }
 
@@ -119,6 +205,50 @@ function generatePersonalizedGreeting(company: string, jobTitle: string, reason?
   return greetings[Math.floor(Math.random() * greetings.length)]
 }
 
+// 提取招聘要求的最重要三条
+function extractTopThreeRequirements(opportunity: any): string[] {
+  const requirements: string[] = []
+  
+  // 从职位描述中提取要求
+  if (opportunity.job_description) {
+    const desc = opportunity.job_description
+    // 查找包含要求关键词的句子
+    const requirementKeywords = ['要求', '需要', '具备', '熟悉', '掌握', '经验', '能力', '技能', '负责', '参与']
+    const sentences = desc.split(/[。；;\n]/).filter(s => s.trim().length > 5)
+    
+    sentences.forEach(sentence => {
+      if (requirementKeywords.some(keyword => sentence.includes(keyword))) {
+        requirements.push(sentence.trim())
+      }
+    })
+  }
+  
+  // 添加经验要求
+  if (opportunity.experience_required) {
+    requirements.push(`工作经验：${opportunity.experience_required}`)
+  }
+  
+  // 添加学历要求
+  if (opportunity.education_required) {
+    requirements.push(`学历要求：${opportunity.education_required}`)
+  }
+  
+  // 从标签中提取技能要求
+  if (opportunity.tags && opportunity.tags.length > 0) {
+    const skillTags = opportunity.tags.filter((tag: string) => 
+      !['大厂', '创业', '融资', '北京', '上海', '深圳', '杭州', '广州'].includes(tag)
+    )
+    if (skillTags.length > 0) {
+      requirements.push(`核心技能：${skillTags.join('、')}`)
+    }
+  }
+  
+  // 返回最重要的三条，优先选择更具体和详细的要求
+  return requirements
+    .sort((a, b) => b.length - a.length) // 按长度排序，更详细的排在前面
+    .slice(0, 3)
+}
+
 export async function POST(req: NextRequest) {
   // 仅解析一次请求体，避免在 catch 中重复读取失败
   let payload: any
@@ -135,12 +265,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "缺少必要参数" }, { status: 400 })
     }
 
-    // DeepSeek API key is now hardcoded, so we can proceed with AI generation
-    // If needed, fallback logic can be added here for error handling
-
+    // 提取招聘要求的最重要三条
+    const topRequirements = extractTopThreeRequirements(opportunity)
+    
+    // 提取个人信息
+    const personalInfo = extractPersonalInfo(resumeText || '')
+    const displayName = personalInfo.name || user.username
+    
     // 提取简历亮点
     const resumeHighlightsObj = extractResumeHighlights(resumeText || "", opportunity.tags || [])
-    const resumeHighlights = `**技能匹配：** ${resumeHighlightsObj.skills.join('、') || '无'}
+    const resumeHighlights = `**个人信息：**
+姓名：${displayName}${personalInfo.phone ? `\n电话：${personalInfo.phone}` : ''}${personalInfo.email ? `\n邮箱：${personalInfo.email}` : ''}
+
+**技能匹配：** ${resumeHighlightsObj.skills.join('、') || '无'}
 
 **项目经验：**
 ${resumeHighlightsObj.experiences.map(exp => `- ${exp}`).join('\n') || '- 无相关经验'}
@@ -156,20 +293,22 @@ ${resumeHighlightsObj.experiences.map(exp => `- ${exp}`).join('\n') || '- 无相
 
     // 构建求职邮件生成的AI提示词
     const prompt = `# 角色与目标
-你是一位专业的求职邮件写作专家。你需要帮助求职者撰写一封专业、个性化的求职邮件。
+你是一位专业的求职邮件写作专家。你需要帮助求职者撰写一封格式规范、重点突出的求职邮件。
 
-# 任务要求
-1. 根据求职者简历和目标职位信息，生成一封专业的求职邮件
-2. 邮件应该体现求职者与职位的匹配度
-3. 语言要专业、诚恳，避免过于夸张
-4. 突出求职者的核心优势和相关经验
+# 核心要求
+1. 邮件格式规范，重点内容分点分行，提高可读性
+2. 重点针对岗位的三条最重要招聘要求进行匹配
+3. 语言专业诚恳，结构清晰
+4. 总长度控制在250-350字以内
+
+# 岗位最重要的三条招聘要求
+${topRequirements.map((req, index) => `${index + 1}. ${req}`).join('\n')}
 
 # 目标岗位信息
-**公司**: ${opportunity.company}
-**职位**: ${opportunity.title}
-**城市**: ${opportunity.city || '未指定'}
-**岗位标签**: ${(opportunity.tags || []).join(', ')}
-**岗位描述**: ${opportunity.reason || '暂无详细描述'}
+**公司**: ${opportunity.company || opportunity.company_name}
+**职位**: ${opportunity.title || opportunity.job_title}
+**城市**: ${opportunity.city || opportunity.location || '未指定'}
+**薪资**: ${opportunity.salary_range || '面议'}
 **个性化开场**: ${personalizedGreeting}
 
 # 求职者简历信息
@@ -183,42 +322,76 @@ ${resumeHighlights}
   "body": "邮件正文内容"
 }
 
-邮件正文应包含：
-1. 专业的问候语
-2. 简洁的自我介绍和求职意向
-3. 突出与职位相关的技能和经验
-4. 表达对公司和职位的兴趣
-5. 礼貌的结尾和联系方式
+# 邮件格式规范
 
-请确保邮件内容专业、简洁，长度适中（300-500字）。`
+## 主题格式
+应聘【职位名称】- 【核心优势/经验】
+
+## 正文结构
+1. **开场问候**：您好！我对贵公司的【职位名称】职位非常感兴趣。
+
+2. **核心匹配**（分点列出）：
+   针对岗位核心要求，我的匹配情况如下：
+   • 【要求1的匹配说明】
+   • 【要求2的匹配说明】  
+   • 【要求3的匹配说明】
+
+3. **个人亮点**：
+   【1-2句话概括核心优势或项目经验】
+
+4. **结尾**：
+   期待有机会进一步交流，感谢您的时间！
+   
+   此致
+   敬礼！
+   
+   ${displayName}${personalInfo.phone || personalInfo.email ? '\n' + [personalInfo.phone && `电话：${personalInfo.phone}`, personalInfo.email && `邮箱：${personalInfo.email}`].filter(Boolean).join('\n') : ''}
+
+重要：严格按照上述格式生成邮件，确保分点分行，结构清晰。在邮件结尾使用提供的姓名和联系方式。`
 
     // 使用直接HTTP请求调用SiliconFlow API
+    // 清理控制字符但保留中文字符
     const cleanPrompt = prompt.replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim()
+    
+    // 确保字符串是有效的UTF-8编码
+    const safePrompt = cleanPrompt.replace(/[\uD800-\uDFFF]/g, '') // 移除无效的代理对
+    
+    const requestBody = {
+      model: 'deepseek-ai/DeepSeek-V3',
+      messages: [
+        {
+          role: 'user',
+          content: safePrompt
+        }
+      ],
+      max_tokens: 4000,
+      temperature: 0.7
+    }
+    
+    console.log('发送AI请求，内容长度:', safePrompt.length)
     
     const response = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json; charset=utf-8',
         'Authorization': 'Bearer sk-ufnwysgrwnebkczychcgkvzvvinyydmppnrvgyclbwdluvpu'
       },
-      body: JSON.stringify({
-        model: 'deepseek-ai/DeepSeek-V3',
-        messages: [
-          {
-            role: 'user',
-            content: cleanPrompt
-          }
-        ],
-        max_tokens: 4000,
-        temperature: 0.7
-      })
+      body: JSON.stringify(requestBody)
     })
 
     if (!response.ok) {
+      const errorText = await response.text()
+      console.error('API调用失败:', response.status, response.statusText, errorText)
       throw new Error(`API调用失败: ${response.status} ${response.statusText}`)
     }
 
     const apiResult = await response.json()
+    console.log('AI API响应:', { status: response.status, hasChoices: !!apiResult.choices })
+    
+    if (!apiResult.choices || !apiResult.choices[0] || !apiResult.choices[0].message) {
+      throw new Error('AI API返回格式异常')
+    }
+    
     const text = apiResult.choices[0].message.content
 
     // 尝试解析AI返回的JSON格式邮件
@@ -233,7 +406,7 @@ ${resumeHighlights}
       }
     } catch (parseError) {
       // 如果解析失败，使用模板邮件
-      const templateEmail = buildTemplateEmail({ user, opportunity, resumeText })
+      const templateEmail = buildTemplateEmail({ user, opportunity, resumeText, topRequirements })
       emailData = {
         subject: templateEmail.subject,
         body: templateEmail.body
@@ -254,8 +427,10 @@ ${resumeHighlights}
     })
   } catch (error: any) {
     console.error("AI邮件生成失败:", error)
+    // 提取招聘要求用于模板邮件
+    const topRequirements = extractTopThreeRequirements(opportunity)
     // 返回基础的模板邮件
-    const templateEmail = buildTemplateEmail({ user, opportunity, resumeText })
+    const templateEmail = buildTemplateEmail({ user, opportunity, resumeText, topRequirements })
     
     return NextResponse.json({
       success: true,
@@ -266,9 +441,9 @@ ${resumeHighlights}
       rawText: templateEmail.body,
       fallback: true,
       metadata: {
-        company: opportunity.company,
-        position: opportunity.title,
-        city: opportunity.city,
+        company: opportunity.company || opportunity.company_name,
+        position: opportunity.title || opportunity.job_title,
+        city: opportunity.city || opportunity.location,
         tags: opportunity.tags,
         generatedAt: new Date().toISOString()
       }
