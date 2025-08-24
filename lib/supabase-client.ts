@@ -14,7 +14,25 @@ export function getSupabaseClient(): SupabaseClient | null {
   
   if (!client) {
     try {
-      client = createClient(url, key)
+      // 添加更详细的配置选项来处理网络问题
+      client = createClient(url, key, {
+        auth: {
+          persistSession: false, // 禁用会话持久化以避免存储问题
+        },
+        global: {
+          headers: {
+            'X-Client-Info': 'supabase-js-web',
+          },
+        },
+        db: {
+          schema: 'public',
+        },
+        realtime: {
+          params: {
+            eventsPerSecond: 2,
+          },
+        },
+      })
       console.log("Supabase客户端初始化成功")
     } catch (error) {
       console.error("Supabase客户端初始化失败:", error)

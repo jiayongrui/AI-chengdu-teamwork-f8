@@ -32,6 +32,7 @@ import { logAndAdvanceTask, sendEmail } from "@/lib/email-send"
 import type { OpportunityEnhanced } from "@/types/opportunity-enhanced"
 import { OpportunityCardEnhanced } from "@/components/opportunity-card-enhanced"
 import { OpportunityFilters } from "@/components/opportunity-filters"
+import { ScoreBreakdownTest } from "@/components/score-breakdown-test"
 import {
   fetchEnhancedOpportunities,
   searchEnhancedOpportunities,
@@ -54,6 +55,7 @@ type PageKey =
   | "resume-optimizer" // 简历优化
   | "scraper" // 网页爬虫（管理员）
   | "opportunity-manager" // 机会管理（管理员）
+  | "score-breakdown-test" // 评分详情测试
   | "pricing" // 定价
   | "blog"
   | "login"
@@ -291,10 +293,54 @@ export default function Page() {
   const [scoringError, setScoringError] = useState<string | null>(null)
   const [resumeScore, setResumeScore] = useState<number | null>(null) // 简历总分
 
+  // 性能优化相关状态
+  const [displayedOpportunities, setDisplayedOpportunities] = useState<OpportunityEnhanced[]>([])
+  const [currentPageNum, setCurrentPageNum] = useState(1)
+  const [itemsPerPage] = useState(12) // 每页显示12个机会
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+
   // 合并的机会列表（默认 + 管理员添加的）
   const allOpportunities = useMemo(() => {
     return [...todayOpportunities, ...adminOpportunities]
   }, [adminOpportunities])
+
+  // 分页逻辑：当筛选结果变化时，重置分页并更新显示的机会
+  useEffect(() => {
+    if (filteredOpportunities.length > 0) {
+      const startIndex = 0
+      const endIndex = Math.min(itemsPerPage, filteredOpportunities.length)
+      setDisplayedOpportunities(filteredOpportunities.slice(startIndex, endIndex))
+      setCurrentPageNum(1)
+    } else {
+      setDisplayedOpportunities([])
+      setCurrentPageNum(1)
+    }
+  }, [filteredOpportunities, itemsPerPage])
+
+  // 加载更多机会的函数
+  const loadMoreOpportunities = useCallback(() => {
+    if (isLoadingMore) return
+    
+    const startIndex = currentPageNum * itemsPerPage
+    const endIndex = Math.min(startIndex + itemsPerPage, filteredOpportunities.length)
+    
+    if (startIndex >= filteredOpportunities.length) return
+    
+    setIsLoadingMore(true)
+    
+    // 模拟加载延迟，提供更好的用户体验
+    setTimeout(() => {
+      const newOpportunities = filteredOpportunities.slice(startIndex, endIndex)
+      setDisplayedOpportunities(prev => [...prev, ...newOpportunities])
+      setCurrentPageNum(prev => prev + 1)
+      setIsLoadingMore(false)
+    }, 300)
+  }, [currentPageNum, itemsPerPage, filteredOpportunities, isLoadingMore])
+
+  // 检查是否还有更多数据可以加载
+  const hasMoreOpportunities = useMemo(() => {
+    return displayedOpportunities.length < filteredOpportunities.length
+  }, [displayedOpportunities.length, filteredOpportunities.length])
 
   const validPages: Record<string, PageKey> = useMemo(
     () => ({
@@ -495,7 +541,7 @@ export default function Page() {
 
     try {
       console.log("调用 fetchEnhancedOpportunities...")
-      const opportunities = await fetchEnhancedOpportunities(6) // 限制为6个
+      const opportunities = await fetchEnhancedOpportunities(50) // 增加到50个，提供更多选择
       console.log("成功加载机会数据:", opportunities.length, "个机会")
 
       setEnhancedOpportunities(opportunities)
@@ -513,7 +559,7 @@ export default function Page() {
 
       // 使用本地缓存作为降级方案
       console.log("使用本地缓存数据")
-      const localOpportunities = getLocalEnhancedOpportunities().slice(0, 6)
+      const localOpportunities = getLocalEnhancedOpportunities() // 移除slice限制
       setEnhancedOpportunities(localOpportunities)
       setFilteredOpportunities(localOpportunities)
 
@@ -540,14 +586,14 @@ export default function Page() {
 
       try {
         if (Object.keys(filters).length === 0) {
-          // 无筛选条件，显示所有机会（限制6个）
+          // 无筛选条件，显示所有机会
           console.log("无筛选条件，加载所有机会")
-          const opportunities = await fetchEnhancedOpportunities(6)
+          const opportunities = await fetchEnhancedOpportunities(50) // 增加限制
           setFilteredOpportunities(opportunities)
         } else {
-          // 有筛选条件，执行搜索（限制6个）
+          // 有筛选条件，执行搜索
           console.log("执行筛选搜索")
-          const searchResults = await searchEnhancedOpportunities({ ...filters, limit: 6 })
+          const searchResults = await searchEnhancedOpportunities({ ...filters, limit: 30 }) // 增加搜索限制
           setFilteredOpportunities(searchResults)
         }
       } catch (error) {
@@ -572,7 +618,7 @@ export default function Page() {
           }
           return true
         })
-        setFilteredOpportunities(filtered.slice(0, 6)) // 限制6个
+        setFilteredOpportunities(filtered) // 移除限制，显示所有筛选结果
       } finally {
         setLoadingOpportunities(false)
       }
@@ -634,6 +680,15 @@ export default function Page() {
           resumeText: resumeText,
           jobPosition: "AI产品经理", // 使用通用职位进行基础评分
           jobLocation: "不限",
+          salaryRange: "面议",
+          experienceRequired: "不限",
+          educationRequired: "不限",
+          jobDescription: "通用AI产品经理职位评估",
+          companyName: "通用评估",
+          companySize: "不限",
+          industry: "互联网",
+          benefits: "标准福利",
+          tags: ["AI", "产品经理"]
         }),
       })
 
@@ -660,6 +715,15 @@ export default function Page() {
               resumeText: resumeText,
               jobPosition: opportunity.job_title,
               jobLocation: opportunity.location,
+              salaryRange: (opportunity as any).salary_range || "面议",
+              experienceRequired: (opportunity as any).experience_required || "不限",
+              educationRequired: (opportunity as any).education_required || "不限",
+              jobDescription: (opportunity as any).job_description || "暂无详细描述",
+              companyName: opportunity.company_name,
+              companySize: (opportunity as any).company_size || "未知",
+              industry: (opportunity as any).industry || "未知",
+              benefits: (opportunity as any).benefits || "未提及",
+              tags: opportunity.tags || []
             }),
           })
 
@@ -671,13 +735,9 @@ export default function Page() {
           console.log(`${opportunity.company_name} 评分响应:`, scoreData)
           const score = scoreData.success ? (scoreData.data?.total_score || 0) : 0
           
-          // 只保存分数小于等于简历总分的机会评分
-          if (score <= baseResumeScore) {
-            newScores[opportunity.id] = score
-            console.log(`${opportunity.company_name}: ${score}分 (符合条件，简历总分: ${baseResumeScore})`)
-          } else {
-            console.log(`${opportunity.company_name}: ${score}分 (超出简历总分 ${baseResumeScore}，不显示)`)
-          }
+          // 保存所有机会的评分
+          newScores[opportunity.id] = score
+          console.log(`${opportunity.company_name}: ${score}分 (简历总分: ${baseResumeScore})`)
         } catch (error) {
           console.error(`评分失败 - ${opportunity.company_name}:`, error)
           // 评分失败的机会不显示
@@ -688,7 +748,7 @@ export default function Page() {
       console.log("评分完成，符合条件的机会:", newScores)
       
       if (Object.keys(newScores).length === 0) {
-        setScoringError(`暂无符合您简历水平的机会（简历总分: ${baseResumeScore}分）`)
+        setScoringError(`暂无可评分的机会（简历总分: ${baseResumeScore}分）`)
       }
     } catch (error) {
       console.error("评分过程出错:", error)
@@ -1503,6 +1563,13 @@ export default function Page() {
                     >
                       机会管理
                     </a>
+                    <a
+                      href="#score-breakdown-test"
+                      className={navItemClass(currentPage === "score-breakdown-test")}
+                      onClick={(e) => handleNavClick(e, "#score-breakdown-test")}
+                    >
+                      评分测试
+                    </a>
                   </>
                 ) : (
                   <>
@@ -1672,6 +1739,13 @@ export default function Page() {
                     onClick={(e) => handleNavClick(e, "#opportunity-manager")}
                   >
                     机会管理
+                  </a>
+                  <a
+                    href="#score-breakdown-test"
+                    className={`block py-2 ${navItemClass(currentPage === "score-breakdown-test")}`}
+                    onClick={(e) => handleNavClick(e, "#score-breakdown-test")}
+                  >
+                    评分测试
                   </a>
                 </>
               ) : (
@@ -2114,10 +2188,10 @@ export default function Page() {
                   <>
                     <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
                       {(() => {
-                        // 如果已经评分，只显示有评分的机会；否则显示所有筛选后的机会
+                        // 如果已经评分，只显示有评分的机会；否则使用分页显示的机会
                         const displayOpportunities = Object.keys(opportunityScores).length > 0 
                           ? filteredOpportunities.filter(opp => opportunityScores[opp.id] !== undefined)
-                          : filteredOpportunities
+                          : displayedOpportunities
                         
                         return displayOpportunities.map((opportunity) => (
                           <OpportunityCardEnhanced
@@ -2125,28 +2199,54 @@ export default function Page() {
                             opportunity={opportunity}
                             onApply={handleApplyOpportunity}
                             score={opportunityScores[opportunity.id]}
+                            userId={user?.id}
                           />
                         ))
                       })()
                       }
                     </div>
 
+                    {/* 加载更多按钮 */}
+                    {Object.keys(opportunityScores).length === 0 && hasMoreOpportunities && (
+                      <div className="mt-8 text-center">
+                        <button
+                          onClick={loadMoreOpportunities}
+                          disabled={isLoadingMore}
+                          className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isLoadingMore ? (
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              加载中...
+                            </div>
+                          ) : (
+                            `加载更多 (还有 ${filteredOpportunities.length - displayedOpportunities.length} 个机会)`
+                          )}
+                        </button>
+                      </div>
+                    )}
+
                     {/* 显示限制提示 */}
                     <div className="mt-8 text-center">
                       {Object.keys(opportunityScores).length > 0 ? (
                         <>
                           <p className="text-sm text-gray-500">
-                            显示 {Object.keys(opportunityScores).length} 个符合您简历水平的机会
+                            显示 {Object.keys(opportunityScores).length} 个机会的评分结果
                             {resumeScore && ` (简历总分: ${resumeScore}分)`}
                           </p>
-                          <p className="text-xs text-gray-400 mt-1">只显示评分小于等于您简历总分的机会</p>
+                          <p className="text-xs text-gray-400 mt-1">显示所有机会的匹配度评分</p>
                         </>
                       ) : (
                         <>
                           <p className="text-sm text-gray-500">
-                            当前显示 {filteredOpportunities.length} 个机会（每次最多显示6个）
+                            显示 {displayedOpportunities.length} / {filteredOpportunities.length} 个机会
                           </p>
-                          <p className="text-xs text-gray-400 mt-1">点击刷新按钮获取更多机会，或使用筛选条件精准匹配</p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            {hasMoreOpportunities 
+                              ? '点击"加载更多"查看剩余机会，或使用筛选条件精准匹配' 
+                              : '使用筛选条件可以精准匹配更合适的机会'
+                            }
+                          </p>
                         </>
                       )}
                     </div>
@@ -3552,6 +3652,21 @@ export default function Page() {
                     </div>
                   )}
                 </div>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* 评分详情测试页面 */}
+        {currentPage === "score-breakdown-test" && (
+          <div id="page-score-breakdown-test" className="page-content">
+            <section className="py-12 bg-gray-50 min-h-screen">
+              <div className="container mx-auto px-6">
+                <div className="mb-8">
+                  <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">评分详情测试</h2>
+                  <p className="text-gray-600">测试新的 /api/score-breakdown 接口和 ScoreBreakdown 组件</p>
+                </div>
+                <ScoreBreakdownTest />
               </div>
             </section>
           </div>

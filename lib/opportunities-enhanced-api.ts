@@ -215,28 +215,26 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
     return getRandomLocalOpportunities(limit)
   }
 
-  // 测试数据库连接（使用更简单的查询避免网络问题）
+  // 快速测试数据库连接（减少超时时间）
   try {
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 3000) // 3秒超时
+    const timeoutId = setTimeout(() => controller.abort(), 1000) // 1秒超时
     
     const { error: testError } = await supabase
       .from('opportunities')
-      .select('id', { count: 'exact', head: true })
+      .select('id')
       .limit(1)
       .abortSignal(controller.signal)
     
     clearTimeout(timeoutId)
     
     if (testError) {
-      console.error("数据库连接测试失败:", testError)
-      console.log("数据库连接异常，使用本地数据")
+      console.warn("数据库连接测试失败，使用本地数据:", testError.message)
       return getRandomLocalOpportunities(limit)
     }
     console.log("数据库连接正常")
   } catch (error) {
-    console.error("数据库连接测试异常:", error)
-    console.log("网络连接失败或超时，使用本地数据")
+    console.warn("网络连接失败或超时，使用本地数据:", error instanceof Error ? error.message : error)
     return getRandomLocalOpportunities(limit)
   }
 
@@ -464,11 +462,11 @@ export async function getOpportunityStatistics(): Promise<OpportunityStatistics>
   }
 
   try {
-    // 首先测试数据库连接（添加超时控制）
+    // 快速测试数据库连接
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 2000) // 2秒超时
+    const timeoutId = setTimeout(() => controller.abort(), 800) // 800毫秒超时
     
-    const { data: testData, error: connectionError } = await supabase
+    const { error: connectionError } = await supabase
       .from('opportunities')
       .select('id')
       .limit(1)
@@ -477,8 +475,7 @@ export async function getOpportunityStatistics(): Promise<OpportunityStatistics>
     clearTimeout(timeoutId)
     
     if (connectionError) {
-      console.error("数据库连接失败:", connectionError.message || connectionError)
-      console.log("数据库不可用，使用本地统计数据")
+      console.warn("数据库连接失败，使用本地统计数据:", connectionError.message)
       return getLocalStatistics()
     }
     
