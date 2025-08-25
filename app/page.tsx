@@ -1009,13 +1009,18 @@ export default function Page() {
       const data = await response.json()
       
       // 处理邮件数据
-      if (data.email) {
-        setMailSubject(data.email.subject || "求职邮件")
-        setMailBody(data.email.body || "邮件生成失败，请重试")
+      if (data.email && data.email.subject && data.email.body) {
+        setMailSubject(data.email.subject)
+        setMailBody(data.email.body)
+      } else if (data.subject && data.body) {
+        setMailSubject(data.subject)
+        setMailBody(data.body)
+      } else if (data.rawText) {
+        setMailSubject("求职邮件")
+        setMailBody(data.rawText)
       } else {
-        // 兼容旧格式
-        setMailSubject(data.subject || "求职邮件")
-        setMailBody(data.body || "邮件生成失败，请重试")
+        setMailSubject("求职邮件")
+        setMailBody("邮件生成失败，请重试")
       }
       setAiGenerateError(null)
     } catch (error: any) {
