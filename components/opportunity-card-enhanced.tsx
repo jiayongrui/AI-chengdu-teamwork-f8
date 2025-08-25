@@ -114,10 +114,23 @@ export function OpportunityCardEnhanced({ opportunity, onApply, score, userId }:
       })
       
       if (response.ok) {
-        const data = await response.json()
-        setGapAnalysisData(data)
+        const result = await response.json()
+        // 修复：正确提取数据
+        if (result.success && result.data) {
+          setGapAnalysisData(result.data)
+        } else {
+          setGapAnalysisError('分析数据格式错误，请稍后重试')
+        }
       } else {
-        setGapAnalysisError('获取分析数据失败，请稍后重试')
+        // 增强错误处理：显示具体错误信息
+        const errorResult = await response.json().catch(() => null)
+        const errorMessage = errorResult?.error || '获取分析数据失败，请稍后重试'
+        setGapAnalysisError(errorMessage)
+        
+        // 输出调试信息
+        if (errorResult?.debug_info) {
+          console.error('Gap analysis debug info:', errorResult.debug_info)
+        }
       }
     } catch (error) {
       console.error('Failed to fetch gap analysis:', error)

@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Noto_Sans_SC } from "next/font/google"
-import { Menu, FileText, Gem, DoorOpen, BarChart3, Lightbulb, Users, Info, RefreshCw, Calculator } from "lucide-react"
+import { Menu, FileText, Gem, DoorOpen, BarChart3, Lightbulb, Users, Info, Calculator } from "lucide-react"
 
 import { getSupabaseClient } from "@/lib/supabase-client"
 import { signIn, signUp, getLocalUser, setLocalUser } from "@/lib/auth"
@@ -635,12 +635,12 @@ export default function Page() {
     onGoForge(opportunity)
   }
 
+  // 添加进度状态
+  const [scoringProgress, setScoringProgress] = useState({ current: 0, total: 0 })
+
   // 评分功能
   const handleScoreOpportunities = useCallback(async () => {
     console.log("评分按钮被点击")
-    console.log("用户状态:", user)
-    console.log("简历文本:", resumeText ? "已上传" : "未上传")
-    console.log("筛选机会数量:", filteredOpportunities.length)
     
     if (!user) {
       alert("请先登录后再进行评分")
@@ -656,18 +656,20 @@ export default function Page() {
     setScoringError(null)
     setResumeScore(null)
     const newScores: Record<string, number> = {}
+    
+    // 设置进度
+    const totalOpportunities = filteredOpportunities.length + 1 // +1 for resume scoring
+    setScoringProgress({ current: 0, total: totalOpportunities })
 
     try {
-      // 第一步：对简历进行基础评分，获取简历总分
+      // 第一步：简历基础评分
       console.log("开始对简历进行基础评分...")
       const resumeResponse = await fetch("/api/score", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           resumeText: resumeText,
-          jobPosition: "AI产品经理", // 使用通用职位进行基础评分
+          jobPosition: "AI产品经理",
           jobLocation: "不限",
           salaryRange: "面议",
           experienceRequired: "不限",
@@ -686,54 +688,73 @@ export default function Page() {
       }
 
       const resumeScoreData = await resumeResponse.json()
-      console.log("简历基础评分响应:", resumeScoreData)
       const baseResumeScore = resumeScoreData.success ? (resumeScoreData.data?.total_score || 0) : 0
       setResumeScore(baseResumeScore)
-      console.log("简历总分:", baseResumeScore)
+      setScoringProgress(prev => ({ ...prev, current: 1 }))
 
-      // 第二步：对每个机会进行评分，但只显示分数小于等于简历总分的机会
-      console.log("开始对机会进行评分...")
-      for (const opportunity of filteredOpportunities) {
-        try {
-          const response = await fetch("/api/score", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              resumeText: resumeText,
-              jobPosition: opportunity.job_title,
-              jobLocation: opportunity.location,
-              salaryRange: (opportunity as any).salary_range || "面议",
-              experienceRequired: (opportunity as any).experience_required || "不限",
-              educationRequired: (opportunity as any).education_required || "不限",
-              jobDescription: (opportunity as any).job_description || "暂无详细描述",
-              companyName: opportunity.company_name,
-              companySize: (opportunity as any).company_size || "未知",
-              industry: (opportunity as any).industry || "未知",
-              benefits: (opportunity as any).benefits || "未提及",
-              tags: opportunity.tags || []
-            }),
-          })
+      // 第二步：并行处理机会评分（分批处理，避免过多并发）
+      const BATCH_SIZE = 3 // 每批处理3个请求
+      const opportunities = [...filteredOpportunities]
+      
+      for (let i = 0; i < opportunities.length; i += BATCH_SIZE) {
+        const batch = opportunities.slice(i, i + BATCH_SIZE)
+        
+        // 并行处理当前批次
+        const batchPromises = batch.map(async (opportunity) => {
+          try {
+            const response = await fetch("/api/score", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                resumeText: resumeText,
+                jobPosition: opportunity.job_title,
+                jobLocation: opportunity.location,
+                salaryRange: (opportunity as any).salary_range || "面议",
+                experienceRequired: (opportunity as any).experience_required || "不限",
+                educationRequired: (opportunity as any).education_required || "不限",
+                jobDescription: (opportunity as any).job_description || "暂无详细描述",
+                companyName: opportunity.company_name,
+                companySize: (opportunity as any).company_size || "未知",
+                industry: (opportunity as any).industry || "未知",
+                benefits: (opportunity as any).benefits || "未提及",
+                tags: opportunity.tags || []
+              }),
+            })
 
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`)
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}`)
+            }
+
+            const scoreData = await response.json()
+            const score = scoreData.success ? (scoreData.data?.total_score || 0) : 0
+            
+            return { id: opportunity.id, score, company: opportunity.company_name }
+          } catch (error) {
+            console.error(`评分失败 - ${opportunity.company_name}:`, error)
+            return null
           }
+        })
 
-          const scoreData = await response.json()
-          console.log(`${opportunity.company_name} 评分响应:`, scoreData)
-          const score = scoreData.success ? (scoreData.data?.total_score || 0) : 0
-          
-          // 保存所有机会的评分
-          newScores[opportunity.id] = score
-          console.log(`${opportunity.company_name}: ${score}分 (简历总分: ${baseResumeScore})`)
-        } catch (error) {
-          console.error(`评分失败 - ${opportunity.company_name}:`, error)
-          // 评分失败的机会不显示
-        }
+        // 等待当前批次完成
+        const batchResults = await Promise.all(batchPromises)
+        
+        // 更新结果和进度
+        batchResults.forEach((result) => {
+          if (result) {
+            newScores[result.id] = result.score
+            console.log(`${result.company}: ${result.score}分`)
+          }
+        })
+        
+        setScoringProgress(prev => ({ 
+          ...prev, 
+          current: Math.min(prev.current + batch.length, totalOpportunities) 
+        }))
+        
+        // 实时更新评分结果
+        setOpportunityScores({ ...newScores })
       }
 
-      setOpportunityScores(newScores)
       console.log("评分完成，符合条件的机会:", newScores)
       
       if (Object.keys(newScores).length === 0) {
@@ -744,6 +765,7 @@ export default function Page() {
       setScoringError("评分过程中出现错误")
     } finally {
       setScoringOpportunities(false)
+      setScoringProgress({ current: 0, total: 0 })
     }
   }, [user, resumeText, filteredOpportunities])
 
@@ -2120,22 +2142,17 @@ export default function Page() {
                     </div>
                     <div className="flex items-center gap-3">
                       <button
-                        onClick={loadEnhancedOpportunities}
-                        disabled={loadingOpportunities}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-60 transition-colors"
-                        title="刷新机会列表"
-                      >
-                        <RefreshCw size={16} className={loadingOpportunities ? "animate-spin" : ""} />
-                        {loadingOpportunities ? "刷新中..." : "刷新"}
-                      </button>
-                      <button
                          onClick={handleScoreOpportunities}
                          disabled={scoringOpportunities || !user || !resumeText}
                          className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-60 transition-colors"
                          title={!user ? "请先登录" : !resumeText ? "请先上传简历" : "对符合条件的机会进行评分"}
                        >
                          <Calculator size={16} className={scoringOpportunities ? "animate-pulse" : ""} />
-                         {scoringOpportunities ? "评分中..." : "评分"}
+                         {scoringOpportunities ? (
+                           scoringProgress.total > 0 ? 
+                             `评分中... (${scoringProgress.current}/${scoringProgress.total})` : 
+                             "评分中..."
+                         ) : "评分"}
                        </button>
                     </div>
                   </div>
@@ -2173,12 +2190,6 @@ export default function Page() {
                     </div>
                     <p className="text-gray-600 mb-2">没有找到匹配的机会</p>
                     <p className="text-sm text-gray-500">尝试调整筛选条件或点击刷新按钮</p>
-                    <button
-                      onClick={loadEnhancedOpportunities}
-                      className="mt-4 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-                    >
-                      重新加载数据
-                    </button>
                   </div>
                 ) : (
                   <>
