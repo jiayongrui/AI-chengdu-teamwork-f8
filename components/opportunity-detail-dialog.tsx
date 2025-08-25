@@ -3,7 +3,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Building2, MapPin, Clock, Star, Mail, User, Briefcase, GraduationCap, Calendar, DollarSign } from "lucide-react"
+import { Building2, MapPin, Clock, Star, Mail, User, Briefcase, GraduationCap, Calendar, DollarSign, Phone } from "lucide-react"
 import type { OpportunityEnhanced } from "@/types/opportunity-enhanced"
 
 interface OpportunityDetailDialogProps {
@@ -135,6 +135,12 @@ export function OpportunityDetailDialog({ opportunity, open, onClose, onApply }:
                 <div className="flex items-center gap-2">
                   <Mail size={16} className="text-gray-500" />
                   <span>{opportunity.contact_email}</span>
+                </div>
+              )}
+              {opportunity.contact_phone && (
+                <div className="flex items-center gap-2">
+                  <Phone size={16} className="text-gray-500" />
+                  <span>{opportunity.contact_phone}</span>
                 </div>
               )}
             </div>

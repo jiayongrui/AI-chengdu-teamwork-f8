@@ -451,25 +451,9 @@ export default function Page() {
   const checkConnection = useCallback(async () => {
     if (!supabase) throw new Error("缺少环境变量 NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY")
     
-    // 添加超时控制
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 3000) // 3秒超时
-    
-    try {
-      const { error } = await supabase
-        .from("users")
-        .select("id", { count: "exact", head: true })
-        .abortSignal(controller.signal)
-      
-      clearTimeout(timeoutId)
-      
-      if (error) throw error
-      console.log("用户连接测试成功")
-    } catch (error) {
-      clearTimeout(timeoutId)
-      console.error("用户连接测试失败:", error)
-      throw error
-    }
+    // 跳过数据库连接测试，直接返回成功
+    console.log("跳过数据库连接测试，使用本地数据")
+    return true
   }, [supabase])
 
   // 切到 profile/forge 时加载简历

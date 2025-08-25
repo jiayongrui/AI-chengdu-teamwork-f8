@@ -150,7 +150,7 @@ export async function GET() {
     
     const { data, error } = await supabase
       .from('opportunities')
-      .select('id, company_name, contact_email')
+      .select('id, company_name, contact_email, contact_phone')
       .or(companyNames.map(name => `company_name.ilike.%${name}%`).join(','))
     
     if (error) {

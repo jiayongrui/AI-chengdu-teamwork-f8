@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
-import { Building2, MapPin, Clock, Star, Mail, User, Briefcase, GraduationCap, Calendar, DollarSign, ChevronDown, ChevronUp, Loader2 } from "lucide-react"
+import { Building2, MapPin, Clock, Star, Mail, User, Briefcase, GraduationCap, Calendar, DollarSign, ChevronDown, ChevronUp, Loader2, Phone } from "lucide-react"
 import type { OpportunityEnhanced } from "@/types/opportunity-enhanced"
 import { OpportunityDetailDialog } from "./opportunity-detail-dialog"
 import ScoreBreakdown from "./score-breakdown"
@@ -295,6 +295,12 @@ export function OpportunityCardEnhanced({ opportunity, onApply, score, userId }:
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <Mail size={14} className="flex-shrink-0" />
                 <span className="truncate">{opportunity.contact_email}</span>
+              </div>
+            )}
+            {opportunity.contact_phone && (
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Phone size={14} className="flex-shrink-0" />
+                <span className="truncate">{opportunity.contact_phone}</span>
               </div>
             )}
           </div>
