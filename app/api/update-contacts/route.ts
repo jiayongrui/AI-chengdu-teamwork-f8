@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseClient } from '@/lib/supabase-client'
 
-// 公司联系信息更新数据
+// 公司联系信息更新数据 - 修正版（仅保留真实可信数据）
 const COMPANY_CONTACTS = [
   {
     company_name: '上海缠山科技有限公司',
-    contact_email: '1119143624@qq.com',
+    contact_email: null,  // 移除虚构邮箱
     contact_phone: null
   },
   {
@@ -15,12 +15,12 @@ const COMPANY_CONTACTS = [
   },
   {
     company_name: '杭州知行元科技',
-    contact_email: '18796827019@163.com',
+    contact_email: null,  // 移除虚构邮箱
     contact_phone: '18796827019'
   },
   {
     company_name: '蜜蜂数联',
-    contact_email: 'mifengshulian@hotmai',
+    contact_email: null,  // 移除不完整邮箱
     contact_phone: '13637920466'
   },
   {
@@ -35,12 +35,12 @@ const COMPANY_CONTACTS = [
   },
   {
     company_name: '苏州苏纳光电有限公司',
-    contact_email: 'yyhuang2006@sinano.ac.cn',
+    contact_email: 'yyhuang2006@sinano.ac.cn',  // 保留真实邮箱
     contact_phone: '13306136603'
   },
   {
     company_name: '聚合吧科技有限公司',
-    contact_email: '15589871755@139.com',
+    contact_email: null,  // 移除虚构邮箱
     contact_phone: '15589871755'
   }
 ]
