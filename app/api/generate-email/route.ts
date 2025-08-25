@@ -34,27 +34,60 @@ function extractPersonalInfo(resumeText: string) {
   }
   
   // 提取姓名（通常在简历开头，寻找可能的姓名模式）
-  for (let i = 0; i < Math.min(5, lines.length); i++) {
-    const line = lines[i]
+  for (let i = 0; i < Math.min(8, lines.length); i++) {
+    const line = lines[i].trim()
+    
+    // 跳过空行
+    if (!line) continue
+    
     // 跳过包含常见简历关键词的行
     if (line.includes('简历') || line.includes('求职') || line.includes('应聘') || 
-        line.includes('联系方式') || line.includes('个人信息') || line.includes('基本信息')) {
+        line.includes('联系方式') || line.includes('个人信息') || line.includes('基本信息') ||
+        line.includes('教育背景') || line.includes('工作经验') || line.includes('技能') ||
+        line.includes('项目经验') || line.includes('自我评价')) {
       continue
     }
-    // 跳过包含邮箱或电话的行
-    if (line.includes('@') || /\d{11}/.test(line)) {
+    
+    // 跳过包含邮箱或长电话号码的行
+    if (line.includes('@') || /\d{10,}/.test(line)) {
       continue
     }
-    // 寻找可能的姓名（2-4个中文字符，或者英文名）
-    const nameMatch = line.match(/^([\u4e00-\u9fa5]{2,4}|[A-Za-z]+\s+[A-Za-z]+)$/)
-    if (nameMatch) {
-      name = nameMatch[1]
+    
+    // 跳过包含明显非姓名内容的行
+    if (line.includes('：') || line.includes(':') || line.includes('，') || 
+        line.includes('。') || line.includes('、') || line.includes('；')) {
+      continue
+    }
+    
+    // 优先匹配纯中文姓名（2-4个字符）
+    const chineseNameMatch = line.match(/^([\u4e00-\u9fa5]{2,4})$/)
+    if (chineseNameMatch) {
+      name = chineseNameMatch[1]
       break
     }
-    // 如果行很短且不包含特殊字符，可能是姓名
-    if (line.length >= 2 && line.length <= 10 && !/[\d@#$%^&*()_+=\[\]{}|;:,.<>?]/.test(line)) {
-      name = line
+    
+    // 匹配英文姓名
+    const englishNameMatch = line.match(/^([A-Za-z]+(?:\s+[A-Za-z]+)+)$/)
+    if (englishNameMatch) {
+      name = englishNameMatch[1]
       break
+    }
+    
+    // 匹配包含中文姓名的行（如"姓名：张三"）
+    const nameWithLabelMatch = line.match(/(?:姓名|名字|Name)[:：]?\s*([\u4e00-\u9fa5]{2,4}|[A-Za-z]+(?:\s+[A-Za-z]+)+)/)
+    if (nameWithLabelMatch) {
+      name = nameWithLabelMatch[1]
+      break
+    }
+    
+    // 如果行很短且只包含字母和中文，可能是姓名
+    if (line.length >= 2 && line.length <= 8 && /^[\u4e00-\u9fa5A-Za-z\s]+$/.test(line)) {
+      // 排除一些常见的非姓名词汇
+      if (!line.includes('先生') && !line.includes('女士') && !line.includes('同学') &&
+          !line.includes('老师') && !line.includes('经理') && !line.includes('工程师')) {
+        name = line
+        break
+      }
     }
   }
   
@@ -345,9 +378,10 @@ ${resumeHighlights}
    此致
    敬礼！
    
-   ${displayName}${personalInfo.phone || personalInfo.email ? '\n' + [personalInfo.phone && `电话：${personalInfo.phone}`, personalInfo.email && `邮箱：${personalInfo.email}`].filter(Boolean).join('\n') : ''}
+   【姓名】
+   【联系方式】
 
-重要：严格按照上述格式生成邮件，确保分点分行，结构清晰。在邮件结尾使用提供的姓名和联系方式。`
+重要：严格按照上述格式生成邮件，确保分点分行，结构清晰。在邮件结尾的【姓名】处填入"${displayName}"，在【联系方式】处填入联系信息${personalInfo.phone || personalInfo.email ? '（' + [personalInfo.phone && `电话：${personalInfo.phone}`, personalInfo.email && `邮箱：${personalInfo.email}`].filter(Boolean).join('，') + '）' : '（如有）'}。`
 
     // 使用直接HTTP请求调用SiliconFlow API
     // 清理控制字符但保留中文字符
