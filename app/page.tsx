@@ -87,7 +87,7 @@ export default function Page() {
   const [authLoading, setAuthLoading] = useState(false)
 
   // 破冰工坊上下文
-  const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null)
+  const [selectedOpp, setSelectedOpp] = useState<OpportunityEnhanced | null>(null)
   const [resumeText, setResumeText] = useState<string | null>(null)
   
   // 邮件生成相关状态
@@ -617,17 +617,8 @@ export default function Page() {
       return
     }
 
-    // 转换为简化格式用于邮件生成
-    const simpleOpp = {
-      id: opportunity.id,
-      company: opportunity.company_name,
-      title: opportunity.job_title,
-      city: opportunity.location,
-      tags: opportunity.tags || [],
-      reason: opportunity.reason,
-    }
-
-    onGoForge(simpleOpp)
+    // 直接传递完整的OpportunityEnhanced对象
+    onGoForge(opportunity)
   }
 
   // 评分功能
@@ -805,7 +796,7 @@ export default function Page() {
   }
 
   // 机会卡片 -> 简历优化页面
-  const onGoResumeOptimizer = async (opp: Opportunity) => {
+  const onGoResumeOptimizer = async (opp: OpportunityEnhanced) => {
     if (!user) {
       showPage("#login")
       return
@@ -829,7 +820,14 @@ export default function Page() {
         },
         body: JSON.stringify({
           user: user,
-          opportunity: opp,
+          opportunity: {
+            id: opp.id,
+            company: opp.company_name,
+            title: opp.job_title,
+            city: opp.location,
+            tags: opp.tags || [],
+            reason: opp.reason,
+          },
           resumeText: resumeText,
         }),
       })
@@ -975,7 +973,7 @@ export default function Page() {
   }
 
   // 机会卡片 -> 破冰工坊（简历优化报告生成）
-  const onGoForge = async (opp: Opportunity) => {
+  const onGoForge = async (opp: OpportunityEnhanced) => {
     if (!user) {
       showPage("#login")
       return
@@ -2818,7 +2816,7 @@ export default function Page() {
                   <div className="bg-white rounded-2xl shadow-xl p-6">
                     <div className="flex items-center justify-between mb-4">
                       <p className="text-sm text-gray-500">
-                        根据你的简历与目标公司「<b>{selectedOpp.company}</b>」生成简历优化报告。
+                        根据你的简历与目标公司「<b>{selectedOpp.company_name}</b>」生成简历优化报告。
                       </p>
                       <button
                         onClick={onRegenerateEmail}
@@ -2955,7 +2953,7 @@ export default function Page() {
                   <div className="bg-white rounded-2xl shadow-xl p-6">
                     <div className="flex items-center justify-between mb-4">
                       <p className="text-sm text-gray-500">
-                        AI分析简历与「<b>{selectedOpp.company}</b>」的「<b>{selectedOpp.title}</b>」职位匹配度，生成个性化求职邮件。
+                        AI分析简历与「<b>{selectedOpp.company_name}</b>」的「<b>{selectedOpp.job_title}</b>」职位匹配度，生成个性化求职邮件。
                       </p>
                       <button
                         onClick={onRegenerateEmail}
@@ -2999,6 +2997,16 @@ export default function Page() {
                     )}
 
                     <div className="grid gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">联系邮箱</label>
+                        <input
+                           type="email"
+                           value={selectedOpp?.contact_email || ''}
+                           readOnly
+                           className="w-full px-3 py-2 rounded-lg border border-gray-300 bg-gray-50 text-gray-600"
+                           placeholder="暂无联系邮箱信息"
+                         />
+                      </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">邮件主题</label>
                         <input
@@ -3055,6 +3063,14 @@ export default function Page() {
                         >
                           复制邮件
                         </button>
+                        <a
+                          href={`https://mail.google.com/mail/u/0/?to=${encodeURIComponent(selectedOpp?.contact_email || '')}&fs=1&tf=cm`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-5 py-2 rounded-full bg-blue-500 text-white cta-button hover:bg-blue-600 transition-colors"
+                        >
+                          去发送
+                        </a>
                       </div>
                     </div>
                   </div>
