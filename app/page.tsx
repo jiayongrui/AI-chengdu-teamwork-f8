@@ -456,34 +456,48 @@ export default function Page() {
     return true
   }, [supabase])
 
-  // 切到 profile/forge 时加载简历
+  // 用户登录后立即加载简历数据
   useEffect(() => {
     ;(async () => {
-      if (!user) return
-      if (currentPage === "profile" || currentPage === "forge") {
-        try {
-          await checkConnection()
-          setConnOk(true)
-          setConnErr(null)
+      if (!user) {
+        setResumeText(null)
+        setResumes([])
+        return
+      }
+      
+      try {
+        await checkConnection()
+        setConnOk(true)
+        setConnErr(null)
 
-          // 加载用户的所有简历
-          const userResumes = await fetchUserResumes(user.id)
-          setResumes(userResumes)
+        // 立即加载用户的简历文本和简历列表
+        const txt = await fetchUserResumeText(user.id)
+        setResumeText(txt)
+        
+        const userResumes = await fetchUserResumes(user.id)
+        setResumes(userResumes)
+      } catch (e: any) {
+        setConnOk(false)
+        setConnErr(e?.message ?? "连接 Supabase 失败")
 
-          // 兼容旧的简历文本字段
-          const txt = await fetchUserResumeText(user.id)
-          setResumeText(txt)
-        } catch (e: any) {
-          setConnOk(false)
-          setConnErr(e?.message ?? "连接 Supabase 失败")
-
-          // 降级到本地存储
-          const localResumes = getLocalResumes(user.id)
-          setResumes(localResumes)
+        // 降级到本地存储
+        const localResumes = getLocalResumes(user.id)
+        setResumes(localResumes)
+        
+        // 如果有本地简历，使用第一个作为默认简历文本
+        if (localResumes.length > 0) {
+          setResumeText(localResumes[0].content)
         }
       }
     })()
-  }, [currentPage, user, checkConnection])
+  }, [user, checkConnection])
+
+  // 原有的页面特定逻辑可以简化
+  useEffect(() => {
+    if (currentPage === "profile" || currentPage === "forge") {
+      // 页面特定的初始化逻辑（如果有的话）
+    }
+  }, [currentPage, user])
 
   // 加载增强机会数据
   useEffect(() => {

@@ -38,19 +38,41 @@ interface GapAnalysisViewProps {
 }
 
 const GapAnalysisView: React.FC<GapAnalysisViewProps> = ({ analysisData }) => {
+  // 添加数据验证
+  if (!analysisData || !analysisData.dimension_scores) {
+    return (
+      <div className="w-full max-w-7xl mx-auto p-6">
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            分析数据加载失败，请稍后重试。
+          </AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
+
   // 计算优势项（得分率 >= 70%）
   const getStrengths = () => {
     const strengths = []
     const dimensions = analysisData.dimension_scores
     
+    // 添加安全检查
+    if (!dimensions) return []
+    
     Object.entries(dimensions).forEach(([key, value]) => {
+      // 添加 value 的安全检查
+      if (!value || typeof value.score !== 'number' || typeof value.max_score !== 'number') {
+        return
+      }
+      
       const scoreRate = (value.score / value.max_score) * 100
       if (scoreRate >= 70) {
         strengths.push({
           dimension: getDimensionName(key),
           score: value.score,
           maxScore: value.max_score,
-          reason: value.reason,
+          reason: value.reason || '暂无说明',
           scoreRate
         })
       }
@@ -64,16 +86,24 @@ const GapAnalysisView: React.FC<GapAnalysisViewProps> = ({ analysisData }) => {
     const gaps = []
     const dimensions = analysisData.dimension_scores
     
+    // 添加安全检查
+    if (!dimensions) return []
+    
     Object.entries(dimensions).forEach(([key, value]) => {
+      // 添加 value 的安全检查
+      if (!value || typeof value.score !== 'number' || typeof value.max_score !== 'number') {
+        return
+      }
+      
       const scoreRate = (value.score / value.max_score) * 100
       if (scoreRate < 70) {
         gaps.push({
           dimension: getDimensionName(key),
           score: value.score,
           maxScore: value.max_score,
-          reason: value.reason,
+          reason: value.reason || '暂无说明',
           scoreRate,
-          suggestions: analysisData.optimization_suggestions[key] || []
+          suggestions: (analysisData.optimization_suggestions && analysisData.optimization_suggestions[key]) || []
         })
       }
     })
