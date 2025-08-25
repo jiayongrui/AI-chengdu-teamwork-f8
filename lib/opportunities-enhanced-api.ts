@@ -82,7 +82,7 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     tags: ["AI", "产品经理", "医疗健康", "应届生"],
     reason: "负责产品需求调研与分析，洞察行业发展趋势，设计开发解决方案",
     job_description: "<h3>职位职责：</h3><ul><li>负责AI医疗健康产品的需求调研与分析</li><li>洞察医疗健康行业发展趋势，识别产品机会</li><li>设计开发AI驱动的医疗健康解决方案</li><li>与医疗专家和技术团队协作，确保产品专业性</li><li>制定产品商业化策略和市场推广计划</li></ul><h3>任职要求：</h3><ul><li>本科及以上学历，医学、生物、计算机相关专业优先</li><li>对医疗健康和AI技术结合有深入理解</li><li>具备产品需求分析和解决方案设计能力</li><li>良好的跨领域沟通协调能力</li><li>欢迎医疗背景应届生投递</li></ul>",
-    contact_email: "mifengshulian@hotmai",
+    contact_email: "mifengshulian@hotmail.com",
     contact_phone: "13637920466",
     contact_person: "HR",
     company_logo: "/placeholder-logo.png",
