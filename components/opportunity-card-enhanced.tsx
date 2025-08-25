@@ -157,18 +157,19 @@ export function OpportunityCardEnhanced({ opportunity, onApply, score, userId }:
     return "低优先级"
   }
 
-  // 根据评分返回对应的颜色样式
+  // 替换原有的getScoreColor函数
   const getScoreColor = (score: number) => {
-    if (score >= 80) return "bg-green-100 text-green-800 border-green-200"
-    if (score >= 60) return "bg-yellow-100 text-yellow-800 border-yellow-200"
-    return "bg-red-100 text-red-800 border-red-200"
+    const bgColor = getScoreBackgroundColor(score)
+    const textColor = getScoreTextColor(score)
+    const borderColor = getScoreBorderColor(score)
+    return `${bgColor} ${textColor} ${borderColor}`
   }
 
-  // 根据评分返回对应的等级标签
+  // 根据评分返回对应的等级标签 - 积极化表述
   const getScoreLabel = (score: number) => {
-    if (score >= 80) return "高匹配"
-    if (score >= 60) return "中等匹配"
-    return "低匹配"
+    if (score >= 80) return "优势匹配"  // 原"高匹配" -> "优势匹配"
+    if (score >= 60) return "成长潜力"  // 原"中等匹配" -> "成长潜力"
+    return "发展机会"                   // 原"低匹配" -> "发展机会"
   }
 
   const isExpiringSoon =
@@ -192,7 +193,7 @@ export function OpportunityCardEnhanced({ opportunity, onApply, score, userId }:
       <Card 
         className={`h-full flex flex-col hover:shadow-lg transition-all duration-200 cursor-pointer ${
           score !== undefined 
-            ? `border-2 ${score >= 80 ? 'border-green-300 bg-green-50/30' : score >= 60 ? 'border-yellow-300 bg-yellow-50/30' : 'border-red-300 bg-red-50/30'}` 
+            ? `border-2 ${getScoreBorderColor(score)} ${getScoreBackgroundColor(score)}/10` 
             : 'border border-gray-200'
         }`}
         onClick={() => setShowDetail(true)}
@@ -446,4 +447,37 @@ export function OpportunityCardEnhanced({ opportunity, onApply, score, userId }:
     </Card>
     </>
   )
+}
+
+/**
+ * 根据评分获取对应的背景色类名
+ * @param score 0-100的数值
+ * @returns 对应的Tailwind背景色类名
+ */
+function getScoreBackgroundColor(score: number): string {
+  if (score >= 80) return 'bg-amber-400';  // 荣耀金 - 成就阶段
+  if (score >= 60) return 'bg-teal-400';   // 活力青 - 成长阶段
+  return 'bg-slate-200';                   // 潜力灰 - 潜力阶段
+}
+
+/**
+ * 根据评分获取对应的文字颜色类名
+ * @param score 0-100的数值
+ * @returns 对应的Tailwind文字颜色类名
+ */
+function getScoreTextColor(score: number): string {
+  if (score >= 80) return 'text-amber-900';
+  if (score >= 60) return 'text-teal-900';
+  return 'text-slate-700';
+}
+
+/**
+ * 根据评分获取对应的边框颜色类名
+ * @param score 0-100的数值
+ * @returns 对应的Tailwind边框颜色类名
+ */
+function getScoreBorderColor(score: number): string {
+  if (score >= 80) return 'border-amber-300';
+  if (score >= 60) return 'border-teal-300';
+  return 'border-slate-300';
 }
