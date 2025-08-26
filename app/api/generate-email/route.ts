@@ -1,6 +1,7 @@
 import { generateText } from "ai"
 import { createOpenAI } from "@ai-sdk/openai"
 import { type NextRequest, NextResponse } from "next/server"
+import { callAiApi } from '@/lib/ai-api-client'
 
 // 从简历中提取个人信息（姓名和联系方式）
 function extractPersonalInfo(resumeText: string) {
@@ -383,44 +384,22 @@ ${resumeHighlights}
 
 重要：严格按照上述格式生成邮件，确保分点分行，结构清晰。在邮件结尾的【姓名】处填入"${displayName}"，在【联系方式】处填入联系信息${personalInfo.phone || personalInfo.email ? '（' + [personalInfo.phone && `电话：${personalInfo.phone}`, personalInfo.email && `邮箱：${personalInfo.email}`].filter(Boolean).join('，') + '）' : '（如有）'}。`
 
-    // 使用直接HTTP请求调用SiliconFlow API
-    // 清理控制字符但保留中文字符
-    const cleanPrompt = prompt.replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim()
+    // 使用新的API管理系统调用AI
+    console.log('发送AI请求，内容长度:', prompt.length)
     
-    // 确保字符串是有效的UTF-8编码
-    const safePrompt = cleanPrompt.replace(/[\uD800-\uDFFF]/g, '') // 移除无效的代理对
-    
-    const requestBody = {
+    const apiResult = await callAiApi({
       model: 'deepseek-ai/DeepSeek-V3',
       messages: [
         {
           role: 'user',
-          content: safePrompt
+          content: prompt
         }
       ],
       max_tokens: 4000,
       temperature: 0.7
-    }
-    
-    console.log('发送AI请求，内容长度:', safePrompt.length)
-    
-    const response = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Authorization': 'Bearer sk-ufnwysgrwnebkczychcgkvzvvinyydmppnrvgyclbwdluvpu'
-      },
-      body: JSON.stringify(requestBody)
     })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('API调用失败:', response.status, response.statusText, errorText)
-      throw new Error(`API调用失败: ${response.status} ${response.statusText}`)
-    }
-
-    const apiResult = await response.json()
-    console.log('AI API响应:', { status: response.status, hasChoices: !!apiResult.choices })
+    
+    console.log('AI API响应成功')
     
     if (!apiResult.choices || !apiResult.choices[0] || !apiResult.choices[0].message) {
       throw new Error('AI API返回格式异常')

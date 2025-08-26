@@ -33,6 +33,7 @@ import type { OpportunityEnhanced } from "@/types/opportunity-enhanced"
 import { OpportunityCardEnhanced } from "@/components/opportunity-card-enhanced"
 import { OpportunityFilters } from "@/components/opportunity-filters"
 import { ScoreBreakdownTest } from "@/components/score-breakdown-test"
+import GapAnalysisView from "@/components/gap-analysis-view"
 import {
   fetchEnhancedOpportunities,
   searchEnhancedOpportunities,
@@ -100,6 +101,7 @@ export default function Page() {
   const [resumeOptimizationReport, setResumeOptimizationReport] = useState<any>(null)
   const [resumeReportTitle, setResumeReportTitle] = useState("")
   const [resumeReportContent, setResumeReportContent] = useState("")
+  const [resumeAnalysisData, setResumeAnalysisData] = useState<any>(null)
 
   // 格式化简历优化报告为可读文本
   const formatResumeOptimizationReport = (report: any) => {
@@ -831,77 +833,7 @@ export default function Page() {
     }
   }
 
-  // 机会卡片 -> 简历优化页面
-  const onGoResumeOptimizer = async (opp: OpportunityEnhanced) => {
-    if (!user) {
-      showPage("#login")
-      return
-    }
-    setSelectedOpp(opp)
 
-    // 先设置空的简历优化内容，然后异步生成
-    setResumeReportTitle("")
-    setResumeReportContent("")
-    setAiGenerateError(null)
-
-    showPage("#resume-optimizer")
-
-    // 异步生成简历优化报告
-    setAiGenerating(true)
-    try {
-      const response = await fetch("/api/resume-optimization", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          user: user,
-          opportunity: {
-            id: opp.id,
-            company: opp.company_name,
-            title: opp.job_title,
-            city: opp.location,
-            tags: opp.tags || [],
-            reason: opp.reason,
-          },
-          resumeText: resumeText,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
-      }
-
-      const data = await response.json()
-      
-      // 处理简历优化报告数据
-      if (data.report) {
-        setResumeOptimizationReport(data.report)
-        // 将报告内容格式化为可显示的文本
-        const reportText = formatResumeOptimizationReport(data.report)
-        setResumeReportTitle("简历优化报告")
-        setResumeReportContent(reportText)
-      } else if (data.rawText) {
-        // 如果没有结构化报告，使用原始文本
-        setResumeReportTitle("简历优化报告")
-        setResumeReportContent(data.rawText)
-        setResumeOptimizationReport(null)
-      } else {
-        // 兼容旧格式
-        setResumeReportTitle("简历优化报告")
-        setResumeReportContent("报告生成失败，请重试")
-        setResumeOptimizationReport(null)
-      }
-      setAiGenerateError(null)
-    } catch (error: any) {
-      console.error("简历优化报告生成失败:", error)
-      setAiGenerateError("生成简历优化报告时出现问题")
-      setResumeReportTitle("简历优化报告")
-      setResumeReportContent("生成失败，请稍后重试")
-    } finally {
-      setAiGenerating(false)
-    }
-  }
 
   // 重新生成邮件
   const onRegenerateEmail = async () => {
@@ -912,19 +844,18 @@ export default function Page() {
     
     // 根据当前页面决定调用哪个API和使用哪些状态变量
     if (currentPage === "resume-optimizer") {
-      // 简历优化页面：生成简历优化报告
-      setResumeReportTitle("")
-      setResumeReportContent("")
+      // 简历优化页面：生成简历分析报告
+      setResumeAnalysisData(null)
       
       try {
-        const response = await fetch("/api/resume-optimization", {
+        const response = await fetch("/api/gap-analysis", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            user: user,
-            opportunity: selectedOpp,
+            userId: user.id,
+            opportunityId: selectedOpp.id,
             resumeText: resumeText,
           }),
         })
@@ -935,28 +866,17 @@ export default function Page() {
 
         const data = await response.json()
         
-        // 处理简历优化报告数据
-        if (data.report) {
-          setResumeOptimizationReport(data.report)
-          const reportText = formatResumeOptimizationReport(data.report)
-          setResumeReportTitle("简历优化报告")
-          setResumeReportContent(reportText)
-        } else if (data.rawText) {
-          setResumeReportTitle("简历优化报告")
-          setResumeReportContent(data.rawText)
-          setResumeOptimizationReport(null)
+        // 处理简历分析报告数据
+        if (data.success && data.data) {
+          setResumeAnalysisData(data.data)
         } else {
-          setResumeReportTitle("简历优化报告")
-          setResumeReportContent("报告生成失败，请重试")
-          setResumeOptimizationReport(null)
+          setAiGenerateError(data.error || "分析报告数据格式错误")
         }
         setAiGenerateError(null)
       } catch (error: any) {
-        console.error("简历优化报告生成失败:", error)
-        setAiGenerateError("生成简历优化报告时出现问题")
-        setResumeReportTitle("简历优化报告")
-        setResumeReportContent("生成失败，请稍后重试")
-        setResumeOptimizationReport(null)
+        console.error("简历分析报告生成失败:", error)
+        setAiGenerateError("生成简历分析报告时出现问题")
+        setResumeAnalysisData(null)
       }
     } else {
       // 破冰工坊页面：生成邮件
@@ -1032,8 +952,8 @@ export default function Page() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          user: user,
-          opportunity: opp,
+          userId: user.id,
+          opportunityId: opp.id,
           resumeText: resumeText,
         }),
       })
@@ -1069,7 +989,56 @@ export default function Page() {
     }
   }
 
+  // 机会卡片 -> 简历优化页面
+  const onGoResumeOptimizer = async (opp: OpportunityEnhanced) => {
+    if (!user) {
+      showPage("#login")
+      return
+    }
+    setSelectedOpp(opp)
 
+    // 清空之前的分析数据
+    setResumeAnalysisData(null)
+    setAiGenerateError(null)
+
+    showPage("#resume-optimizer")
+
+    // 异步生成简历分析报告
+    setAiGenerating(true)
+    try {
+      const response = await fetch("/api/gap-analysis", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user: user,
+          opportunity: opp,
+          resumeText: resumeText,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      
+      // 处理简历分析数据
+      if (data.success && data.data) {
+        setResumeAnalysisData(data.data)
+      } else {
+        setAiGenerateError(data.error || "分析报告数据格式错误")
+      }
+      setAiGenerateError(null)
+    } catch (error: any) {
+      console.error("简历分析报告生成失败:", error)
+      setAiGenerateError("生成简历分析报告时出现问题")
+      setResumeAnalysisData(null)
+    } finally {
+      setAiGenerating(false)
+    }
+  }
 
   // 添加邮件发送相关的状态
   const [recipientEmail, setRecipientEmail] = useState("")
@@ -2210,6 +2179,7 @@ export default function Page() {
                             key={opportunity.id}
                             opportunity={opportunity}
                             onApply={handleApplyOpportunity}
+                            onGoResumeOptimizer={onGoResumeOptimizer}
                             score={opportunityScores[opportunity.id]}
                             userId={user?.id}
                           />
@@ -2851,12 +2821,12 @@ export default function Page() {
                       <button
                         onClick={onRegenerateEmail}
                         disabled={aiGenerating}
-                        className="flex items-center gap-2 px-3 py-1 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-60 transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 disabled:opacity-60 transition-all duration-200 shadow-lg"
                       >
                         {aiGenerating ? (
                           <>
                             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                            AI生成中...
+                            AI分析中...
                           </>
                         ) : (
                           <>
@@ -2865,10 +2835,10 @@ export default function Page() {
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                                 strokeWidth={2}
-                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                               />
                             </svg>
-                            生成报告
+                            开始分析
                           </>
                         )}
                       </button>
@@ -2889,23 +2859,28 @@ export default function Page() {
                       </div>
                     )}
 
-                    <div className="grid gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">简历优化报告</label>
-                        <textarea
-                          value={resumeReportContent}
-                          onChange={(e) => setResumeReportContent(e.target.value)}
-                          rows={20}
-                          className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-400 focus:outline-none text-sm"
-                          disabled={aiGenerating}
-                          style={{ whiteSpace: 'pre-wrap' }}
-                        />
-                      </div>
+                    <div className="space-y-6">
+                      {/* 简历分析报告展示区域 */}
+                      {resumeAnalysisData ? (
+                        <GapAnalysisView analysisData={resumeAnalysisData} />
+                      ) : (
+                        <div className="text-center py-12">
+                          <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </div>
+                          <h3 className="text-lg font-medium text-gray-900 mb-2">暂无分析报告</h3>
+                          <p className="text-gray-500 mb-4">点击"生成报告"按钮开始AI分析</p>
+                        </div>
+                      )}
 
                       {!resumeText && (
-                        <p className="text-xs text-amber-600">
-                          💡 未检测到你的简历文本，建议先到"个人主页"上传简历以获得更个性化的AI生成内容。
-                        </p>
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                          <p className="text-amber-700 text-sm">
+                            💡 未检测到你的简历文本，建议先到"个人主页"上传简历以获得更个性化的AI分析结果。
+                          </p>
+                        </div>
                       )}
 
                       <div className="flex justify-end gap-3">
@@ -2916,22 +2891,22 @@ export default function Page() {
                         >
                           返回机会雷达
                         </a>
-                        <button
-                          onClick={() => {
-                            // 复制报告内容到剪贴板
-                            if (resumeReportContent) {
-                              navigator.clipboard.writeText(resumeReportContent).then(() => {
-                                alert('报告内容已复制到剪贴板！')
+                        {resumeAnalysisData && (
+                          <button
+                            onClick={() => {
+                              // 复制分析报告内容到剪贴板
+                              const reportText = `简历分析报告\n\n总体评分：${resumeAnalysisData.overall_score}/100\n\n${resumeAnalysisData.summary}`;
+                              navigator.clipboard.writeText(reportText).then(() => {
+                                alert('分析报告已复制到剪贴板！')
                               }).catch(() => {
                                 alert('复制失败，请手动选择文本复制')
                               })
-                            }
-                          }}
-                          disabled={aiGenerating || !resumeReportContent.trim()}
-                          className="px-5 py-2 rounded-full bg-blue-500 text-white cta-button disabled:opacity-60"
-                        >
-                          复制报告
-                        </button>
+                            }}
+                            className="px-5 py-2 rounded-full bg-blue-500 text-white cta-button"
+                          >
+                            复制报告
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

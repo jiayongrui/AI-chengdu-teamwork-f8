@@ -221,7 +221,7 @@ export function OpportunityDetailDialog({ opportunity, open, onClose, onApply }:
               }}
               className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg transition-colors"
             >
-              申请职位
+              破冰邮件
             </Button>
           </div>
         </div>

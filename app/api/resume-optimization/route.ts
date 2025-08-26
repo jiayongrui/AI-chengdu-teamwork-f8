@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { callAiApi } from '@/lib/ai-api-client'
 
 // 从简历中提取关键技能和经验
 function extractResumeHighlights(resumeText: string, jobTags: string[] = []) {
@@ -186,34 +187,19 @@ ${resumeHighlights}
 
 `
 
-    // 使用直接HTTP请求调用SiliconFlow API
-    // 只移除真正的控制字符，保留中文字符
-    const cleanPrompt = prompt.replace(/[\u0000-\u001F\u007F]/g, '').trim()
-    
-    const response = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer sk-ufnwysgrwnebkczychcgkvzvvinyydmppnrvgyclbwdluvpu'
-      },
-      body: JSON.stringify({
-        model: 'deepseek-ai/DeepSeek-V3',
-        messages: [
-          {
-            role: 'user',
-            content: cleanPrompt
-          }
-        ],
-        max_tokens: 8000,
-        temperature: 0.7
-      })
+    // 使用新的API管理系统调用AI
+    const apiResult = await callAiApi({
+      model: 'deepseek-ai/DeepSeek-V3',
+      messages: [
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      max_tokens: 8000,
+      temperature: 0.7
     })
 
-    if (!response.ok) {
-      throw new Error(`API调用失败: ${response.status} ${response.statusText}`)
-    }
-
-    const apiResult = await response.json()
     const text = apiResult.choices[0].message.content
 
     // 尝试解析AI返回的JSON格式报告

@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getSupabaseClient } from "@/lib/supabase-client"
 import { todayOpportunities } from "@/lib/opportunities"
+import { callAiApi } from "@/lib/ai-api-client"
 
 export async function POST(req: NextRequest) {
   // 解析请求体
@@ -198,34 +199,19 @@ ${resumeText}
 
 请开始你的分析和优化吧！`
 
-    // 清理 prompt 中的特殊字符
-    const cleanPrompt = analysisPrompt.replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim()
-    
-    // 调用 SiliconFlow API
-    const response = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer sk-ufnwysgrwnebkczychcgkvzvvinyydmppnrvgyclbwdluvpu'
-      },
-      body: JSON.stringify({
-        model: 'deepseek-ai/DeepSeek-V3',
-        messages: [
-          {
-            role: 'user',
-            content: cleanPrompt
-          }
-        ],
-        max_tokens: 6000,
-        temperature: 0.3
-      })
+    // 使用新的API管理系统调用AI
+    const apiResult = await callAiApi({
+      model: 'deepseek-ai/DeepSeek-V3',
+      messages: [
+        {
+          role: 'user',
+          content: analysisPrompt
+        }
+      ],
+      max_tokens: 6000,
+      temperature: 0.3
     })
 
-    if (!response.ok) {
-      throw new Error(`API调用失败: ${response.status} ${response.statusText}`)
-    }
-
-    const apiResult = await response.json()
     const aiResponse = apiResult.choices[0].message.content
     
     // 添加详细日志

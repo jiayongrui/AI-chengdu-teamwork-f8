@@ -13,6 +13,7 @@ import GapAnalysisView from "./gap-analysis-view"
 interface OpportunityCardEnhancedProps {
   opportunity: OpportunityEnhanced
   onApply: (opportunity: OpportunityEnhanced) => void
+  onGoResumeOptimizer?: (opportunity: OpportunityEnhanced) => void
   score?: number
   userId?: string
 }
@@ -55,7 +56,7 @@ interface GapAnalysisData {
   }>
 }
 
-export function OpportunityCardEnhanced({ opportunity, onApply, score, userId }: OpportunityCardEnhancedProps) {
+export function OpportunityCardEnhanced({ opportunity, onApply, onGoResumeOptimizer, score, userId }: OpportunityCardEnhancedProps) {
   const [showDetail, setShowDetail] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
   const [isLoadingBreakdown, setIsLoadingBreakdown] = useState(false)
@@ -369,65 +370,6 @@ export function OpportunityCardEnhanced({ opportunity, onApply, score, userId }:
               ) : scoreBreakdown && scoreBreakdown.length > 0 ? (
                 <div className="space-y-4">
                   <ScoreBreakdown scoreData={scoreBreakdown} />
-                  
-                  {/* 简历分析按钮 */}
-                  <div className="border-t border-gray-200 pt-4">
-                    <Button
-                      onClick={handleGapAnalysisClick}
-                      variant="outline"
-                      className="w-full bg-gradient-to-r from-purple-50 to-blue-50 hover:from-purple-100 hover:to-blue-100 border-purple-200 text-purple-700 font-medium"
-                      disabled={isLoadingGapAnalysis}
-                    >
-                      {isLoadingGapAnalysis ? (
-                        <>
-                          <Loader2 size={16} className="animate-spin mr-2" />
-                          AI分析中，请稍候...
-                        </>
-                      ) : showGapAnalysis ? (
-                        <>
-                          <ChevronUp size={16} className="mr-2" />
-                          收起简历与岗位匹配度分析
-                        </>
-                      ) : (
-                        <>
-                          <ChevronDown size={16} className="mr-2" />
-                          进行简历与岗位匹配度分析
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                  
-                  {/* 简历分析结果展示区域 */}
-                  {showGapAnalysis && (
-                    <div className="border-t border-gray-200 pt-4">
-                      {isLoadingGapAnalysis ? (
-                        <div className="flex items-center justify-center py-8">
-                          <Loader2 size={24} className="animate-spin text-purple-500" />
-                          <span className="ml-3 text-sm text-gray-600">AI正在分析您的简历与岗位匹配度，请稍候...</span>
-                        </div>
-                      ) : gapAnalysisError ? (
-                        <div className="text-center py-6">
-                          <p className="text-red-500 text-sm mb-2">{gapAnalysisError}</p>
-                          <Button
-                            onClick={() => {
-                              setGapAnalysisError(null)
-                              fetchGapAnalysis()
-                            }}
-                            size="sm"
-                            variant="outline"
-                          >
-                            重试
-                          </Button>
-                        </div>
-                      ) : gapAnalysisData ? (
-                        <GapAnalysisView analysisData={gapAnalysisData} />
-                      ) : (
-                        <div className="text-center py-4 text-sm text-gray-500">
-                          暂无分析数据
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               ) : (
                 <div className="text-center py-4 text-sm text-gray-500">
@@ -445,16 +387,34 @@ export function OpportunityCardEnhanced({ opportunity, onApply, score, userId }:
             {formatDate(opportunity.created_at)}
             {opportunity.expires_at && <span className="ml-2">· 截止 {formatDate(opportunity.expires_at)}</span>}
           </div>
-          <Button
-            onClick={(e) => {
-              e.stopPropagation();
-              onApply(opportunity);
-            }}
-            size="sm"
-            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors"
-          >
-            申请职位
-          </Button>
+          <div className="flex gap-2">
+            {onGoResumeOptimizer && (
+              <Button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onGoResumeOptimizer(opportunity);
+                }}
+                size="sm"
+                variant="outline"
+                className="bg-gradient-to-r from-purple-50 to-blue-50 hover:from-purple-100 hover:to-blue-100 border-purple-200 text-purple-700 px-3 py-2 rounded-lg transition-all duration-200"
+              >
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                简历优化
+              </Button>
+            )}
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                onApply(opportunity);
+              }}
+              size="sm"
+              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              破冰邮件
+            </Button>
+          </div>
         </div>
       </CardFooter>
     </Card>
