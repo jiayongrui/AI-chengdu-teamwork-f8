@@ -2,6 +2,7 @@ import { generateText } from "ai"
 import { createOpenAI } from "@ai-sdk/openai"
 import { type NextRequest, NextResponse } from "next/server"
 import { callAiApi } from '@/lib/ai-api-client'
+import { apiManager } from '@/lib/api-manager'
 import { todayOpportunities } from '@/lib/opportunities'
 
 // 从简历中提取个人信息（姓名和联系方式）
@@ -467,6 +468,9 @@ ${resumeHighlights}
       }
     }
 
+    // 获取当前API状态
+    const apiStatus = apiManager.getStatus()
+    
     return NextResponse.json({
       success: true,
       email: emailData,
@@ -476,7 +480,9 @@ ${resumeHighlights}
         position: opportunity.title,
         city: opportunity.city,
         tags: opportunity.tags,
-        generatedAt: new Date().toISOString()
+        generatedAt: new Date().toISOString(),
+        apiKey: apiStatus.currentKey,
+        apiStatus: `${apiStatus.availableCount}/${apiStatus.totalCount} 可用`
       }
     })
   } catch (error: any) {
@@ -485,6 +491,9 @@ ${resumeHighlights}
     const topRequirements = extractTopThreeRequirements(opportunity)
     // 返回基础的模板邮件
     const templateEmail = buildTemplateEmail({ user, opportunity, resumeText, topRequirements })
+    
+    // 获取当前API状态（fallback情况）
+    const fallbackApiStatus = apiManager.getStatus()
     
     return NextResponse.json({
       success: true,
@@ -499,7 +508,9 @@ ${resumeHighlights}
         position: opportunity.title || opportunity.job_title,
         city: opportunity.city || opportunity.location,
         tags: opportunity.tags,
-        generatedAt: new Date().toISOString()
+        generatedAt: new Date().toISOString(),
+        apiKey: fallbackApiStatus.currentKey,
+        apiStatus: `${fallbackApiStatus.availableCount}/${fallbackApiStatus.totalCount} 可用`
       }
     })
   }
