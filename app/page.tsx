@@ -225,6 +225,7 @@ export default function Page() {
   // 新增AI生成状态
   const [aiGenerating, setAiGenerating] = useState(false)
   const [aiGenerateError, setAiGenerateError] = useState<string | null>(null)
+  const [apiStatus, setApiStatus] = useState<string>('')
 
   // 网页爬虫状态（管理员功能）
   const [isAdmin, setIsAdmin] = useState(false)
@@ -903,16 +904,28 @@ export default function Page() {
         const data = await response.json()
         
         // 优先处理email对象格式
+        console.log('API返回数据:', data)
+        console.log('当前使用的API密钥:', data.metadata?.apiKey || '未知')
+        
+        // 更新API状态显示
+        if (data.metadata?.apiKey && data.metadata?.apiStatus) {
+          setApiStatus(`当前使用: ${data.metadata.apiKey} (${data.metadata.apiStatus})`)
+        }
+        
         if (data.email && data.email.subject && data.email.body) {
+          console.log('使用email对象格式，主题:', data.email.subject)
           setMailSubject(data.email.subject)
           setMailBody(data.email.body)
         } else if (data.subject && data.body) {
+          console.log('使用直接格式，主题:', data.subject)
           setMailSubject(data.subject)
           setMailBody(data.body)
         } else if (data.rawText) {
+          console.log('使用rawText格式')
           setMailSubject("求职邮件")
           setMailBody(data.rawText)
         } else {
+          console.log('使用默认格式')
           setMailSubject("求职邮件")
           setMailBody("邮件生成失败，请重试")
         }
@@ -2850,6 +2863,8 @@ export default function Page() {
                       </div>
                     )}
 
+
+
                     {aiGenerating && (
                       <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                         <div className="flex items-center gap-3">
@@ -3069,7 +3084,7 @@ export default function Page() {
                           复制邮件
                         </button>
                         <a
-                          href={`https://mail.google.com/mail/u/0/?to=${encodeURIComponent(selectedOpp?.contact_email || '')}&fs=1&tf=cm`}
+                          href={`https://mail.google.com/mail/u/0/?to=${encodeURIComponent(selectedOpp?.contact_email || '')}&subject=${encodeURIComponent(mailSubject || '求职邮件')}&body=${encodeURIComponent(mailBody || '请查看邮件内容')}&fs=1&tf=cm`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="px-5 py-2 rounded-full bg-blue-500 text-white cta-button hover:bg-blue-600 transition-colors"
