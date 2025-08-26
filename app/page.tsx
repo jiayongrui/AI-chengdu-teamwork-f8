@@ -696,58 +696,76 @@ export default function Page() {
       setScoringProgress(prev => ({ ...prev, current: 1 }))
 
       // 第二步：并行处理机会评分（分批处理，避免过多并发）
-      const BATCH_SIZE = 3 // 每批处理3个请求
+      const BATCH_SIZE = 3; // 减少并发量
+const RETRY_ATTEMPTS = 3;
+const REQUEST_DELAY = 500; // 500ms延迟
       const opportunities = [...filteredOpportunities]
       
       for (let i = 0; i < opportunities.length; i += BATCH_SIZE) {
         const batch = opportunities.slice(i, i + BATCH_SIZE)
         
-        // 并行处理当前批次
-        const batchPromises = batch.map(async (opportunity) => {
+        // 添加批次间延迟
+        if (i > 0) {
+          await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY));
+        }
+        
+        // 重试机制
+        for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt++) {
           try {
-            const response = await fetch("/api/score", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                resumeText: resumeText,
-                jobPosition: opportunity.job_title,
-                jobLocation: opportunity.location,
-                salaryRange: (opportunity as any).salary_range || "面议",
-                experienceRequired: (opportunity as any).experience_required || "不限",
-                educationRequired: (opportunity as any).education_required || "不限",
-                jobDescription: (opportunity as any).job_description || "暂无详细描述",
-                companyName: opportunity.company_name,
-                companySize: (opportunity as any).company_size || "未知",
-                industry: (opportunity as any).industry || "未知",
-                benefits: (opportunity as any).benefits || "未提及",
-                tags: opportunity.tags || []
-              }),
+            const batchPromises = batch.map(async (opportunity) => {
+              try {
+                const response = await fetch("/api/score", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    resumeText: resumeText,
+                    jobPosition: opportunity.job_title,
+                    jobLocation: opportunity.location,
+                    salaryRange: (opportunity as any).salary_range || "面议",
+                    experienceRequired: (opportunity as any).experience_required || "不限",
+                    educationRequired: (opportunity as any).education_required || "不限",
+                    jobDescription: (opportunity as any).job_description || "暂无详细描述",
+                    companyName: opportunity.company_name,
+                    companySize: (opportunity as any).company_size || "未知",
+                    industry: (opportunity as any).industry || "未知",
+                    benefits: (opportunity as any).benefits || "未提及",
+                    tags: opportunity.tags || []
+                  }),
+                })
+
+                if (!response.ok) {
+                  throw new Error(`HTTP ${response.status}`)
+                }
+
+                const scoreData = await response.json()
+                const score = scoreData.success ? (scoreData.data?.total_score || 0) : 0
+                
+                return { id: opportunity.id, score, company: opportunity.company_name }
+              } catch (error) {
+                console.error(`评分失败 - ${opportunity.company_name}:`, error)
+                return null
+              }
             })
 
-            if (!response.ok) {
-              throw new Error(`HTTP ${response.status}`)
-            }
-
-            const scoreData = await response.json()
-            const score = scoreData.success ? (scoreData.data?.total_score || 0) : 0
+            // 等待当前批次完成
+            const batchResults = await Promise.all(batchPromises)
             
-            return { id: opportunity.id, score, company: opportunity.company_name }
+            // 更新结果和进度
+            batchResults.forEach((result) => {
+              if (result) {
+                newScores[result.id] = result.score
+                console.log(`${result.company}: ${result.score}分`)
+              }
+            })
+            
+            break; // 成功则跳出重试循环
+            
           } catch (error) {
-            console.error(`评分失败 - ${opportunity.company_name}:`, error)
-            return null
+            if (attempt === RETRY_ATTEMPTS) {
+              console.error(`Batch ${i + 1} failed after ${RETRY_ATTEMPTS} attempts:`, error);
+            }
           }
-        })
-
-        // 等待当前批次完成
-        const batchResults = await Promise.all(batchPromises)
-        
-        // 更新结果和进度
-        batchResults.forEach((result) => {
-          if (result) {
-            newScores[result.id] = result.score
-            console.log(`${result.company}: ${result.score}分`)
-          }
-        })
+        }
         
         setScoringProgress(prev => ({ 
           ...prev, 

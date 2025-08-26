@@ -400,3 +400,37 @@ function generateBreakdownFromScores(scores: any): any[] {
   
   return breakdown
 }
+
+
+const dimensionMapping = {
+  "背景与经验": {
+    items: ["教育背景", "AI经验"],
+    weights: [0.07, 0.12], // 总权重19%
+    totalWeight: 0.19
+  },
+  "专业知识与技能": {
+    items: ["AI技术知识", "产品方法论"],
+    weights: [0.12, 0.08], // 总权重20%
+    totalWeight: 0.20
+  },
+  "产品作品与成果": {
+    items: ["交互作品", "产品文档"],
+    weights: [0.18, 0.08], // 总权重26%
+    totalWeight: 0.26
+  },
+  "核心胜任力": {
+    items: ["逻辑结构", "结果导向"],
+    weights: [0.05, 0.10], // 总权重15%
+    totalWeight: 0.15
+  },
+  "发展潜力": {
+    items: ["自我驱动", "创新主动性"],
+    weights: [0.08, 0.08], // 修正为总权重16%
+    totalWeight: 0.16
+  },
+  "企业认知与匹配": {
+    items: ["业务匹配", "薪资匹配"],
+    weights: [0.02, 0.02], // 修正为总权重4%
+    totalWeight: 0.04
+  }
+};

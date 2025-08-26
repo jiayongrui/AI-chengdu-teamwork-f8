@@ -3,6 +3,7 @@ import { createOpenAI } from "@ai-sdk/openai"
 import { type NextRequest, NextResponse } from "next/server"
 import { callAiApi } from '@/lib/ai-api-client'
 import { apiManager } from '@/lib/api-manager'
+import { todayOpportunities } from '@/lib/opportunities'
 
 // 从简历中提取个人信息（姓名和联系方式）
 function extractPersonalInfo(resumeText: string) {
@@ -234,7 +235,7 @@ function generatePersonalizedGreeting(company: string, jobTitle: string, reason?
     `${company}的发展理念与我的职业规划高度契合`,
     `作为${company}产品的用户，我深深被其${reason ? reason.slice(0, 20) : "创新能力"}所吸引`,
     `在研究${jobTitle}相关技术时，${company}的技术实践给了我很多启发`,
-    `${company}在${reason ? reason.slice(0, 15) : "技术创新"}方面的成就令我印象深刻`,
+    `${company}在${reason ? reason.slice(0, 15) : "创新"}方面的成就令我印象深刻`,
   ]
 
   return greetings[Math.floor(Math.random() * greetings.length)]
@@ -293,19 +294,59 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "无效的请求体" }, { status: 400 })
   }
 
-  const { user, opportunity, resumeText } = payload || {}
+  // 兼容两种参数格式：{user, opportunity, resumeText} 和 {userId, opportunityId, resumeText}
+  const { user, opportunity, resumeText, userId, opportunityId } = payload || {}
+  
+  // 构建兼容的用户和机会对象
+  let actualUser = user
+  let actualOpportunity = opportunity
+  
+  // 如果传入的是userId和opportunityId，需要构建对应的对象
+  if (!actualUser && userId) {
+    // 从本地存储或默认值构建用户对象
+    actualUser = {
+      id: userId,
+      username: '求职者' // 默认用户名，实际应用中可以从数据库获取
+    }
+  }
+  
+  if (!actualOpportunity && opportunityId) {
+    // 从本地机会数据中查找对应的机会
+    const localOpp = todayOpportunities.find((opp: any) => opp.id === opportunityId)
+    
+    if (localOpp) {
+      actualOpportunity = {
+        id: localOpp.id,
+        company: localOpp.company,
+        title: localOpp.title,
+        city: localOpp.city,
+        tags: localOpp.tags,
+        reason: localOpp.reason
+      }
+    } else {
+      // 使用默认机会对象
+      actualOpportunity = {
+        id: opportunityId,
+        company: 'AI科技公司',
+        title: 'AI产品经理',
+        city: '北京',
+        tags: ['AI', '产品经理'],
+        reason: '该职位与您的背景匹配度较高'
+      }
+    }
+  }
 
   try {
-    if (!user || !opportunity) {
-      return NextResponse.json({ error: "缺少必要参数" }, { status: 400 })
+    if (!actualUser || !actualOpportunity) {
+      return NextResponse.json({ error: "缺少必要参数：用户信息和职位信息" }, { status: 400 })
     }
 
     // 提取招聘要求的最重要三条
-    const topRequirements = extractTopThreeRequirements(opportunity)
+    const topRequirements = extractTopThreeRequirements(actualOpportunity)
     
     // 提取个人信息
     const personalInfo = extractPersonalInfo(resumeText || '')
-    const displayName = personalInfo.name || user.username
+    const displayName = personalInfo.name || actualUser.username
     
     // 提取简历亮点
     const resumeHighlightsObj = extractResumeHighlights(resumeText || "", opportunity.tags || [])
