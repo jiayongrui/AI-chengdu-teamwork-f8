@@ -12,47 +12,57 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "无效的请求体" }, { status: 400 })
   }
 
-  const { userId, opportunityId } = payload || {}
+  // 修改参数解析逻辑，支持前端发送的格式
+  const { user, opportunity, resumeText: frontendResumeText, userId, opportunityId } = payload || {}
+  
+  // 兼容两种参数格式
+  const actualUserId = userId || user?.id
+  const actualOpportunityId = opportunityId || opportunity?.id
+  const actualResumeText = frontendResumeText
 
   try {
-    if (!userId || !opportunityId) {
+    if (!actualUserId || !actualOpportunityId) {
       return NextResponse.json({ 
-        error: "缺少必要参数：userId 和 opportunityId" 
+        error: "缺少必要参数：用户ID 和 机会ID" 
       }, { status: 400 })
     }
 
-    let resumeText = ""
-    let opportunity: any = null
+    let resumeText = actualResumeText || ""
+    let opportunityData: any = opportunity || null
 
     // 尝试从数据库获取数据
     const supabase = getSupabaseClient()
     if (supabase) {
       try {
-        // 获取用户最新简历
-        const { data: resumeData, error: resumeError } = await supabase
-          .from('resumes')
-          .select('content')
-          .eq('user_id', userId)
-          .order('updated_at', { ascending: false })
-          .limit(1)
-          .single()
+        // 如果没有传入简历文本，从数据库获取用户最新简历
+        if (!resumeText) {
+          const { data: resumeData, error: resumeError } = await supabase
+            .from('resumes')
+            .select('content')
+            .eq('user_id', actualUserId)
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .single()
 
-        if (!resumeError && resumeData) {
-          resumeText = resumeData.content
+          if (!resumeError && resumeData) {
+            resumeText = resumeData.content
+          }
         }
 
-        // 获取职位信息
-        const { data: opportunityData, error: opportunityError } = await supabase
-          .from('opportunities')
-          .select('*')
-          .eq('id', opportunityId)
-          .single()
+        // 如果没有传入职位信息，从数据库获取职位信息
+        if (!opportunityData) {
+          const { data: oppData, error: opportunityError } = await supabase
+            .from('opportunities')
+            .select('*')
+            .eq('id', actualOpportunityId)
+            .single()
 
-        if (!opportunityError && opportunityData) {
-          opportunity = opportunityData
+          if (!opportunityError && oppData) {
+            opportunityData = oppData
+          }
         }
       } catch (dbError) {
-        console.log('数据库查询失败，使用本地数据:', dbError)
+        console.log('数据库查询失败，使用传入数据或本地数据:', dbError)
       }
     }
 
@@ -235,7 +245,7 @@ ${resumeText}
       console.error('JSON解析失败:', parseError)
       console.error('AI原始响应:', aiResponse)
       
-      // 返回解析失败的错误，但包含原始AI响应用于调试
+      // 返回解析失败的错误，但包含原始AI响用于调试
       return NextResponse.json({
         error: "AI返回数据解析失败",
         debug_info: {

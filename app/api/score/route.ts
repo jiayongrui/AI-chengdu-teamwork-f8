@@ -217,3 +217,35 @@ ${resumeText}
     }, { status: 500 })
   }
 }
+
+
+// 增强分数验证和转换逻辑
+function validateAndConvertScore(score: any): number {
+  const numScore = parseFloat(score);
+  if (isNaN(numScore)) return 0;
+  
+  // 0-5分制转换为百分制
+  if (numScore <= 5) {
+    return Math.round(numScore * 20);
+  }
+  
+  // 百分制范围校验
+  return Math.max(0, Math.min(100, Math.round(numScore)));
+}
+
+// API响应处理增强
+try {
+  const parsedResponse = JSON.parse(responseText);
+  
+  // 验证必要字段
+  if (!parsedResponse.total_score) {
+    throw new Error('Missing total_score in response');
+  }
+  
+  // 转换和验证分数
+  parsedResponse.total_score = validateAndConvertScore(parsedResponse.total_score);
+  
+} catch (error) {
+  console.error('Score validation failed:', error);
+  // 返回默认分数结构
+}
