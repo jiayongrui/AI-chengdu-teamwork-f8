@@ -207,11 +207,11 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
  * 获取增强版机会列表（支持随机选择）
  */
 export async function fetchEnhancedOpportunities(limit = 6): Promise<OpportunityEnhanced[]> {
-  console.log(`获取增强机会数据，限制: ${limit}`)
+  console.log(`Fetching enhanced opportunity data, limit: ${limit}`)
 
   const supabase = getSupabaseClient()
   if (!supabase) {
-    console.log("Supabase客户端不可用，使用本地数据")
+    console.log("Supabase client unavailable, using local data")
     return getRandomLocalOpportunities(limit)
   }
 
@@ -229,12 +229,12 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
     clearTimeout(timeoutId)
     
     if (testError) {
-      console.warn("数据库连接测试失败，使用本地数据:", testError.message)
+      console.warn("Database connection test failed, using local data:", testError.message)
       return getRandomLocalOpportunities(limit)
     }
-    console.log("数据库连接正常")
+    console.log("Database connection normal")
   } catch (error) {
-    console.warn("网络连接失败或超时，使用本地数据:", error instanceof Error ? error.message : error)
+    console.warn("Network connection failed or timeout, using local data:", error instanceof Error ? error.message : error)
     return getRandomLocalOpportunities(limit)
   }
 
@@ -252,16 +252,16 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
     clearTimeout(countTimeoutId)
 
     if (countError) {
-      console.error("获取数据总数失败:", countError)
-      console.log("数据库查询失败，使用本地数据")
+      console.error("Failed to get total count:", countError)
+      console.log("Database query failed, using local data")
       return getRandomLocalOpportunities(limit)
     }
 
     const totalCount = count || 0
-    console.log(`数据库中共有 ${totalCount} 条活跃机会`)
+    console.log(`Database has ${totalCount} active opportunities`)
 
     if (totalCount === 0) {
-      console.log("数据库中没有活跃机会，使用本地数据")
+      console.log("No active opportunities in database, using local data")
       return getRandomLocalOpportunities(limit)
     }
 
@@ -269,7 +269,7 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
     const maxOffset = Math.max(0, totalCount - limit)
     const randomOffset = Math.floor(Math.random() * (maxOffset + 1))
 
-    console.log(`随机偏移量: ${randomOffset}, 最大偏移量: ${maxOffset}`)
+    console.log(`Random offset: ${randomOffset}, max offset: ${maxOffset}`)
 
     // 获取随机数据（添加超时控制）
     const dataController = new AbortController()
@@ -286,17 +286,17 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
     clearTimeout(dataTimeoutId)
 
     if (error) {
-      console.error("获取机会数据失败:", error.message || error)
-      console.log("数据查询失败，使用本地数据")
+      console.error("Failed to get opportunity data:", error.message || error)
+    console.log("Data query failed, using local data")
       return getRandomLocalOpportunities(limit)
     }
 
     if (!data || data.length === 0) {
-      console.log("数据库返回空结果，使用本地数据")
+      console.log("Database returned empty result, using local data")
       return getRandomLocalOpportunities(limit)
     }
 
-    console.log(`成功从数据库获取 ${data.length} 条机会数据`)
+    console.log(`Successfully retrieved ${data.length} opportunity records from database`)
 
     // 转换数据格式
     const opportunities = data.map(transformDatabaseToEnhanced)
@@ -305,13 +305,13 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
     if (opportunities.length < limit) {
       const needed = limit - opportunities.length
       const localData = getRandomLocalOpportunities(needed)
-      console.log(`数据不足，用本地数据补充 ${needed} 条`)
+      console.log(`Insufficient data, supplementing with ${needed} local records`)
       opportunities.push(...localData)
     }
 
     return opportunities.slice(0, limit)
   } catch (error) {
-    console.error("获取增强机会数据时出错:", error)
+    console.error("Error getting enhanced opportunity data:", error)
     return getRandomLocalOpportunities(limit)
   }
 }
@@ -320,11 +320,11 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
  * 搜索增强版机会（支持随机选择）
  */
 export async function searchEnhancedOpportunities(filters: OpportunityFilters): Promise<OpportunityEnhanced[]> {
-  console.log("执行增强机会搜索，筛选条件:", filters)
+  console.log("Executing enhanced opportunity search with filters:", filters)
 
   const supabase = getSupabaseClient()
   if (!supabase) {
-    console.log("Supabase客户端不可用，使用本地筛选")
+    console.log("Supabase client unavailable, using local filtering")
     return filterLocalOpportunities(filters)
   }
 
@@ -342,11 +342,11 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
     clearTimeout(testTimeoutId)
     
     if (testError) {
-      console.error("搜索时数据库连接失败:", testError)
+      console.error("Database connection failed during search:", testError)
       return filterLocalOpportunities(filters)
     }
   } catch (error) {
-    console.error("搜索时数据库连接异常:", error)
+    console.error("Database connection error during search:", error)
     return filterLocalOpportunities(filters)
   }
 
@@ -385,15 +385,15 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
     clearTimeout(countTimeoutId)
 
     if (countError) {
-      console.error("获取筛选结果总数失败:", countError.message || countError)
+      console.error("Failed to get filtered results count:", countError.message || countError)
       return filterLocalOpportunities(filters)
     }
 
     const totalCount = count || 0
-    console.log(`筛选条件下共有 ${totalCount} 条匹配机会`)
+    console.log(`Found ${totalCount} matching opportunities under filter conditions`)
 
     if (totalCount === 0) {
-      console.log("没有匹配的机会，返回空结果")
+      console.log("No matching opportunities found, returning empty result")
       return []
     }
 
@@ -411,11 +411,11 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
       clearTimeout(dataTimeoutId)
 
       if (error) {
-        console.error("获取筛选结果失败:", error.message || error)
+        console.error("Failed to get filtered results:", error.message || error)
         return filterLocalOpportunities(filters)
       }
 
-      console.log(`返回所有 ${data?.length || 0} 条匹配结果`)
+      console.log(`Returning all ${data?.length || 0} matching results`)
       return (data || []).map(transformDatabaseToEnhanced)
     }
 
@@ -423,7 +423,7 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
     const maxOffset = Math.max(0, totalCount - limit)
     const randomOffset = Math.floor(Math.random() * (maxOffset + 1))
 
-    console.log(`筛选结果随机偏移量: ${randomOffset}, 最大偏移量: ${maxOffset}`)
+    console.log(`Filter result random offset: ${randomOffset}, max offset: ${maxOffset}`)
 
     // 获取随机筛选结果（添加超时控制）
     const finalController = new AbortController()
@@ -437,14 +437,14 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
     clearTimeout(finalTimeoutId)
 
     if (error) {
-      console.error("获取随机筛选结果失败:", error.message || error)
+      console.error("Failed to get random filtered results:", error.message || error)
       return filterLocalOpportunities(filters)
     }
 
-    console.log(`成功获取 ${data?.length || 0} 条随机筛选结果`)
+    console.log(`Successfully retrieved ${data?.length || 0} random filtered results`)
     return (data || []).map(transformDatabaseToEnhanced)
   } catch (error) {
-    console.error("搜索增强机会时出错:", error.message || error)
+    console.error("Error searching enhanced opportunities:", error.message || error)
     return filterLocalOpportunities(filters)
   }
 }
@@ -453,11 +453,11 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
  * 获取机会统计信息
  */
 export async function getOpportunityStatistics(): Promise<OpportunityStatistics> {
-  console.log("获取机会统计信息")
+  console.log("Getting opportunity statistics")
 
   const supabase = getSupabaseClient()
   if (!supabase) {
-    console.log("Supabase客户端不可用，使用本地统计")
+    console.log("Supabase client unavailable, using local statistics")
     return getLocalStatistics()
   }
 
@@ -475,11 +475,11 @@ export async function getOpportunityStatistics(): Promise<OpportunityStatistics>
     clearTimeout(timeoutId)
     
     if (connectionError) {
-      console.warn("数据库连接失败，使用本地统计数据:", connectionError.message)
+      console.warn("Database connection failed, using local statistics:", connectionError.message)
       return getLocalStatistics()
     }
     
-    console.log("统计查询数据库连接正常")
+    console.log("Statistics query database connection normal")
 
     // 使用RPC函数获取统计信息（如果存在，添加超时控制）
     const rpcController = new AbortController()
@@ -492,11 +492,11 @@ export async function getOpportunityStatistics(): Promise<OpportunityStatistics>
     clearTimeout(rpcTimeoutId)
 
     if (!rpcError && rpcData) {
-      console.log("成功通过RPC获取统计信息:", rpcData)
+      console.log("Successfully retrieved statistics via RPC:", rpcData)
       return rpcData
     }
 
-    console.log("RPC函数不可用，手动计算统计信息")
+    console.log("RPC function unavailable, calculating statistics manually")
 
     // 手动计算统计信息（添加超时控制）
     const statsController = new AbortController()
@@ -510,8 +510,8 @@ export async function getOpportunityStatistics(): Promise<OpportunityStatistics>
     clearTimeout(statsTimeoutId)
 
     if (error) {
-      console.error("获取机会数据失败:", error)
-      console.log("数据库查询失败，使用本地统计数据")
+      console.error("Failed to retrieve opportunity data:", error)
+      console.log("Database query failed, using local statistics")
       return getLocalStatistics()
     }
 
@@ -537,11 +537,11 @@ export async function getOpportunityStatistics(): Promise<OpportunityStatistics>
       unique_companies: uniqueCompanies,
     }
 
-    console.log("手动计算的统计信息:", stats)
+    console.log("Manually calculated statistics:", stats)
     return stats
   } catch (error) {
-    console.error("获取统计信息时出错:", error)
-    console.log("统计信息获取异常，使用本地统计数据")
+    console.error("Error occurred while getting statistics:", error)
+    console.log("Statistics retrieval exception, using local statistics")
     return getLocalStatistics()
   }
 }

@@ -148,6 +148,6 @@ export function setLocalOpportunities(opportunities: OpportunityView[]) {
   try {
     localStorage.setItem(LS_OPPORTUNITIES_KEY, JSON.stringify(opportunities))
   } catch (error) {
-    console.warn("无法保存机会数据到本地存储:", error)
+    console.warn("Failed to save opportunity data to local storage:", error)
   }
 }

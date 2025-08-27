@@ -119,23 +119,25 @@ ${resumeText}
     const cleanPrompt = scoringPrompt.replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim()
     
     // 调用 SiliconFlow API
+    const requestBody = {
+      model: 'deepseek-ai/DeepSeek-V3',
+      messages: [
+        {
+          role: 'user',
+          content: cleanPrompt
+        }
+      ],
+      max_tokens: 4000,
+      temperature: 0.3
+    }
+    
     const response = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json; charset=utf-8',
         'Authorization': 'Bearer sk-ufnwysgrwnebkczychcgkvzvvinyydmppnrvgyclbwdluvpu'
       },
-      body: JSON.stringify({
-        model: 'deepseek-ai/DeepSeek-V3',
-        messages: [
-          {
-            role: 'user',
-            content: cleanPrompt
-          }
-        ],
-        max_tokens: 4000,
-        temperature: 0.3
-      })
+      body: JSON.stringify(requestBody)
     })
 
     if (!response.ok) {
@@ -146,34 +148,34 @@ ${resumeText}
     const aiResponse = apiResult.choices[0].message.content
     
     // 添加详细日志
-    console.log('AI原始响应:', aiResponse)
-    console.log('AI响应长度:', aiResponse.length)
+    console.log('AI raw response:', aiResponse)
+      console.log('AI response length:', aiResponse.length)
 
     // 尝试解析 AI 返回的 JSON
     let scoreResult
     try {
       // 提取 JSON 部分（如果 AI 返回了额外的文本）
       const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
-      console.log('JSON匹配结果:', jsonMatch ? '找到JSON' : '未找到JSON')
+      console.log('JSON match result:', jsonMatch ? 'JSON found' : 'JSON not found')
       if (jsonMatch) {
-        console.log('提取的JSON:', jsonMatch[0])
-        scoreResult = JSON.parse(jsonMatch[0])
-        console.log('解析后的结果:', scoreResult)
-        console.log('原始total_score值:', scoreResult.total_score)
+        console.log('Extracted JSON:', jsonMatch[0])
+        const scoreResult = JSON.parse(jsonMatch[0])
+        console.log('Parsed result:', scoreResult)
+        console.log('Original total_score value:', scoreResult.total_score)
         
         // 检查并修正total_score：如果小于等于5，说明AI没有转换为百分制，需要乘以20
         if (scoreResult.total_score && scoreResult.total_score <= 5) {
-          console.log('检测到非百分制分数，自动转换为百分制')
-          scoreResult.total_score = scoreResult.total_score * 20
-          console.log('转换后的total_score值:', scoreResult.total_score)
+          console.log('Detected non-percentage score, auto-converting to percentage')
+          scoreResult.total_score = Math.round(scoreResult.total_score * 100)
+          console.log('Converted total_score value:', scoreResult.total_score)
         }
       } else {
-        console.error('未找到有效的JSON格式，AI响应:', aiResponse)
+        console.error('No valid JSON format found, AI response:', aiResponse)
         throw new Error('未找到有效的JSON格式')
       }
     } catch (parseError) {
-      console.error('JSON解析失败:', parseError)
-      console.error('解析失败的内容:', aiResponse)
+      console.error('JSON parsing failed:', parseError)
+      console.error('Failed to parse content:', aiResponse)
       // 返回默认的评分结果
       scoreResult = {
         scores: {
@@ -203,7 +205,7 @@ ${resumeText}
     })
 
   } catch (error: any) {
-    console.error("简历评分失败:", error)
+    console.error("Resume scoring failed:", error)
     
     // 返回错误信息和默认评分
     return NextResponse.json({

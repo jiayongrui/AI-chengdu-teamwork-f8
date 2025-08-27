@@ -25,7 +25,7 @@ export async function generateIcebreakerEmailWithAI(params: {
     // If API is not configured (503) or other errors, fall back to template
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      console.log("AI服务不可用，使用模板生成:", errorData.error || response.statusText)
+      console.log("AI service unavailable, using template generation:", errorData.error || response.statusText)
       throw new Error(errorData.error || `HTTP ${response.status}`)
     }
 
@@ -40,7 +40,7 @@ export async function generateIcebreakerEmailWithAI(params: {
       body: data.body,
     }
   } catch (error: any) {
-    console.log("降级到模板生成，原因:", error.message)
+    console.log("Fallback to template generation, reason:", error.message)
     // 降级到模板生成 - 这里不再抛出错误
     return generateIcebreakerEmailTemplate(params)
   }

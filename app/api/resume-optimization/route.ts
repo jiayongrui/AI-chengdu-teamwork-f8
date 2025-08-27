@@ -190,23 +190,25 @@ ${resumeHighlights}
     // 只移除真正的控制字符，保留中文字符
     const cleanPrompt = prompt.replace(/[\u0000-\u001F\u007F]/g, '').trim()
     
+    const requestBody = {
+      model: 'deepseek-ai/DeepSeek-V3',
+      messages: [
+        {
+          role: 'user',
+          content: cleanPrompt
+        }
+      ],
+      max_tokens: 8000,
+      temperature: 0.7
+    }
+    
     const response = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json; charset=utf-8',
         'Authorization': 'Bearer sk-ufnwysgrwnebkczychcgkvzvvinyydmppnrvgyclbwdluvpu'
       },
-      body: JSON.stringify({
-        model: 'deepseek-ai/DeepSeek-V3',
-        messages: [
-          {
-            role: 'user',
-            content: cleanPrompt
-          }
-        ],
-        max_tokens: 8000,
-        temperature: 0.7
-      })
+      body: JSON.stringify(requestBody)
     })
 
     if (!response.ok) {
@@ -261,7 +263,7 @@ ${resumeHighlights}
       }
       
     } catch (parseError) {
-      console.error('JSON解析失败:', parseError, '原始文本:', text.substring(0, 500))
+      console.error('JSON parsing failed:', parseError, 'Original text:', text.substring(0, 500))
       // 如果解析失败，返回原始文本作为报告
       reportData = {
         dimensionalOptimization: {
@@ -293,7 +295,7 @@ ${resumeHighlights}
       }
     })
   } catch (error: any) {
-    console.error("AI简历优化生成失败:", error)
+    console.error("AI resume optimization generation failed:", error)
     // 返回基础的简历优化模板
     const fallbackResumeHighlightsObj = resumeText ? extractResumeHighlights(resumeText, opportunity.tags || []) : null
     const fallbackResumeHighlights = fallbackResumeHighlightsObj ? 

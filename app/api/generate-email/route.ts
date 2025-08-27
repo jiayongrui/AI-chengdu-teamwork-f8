@@ -195,23 +195,25 @@ ${resumeHighlights}
     // 使用直接HTTP请求调用SiliconFlow API
     const cleanPrompt = prompt.replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim()
     
+    const requestBody = {
+      model: 'deepseek-ai/DeepSeek-V3',
+      messages: [
+        {
+          role: 'user',
+          content: cleanPrompt
+        }
+      ],
+      max_tokens: 4000,
+      temperature: 0.7
+    }
+    
     const response = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json; charset=utf-8',
         'Authorization': 'Bearer sk-ufnwysgrwnebkczychcgkvzvvinyydmppnrvgyclbwdluvpu'
       },
-      body: JSON.stringify({
-        model: 'deepseek-ai/DeepSeek-V3',
-        messages: [
-          {
-            role: 'user',
-            content: cleanPrompt
-          }
-        ],
-        max_tokens: 4000,
-        temperature: 0.7
-      })
+      body: JSON.stringify(requestBody)
     })
 
     if (!response.ok) {
@@ -253,7 +255,7 @@ ${resumeHighlights}
       }
     })
   } catch (error: any) {
-    console.error("AI邮件生成失败:", error)
+    console.error("AI email generation failed:", error)
     // 返回基础的模板邮件
     const templateEmail = buildTemplateEmail({ user, opportunity, resumeText })
     

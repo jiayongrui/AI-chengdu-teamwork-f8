@@ -157,7 +157,7 @@ export async function extractTextFromFile(file: File): Promise<string> {
         throw new Error(`不支持的文件格式: .${ext}。当前支持的格式：.txt, .docx`)
     }
   } catch (error: any) {
-    console.error("文件解析错误:", error)
+    console.error("File parsing error:", error)
     throw new Error(`文件解析失败: ${error.message}`)
   }
 }
@@ -188,7 +188,7 @@ async function extractTextFromDocx(file: File): Promise<string> {
     ]
 
     if (file.type && !validMimeTypes.includes(file.type)) {
-      console.warn(`DOCX文件MIME类型不匹配: ${file.type}，但继续尝试解析`)
+      console.warn(`DOCX file MIME type mismatch: ${file.type}, but continuing to parse`)
     }
 
     // 动态导入 mammoth，并添加更好的错误处理
@@ -196,7 +196,7 @@ async function extractTextFromDocx(file: File): Promise<string> {
     try {
       mammoth = await import("mammoth/mammoth.browser")
     } catch (importError) {
-      console.error("Mammoth库导入失败:", importError)
+      console.error("Mammoth library import failed:", importError)
       throw new Error("DOCX parsing library failed to load, please refresh and retry")
     }
 
@@ -216,7 +216,7 @@ async function extractTextFromDocx(file: File): Promise<string> {
       throw new Error("Invalid file format, please ensure it is a valid DOCX file")
     }
 
-    console.log("开始解析DOCX文件...")
+    console.log("Starting DOCX file parsing...")
     const result = await mammoth.convertToHtml({ arrayBuffer })
 
     // 检查解析结果
@@ -226,7 +226,7 @@ async function extractTextFromDocx(file: File): Promise<string> {
 
     // 记录警告信息（如果有）
     if (result.messages && result.messages.length > 0) {
-      console.warn("DOCX解析警告:", result.messages)
+      console.warn("DOCX parsing warnings:", result.messages)
     }
 
     // 清理HTML标签并格式化文本
@@ -246,10 +246,10 @@ async function extractTextFromDocx(file: File): Promise<string> {
       throw new Error("Insufficient content after DOCX parsing, please check if file contains valid text")
     }
 
-    console.log(`DOCX解析成功，提取文本长度: ${text.length}`)
+    console.log(`DOCX parsing successful, extracted text length: ${text.length}`)
     return text
   } catch (error: any) {
-    console.error("DOCX解析详细错误:", error)
+    console.error("DOCX parsing detailed error:", error)
 
     // 提供更具体的错误信息，使用安全的字符编码
     const errorMsg = error.message || 'Unknown error'
@@ -309,7 +309,7 @@ export function validateResumeFile(file: File): { valid: boolean; error?: string
     ]
 
     if (file.type && !validMimeTypes.includes(file.type)) {
-      console.warn(`DOCX文件MIME类型警告: ${file.type}`)
+      console.warn(`DOCX file MIME type warning: ${file.type}`)
       // 不阻止上传，只是警告
     }
   }

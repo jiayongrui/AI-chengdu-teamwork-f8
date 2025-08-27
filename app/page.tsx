@@ -60,12 +60,82 @@ type PageKey =
   | "signup"
   | "terms"
   | "profile"
+  | "personal-filter" // 个人筛选页
 
 const ADMIN_OPPORTUNITIES_KEY = "admin-opportunities"
 
+// 城市数据列表
+const CITIES_DATA = [
+  // 直辖市
+  { name: '北京', pinyin: 'beijing', short: 'bj' },
+  { name: '上海', pinyin: 'shanghai', short: 'sh' },
+  { name: '天津', pinyin: 'tianjin', short: 'tj' },
+  { name: '重庆', pinyin: 'chongqing', short: 'cq' },
+  
+  // 省会城市
+  { name: '广州', pinyin: 'guangzhou', short: 'gz' },
+  { name: '深圳', pinyin: 'shenzhen', short: 'sz' },
+  { name: '杭州', pinyin: 'hangzhou', short: 'hz' },
+  { name: '南京', pinyin: 'nanjing', short: 'nj' },
+  { name: '武汉', pinyin: 'wuhan', short: 'wh' },
+  { name: '成都', pinyin: 'chengdu', short: 'cd' },
+  { name: '西安', pinyin: 'xian', short: 'xa' },
+  { name: '郑州', pinyin: 'zhengzhou', short: 'zz' },
+  { name: '济南', pinyin: 'jinan', short: 'jn' },
+  { name: '青岛', pinyin: 'qingdao', short: 'qd' },
+  { name: '大连', pinyin: 'dalian', short: 'dl' },
+  { name: '沈阳', pinyin: 'shenyang', short: 'sy' },
+  { name: '长春', pinyin: 'changchun', short: 'cc' },
+  { name: '哈尔滨', pinyin: 'haerbin', short: 'heb' },
+  { name: '石家庄', pinyin: 'shijiazhuang', short: 'sjz' },
+  { name: '太原', pinyin: 'taiyuan', short: 'ty' },
+  { name: '呼和浩特', pinyin: 'huhehaote', short: 'hhht' },
+  { name: '长沙', pinyin: 'changsha', short: 'cs' },
+  { name: '南昌', pinyin: 'nanchang', short: 'nc' },
+  { name: '合肥', pinyin: 'hefei', short: 'hf' },
+  { name: '福州', pinyin: 'fuzhou', short: 'fz' },
+  { name: '厦门', pinyin: 'xiamen', short: 'xm' },
+  { name: '南宁', pinyin: 'nanning', short: 'nn' },
+  { name: '海口', pinyin: 'haikou', short: 'hk' },
+  { name: '昆明', pinyin: 'kunming', short: 'km' },
+  { name: '贵阳', pinyin: 'guiyang', short: 'gy' },
+  { name: '拉萨', pinyin: 'lasa', short: 'ls' },
+  { name: '兰州', pinyin: 'lanzhou', short: 'lz' },
+  { name: '西宁', pinyin: 'xining', short: 'xn' },
+  { name: '银川', pinyin: 'yinchuan', short: 'yc' },
+  { name: '乌鲁木齐', pinyin: 'wulumuqi', short: 'wlmq' },
+  
+  // 其他重要城市
+  { name: '苏州', pinyin: 'suzhou', short: 'sz' },
+  { name: '无锡', pinyin: 'wuxi', short: 'wx' },
+  { name: '宁波', pinyin: 'ningbo', short: 'nb' },
+  { name: '温州', pinyin: 'wenzhou', short: 'wz' },
+  { name: '佛山', pinyin: 'foshan', short: 'fs' },
+  { name: '东莞', pinyin: 'dongguan', short: 'dg' },
+  { name: '珠海', pinyin: 'zhuhai', short: 'zh' },
+  { name: '中山', pinyin: 'zhongshan', short: 'zs' },
+  { name: '惠州', pinyin: 'huizhou', short: 'huiz' },
+  { name: '常州', pinyin: 'changzhou', short: 'cz' },
+  { name: '徐州', pinyin: 'xuzhou', short: 'xz' },
+  { name: '扬州', pinyin: 'yangzhou', short: 'yz' },
+  { name: '泰州', pinyin: 'taizhou', short: 'tz' },
+  { name: '嘉兴', pinyin: 'jiaxing', short: 'jx' },
+  { name: '金华', pinyin: 'jinhua', short: 'jh' },
+  { name: '绍兴', pinyin: 'shaoxing', short: 'sx' },
+  { name: '台州', pinyin: 'taizhou', short: 'tzh' },
+  { name: '烟台', pinyin: 'yantai', short: 'yt' },
+  { name: '潍坊', pinyin: 'weifang', short: 'wf' },
+  { name: '临沂', pinyin: 'linyi', short: 'ly' },
+  { name: '淄博', pinyin: 'zibo', short: 'zb' },
+  { name: '威海', pinyin: 'weihai', short: 'wh' },
+  { name: '全国', pinyin: 'quanguo', short: 'qg' }
+]
+
 export default function Page() {
   const [currentPage, setCurrentPage] = useState<PageKey>("home")
+  const [previousPage, setPreviousPage] = useState<PageKey>("home")
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
 
   // Home 内部锚点
   const featuresRef = useRef<HTMLElement | null>(null)
@@ -83,6 +153,10 @@ export default function Page() {
   const [loginErr, setLoginErr] = useState<string | null>(null)
   const [signupErr, setSignupErr] = useState<string | null>(null)
   const [authLoading, setAuthLoading] = useState(false)
+  
+  // 定位筛选完成状态
+  const [hasCompletedFilter, setHasCompletedFilter] = useState<boolean>(false)
+  const [originalDestination, setOriginalDestination] = useState<string>('#bounty')
 
   // 破冰工坊上下文
   const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null)
@@ -297,10 +371,93 @@ export default function Page() {
   const [itemsPerPage] = useState(12) // 每页显示12个机会
   const [isLoadingMore, setIsLoadingMore] = useState(false)
 
+  // 个人筛选页面状态
+  const [selectedCities, setSelectedCities] = useState<string[]>([])
+  const [selectedCompanyType, setSelectedCompanyType] = useState<string>('')
+  const [selectedSubOptions, setSelectedSubOptions] = useState<string[]>([])
+  const [showSubOptions, setShowSubOptions] = useState<boolean>(false)
+  const [selectedEducation, setSelectedEducation] = useState<string>('')
+  const [citySearchTerm, setCitySearchTerm] = useState<string>('')
+  const [activeFilterSection, setActiveFilterSection] = useState<string>('city')
+  const [personalTags, setPersonalTags] = useState<Array<{type: string, value: string}>>([])  
+
+  // 寻找机会按钮拖拽状态
+  const [buttonPosition, setButtonPosition] = useState({ x: 0, y: 0 })
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const [hasBeenDragged, setHasBeenDragged] = useState(false)
+
+  // 城市搜索过滤逻辑
+  const filteredCities = useMemo(() => {
+    if (!citySearchTerm.trim()) {
+      return CITIES_DATA
+    }
+    
+    const searchTerm = citySearchTerm.toLowerCase().trim()
+    return CITIES_DATA.filter(city => 
+      city.name.toLowerCase().includes(searchTerm) ||
+      city.pinyin.toLowerCase().includes(searchTerm) ||
+      city.short.toLowerCase().includes(searchTerm)
+    )
+  }, [citySearchTerm])
+
   // 合并的机会列表（默认 + 管理员添加的）
   const allOpportunities = useMemo(() => {
     return [...todayOpportunities, ...adminOpportunities]
   }, [adminOpportunities])
+
+  // 拖拽事件处理函数
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+    setDragStart({
+      x: e.clientX - buttonPosition.x,
+      y: e.clientY - buttonPosition.y
+    })
+  }, [buttonPosition])
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging) return
+    
+    const newX = e.clientX - dragStart.x
+    const newY = e.clientY - dragStart.y
+    
+    // 限制按钮在视窗范围内
+    const maxX = window.innerWidth - 120 // 按钮宽度约120px
+    const maxY = window.innerHeight - 50 // 按钮高度约50px
+    
+    setButtonPosition({
+      x: Math.max(0, Math.min(newX, maxX)),
+      y: Math.max(0, Math.min(newY, maxY))
+    })
+    setHasBeenDragged(true)
+  }, [isDragging, dragStart])
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false)
+  }, [])
+
+  const handleButtonClick = useCallback(() => {
+    // 如果刚刚拖拽过，不触发点击事件
+    if (hasBeenDragged) {
+      setHasBeenDragged(false)
+      return
+    }
+    setCurrentPage("bounty")
+  }, [hasBeenDragged])
+
+  // 添加全局鼠标事件监听
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+      
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove)
+        document.removeEventListener('mouseup', handleMouseUp)
+      }
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp])
 
   // 分页逻辑：当筛选结果变化时，重置分页并更新显示的机会
   useEffect(() => {
@@ -340,6 +497,21 @@ export default function Page() {
     return displayedOpportunities.length < filteredOpportunities.length
   }, [displayedOpportunities.length, filteredOpportunities.length])
 
+  // 点击外部区域关闭下拉菜单
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element
+      if (profileDropdownOpen && !target.closest('.profile-dropdown-container')) {
+        setProfileDropdownOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [profileDropdownOpen])
+
   const validPages: Record<string, PageKey> = useMemo(
     () => ({
       home: "home",
@@ -354,6 +526,7 @@ export default function Page() {
       signup: "signup",
       terms: "terms",
       profile: "profile",
+      "personal-filter": "personal-filter",
       features: "home",
       testimonials: "home",
       about: "home",
@@ -401,6 +574,20 @@ export default function Page() {
     const u = getLocalUser()
     if (u) setUser(u)
 
+    // 检查用户是否已完成定位筛选
+    let filterCompleted = null
+    try {
+      filterCompleted = localStorage.getItem('personalFilterCompleted')
+    } catch (error) {
+      console.warn('localStorage read failed, trying sessionStorage:', error)
+       try {
+         filterCompleted = sessionStorage.getItem('personalFilterCompleted')
+       } catch (sessionError) {
+         console.warn('sessionStorage read also failed:', sessionError)
+      }
+    }
+    setHasCompletedFilter(filterCompleted === 'true')
+
     // 加载管理员添加的机会
     loadAdminOpportunities()
   }, [showPage])
@@ -433,6 +620,24 @@ export default function Page() {
     return () => observer.disconnect()
   }, [currentPage])
 
+  // 点击外部区域关闭下拉菜单
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element
+      if (profileDropdownOpen && !target.closest('.profile-dropdown-container')) {
+        setProfileDropdownOpen(false)
+      }
+    }
+
+    if (profileDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [profileDropdownOpen])
+
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement, MouseEvent>, href: string) => {
     e.preventDefault()
     const scrollToId = e.currentTarget.getAttribute("data-scroll-to")
@@ -462,10 +667,10 @@ export default function Page() {
       clearTimeout(timeoutId)
       
       if (error) throw error
-      console.log("用户连接测试成功")
+      console.log("Connection test successful")
     } catch (error) {
       clearTimeout(timeoutId)
-      console.error("用户连接测试失败:", error)
+      console.error("Connection test failed:", error)
       throw error
     }
   }, [supabase])
@@ -515,9 +720,9 @@ export default function Page() {
         try {
           const stats = await getOpportunityStatistics()
           setOpportunityStats(stats)
-          console.log("管理员页面统计数据加载完成:", stats)
+          console.log("Admin page statistics loaded:", stats)
         } catch (error) {
-          console.error("加载管理员页面统计数据失败:", error)
+          console.error("Failed to load admin page statistics:", error)
           // 使用默认统计数据
           setOpportunityStats({
             total_opportunities: 0,
@@ -534,29 +739,29 @@ export default function Page() {
 
   // 修复后的加载增强机会函数
   const loadEnhancedOpportunities = useCallback(async () => {
-    console.log("开始加载增强机会数据...")
+    console.log("Starting to load enhanced opportunity data...")
     setLoadingOpportunities(true)
 
     try {
-      console.log("调用 fetchEnhancedOpportunities...")
+      console.log("Calling fetchEnhancedOpportunities...")
       const opportunities = await fetchEnhancedOpportunities(50) // 增加到50个，提供更多选择
-      console.log("成功加载机会数据:", opportunities.length, "个机会")
+      console.log("Successfully loaded opportunity data:", opportunities.length, "opportunities")
 
       setEnhancedOpportunities(opportunities)
       setFilteredOpportunities(opportunities)
 
       // 加载统计数据
-      console.log("加载统计数据...")
+      console.log("Loading statistics data...")
       const stats = await getOpportunityStatistics()
-      console.log("统计数据:", stats)
+      console.log("Statistics data:", stats)
       setOpportunityStats(stats)
 
-      console.log("机会数据加载完成")
+      console.log("Opportunity data loading completed")
     } catch (error) {
-      console.error("加载增强机会失败:", error)
+      console.error("Failed to load enhanced opportunities:", error)
 
       // 使用本地缓存作为降级方案
-      console.log("使用本地缓存数据")
+      console.log("Using local cached data")
       const localOpportunities = getLocalEnhancedOpportunities() // 移除slice限制
       setEnhancedOpportunities(localOpportunities)
       setFilteredOpportunities(localOpportunities)
@@ -571,31 +776,31 @@ export default function Page() {
       })
     } finally {
       setLoadingOpportunities(false)
-      console.log("加载状态重置完成")
+      console.log("Loading state reset completed")
     }
   }, [])
 
   // 处理筛选变化
   const handleFiltersChange = useCallback(
     async (filters: any) => {
-      console.log("筛选条件变化:", filters)
+      console.log("Filter conditions changed:", filters)
       setOpportunityFilters(filters)
       setLoadingOpportunities(true)
 
       try {
         if (Object.keys(filters).length === 0) {
           // 无筛选条件，显示所有机会
-          console.log("无筛选条件，加载所有机会")
+          console.log("No filter conditions, loading all opportunities")
           const opportunities = await fetchEnhancedOpportunities(50) // 增加限制
           setFilteredOpportunities(opportunities)
         } else {
           // 有筛选条件，执行搜索
-          console.log("执行筛选搜索")
+          console.log("Executing filtered search")
           const searchResults = await searchEnhancedOpportunities({ ...filters, limit: 30 }) // 增加搜索限制
           setFilteredOpportunities(searchResults)
         }
       } catch (error) {
-        console.warn("搜索失败，使用本地筛选:", error)
+        console.warn("Search failed, using local filtering:", error)
         // 本地筛选降级
         const filtered = enhancedOpportunities.filter((opp) => {
           if (
@@ -646,10 +851,10 @@ export default function Page() {
 
   // 评分功能
   const handleScoreOpportunities = useCallback(async () => {
-    console.log("评分按钮被点击")
-    console.log("用户状态:", user)
-    console.log("简历文本:", resumeText ? "已上传" : "未上传")
-    console.log("筛选机会数量:", filteredOpportunities.length)
+    console.log("Score button clicked")
+    console.log("User status:", user)
+    console.log("Resume text:", resumeText ? "uploaded" : "not uploaded")
+    console.log("Filtered opportunities count:", filteredOpportunities.length)
     
     if (!user) {
       alert("请先登录后再进行评分")
@@ -668,7 +873,7 @@ export default function Page() {
 
     try {
       // 第一步：对简历进行基础评分，获取简历总分
-      console.log("开始对简历进行基础评分...")
+      console.log("Starting basic resume scoring...")
       const resumeResponse = await fetch("/api/score", {
         method: "POST",
         headers: {
@@ -695,13 +900,13 @@ export default function Page() {
       }
 
       const resumeScoreData = await resumeResponse.json()
-      console.log("简历基础评分响应:", resumeScoreData)
+      console.log("Resume basic score response:", resumeScoreData)
       const baseResumeScore = resumeScoreData.success ? (resumeScoreData.data?.total_score || 0) : 0
       setResumeScore(baseResumeScore)
-      console.log("简历总分:", baseResumeScore)
+      console.log("Resume total score:", baseResumeScore)
 
       // 第二步：对每个机会进行评分，但只显示分数小于等于简历总分的机会
-      console.log("开始对机会进行评分...")
+      console.log("Starting opportunity scoring...")
       for (const opportunity of filteredOpportunities) {
         try {
           const response = await fetch("/api/score", {
@@ -730,26 +935,26 @@ export default function Page() {
           }
 
           const scoreData = await response.json()
-          console.log(`${opportunity.company_name} 评分响应:`, scoreData)
+          console.log(`${opportunity.company_name} score response:`, scoreData)
           const score = scoreData.success ? (scoreData.data?.total_score || 0) : 0
           
           // 保存所有机会的评分
           newScores[opportunity.id] = score
-          console.log(`${opportunity.company_name}: ${score}分 (简历总分: ${baseResumeScore})`)
+          console.log(`${opportunity.company_name}: ${score} points (resume total: ${baseResumeScore})`)
         } catch (error) {
-          console.error(`评分失败 - ${opportunity.company_name}:`, error)
+          console.error(`Scoring failed - ${opportunity.company_name}:`, error)
           // 评分失败的机会不显示
         }
       }
 
       setOpportunityScores(newScores)
-      console.log("评分完成，符合条件的机会:", newScores)
+      console.log("Scoring completed, qualified opportunities:", newScores)
       
       if (Object.keys(newScores).length === 0) {
         setScoringError(`暂无可评分的机会（简历总分: ${baseResumeScore}分）`)
       }
     } catch (error) {
-      console.error("评分过程出错:", error)
+      console.error("Error in scoring process:", error)
       setScoringError("评分过程中出现错误")
     } finally {
       setScoringOpportunities(false)
@@ -785,7 +990,27 @@ export default function Page() {
       setUser(u)
       setLocalUser(u)
       setIsAdmin(false)
-      showPage("#bounty")
+      
+      // 检查是否已完成定位筛选
+      let filterCompleted = null
+      try {
+        filterCompleted = localStorage.getItem('personalFilterCompleted')
+      } catch (error) {
+        console.warn('localStorage read failed, trying sessionStorage:', error)
+         try {
+           filterCompleted = sessionStorage.getItem('personalFilterCompleted')
+         } catch (sessionError) {
+           console.warn('sessionStorage read also failed:', sessionError)
+        }
+      }
+      if (filterCompleted === 'true') {
+        // 已完成筛选，直接跳转到原目标页面
+        showPage("#bounty")
+      } else {
+        // 未完成筛选，先进入定位筛选页
+        setOriginalDestination("#bounty")
+        showPage("#personal-filter")
+      }
     } catch (err: any) {
       setLoginErr(err?.message ?? "登录失败")
     } finally {
@@ -810,7 +1035,10 @@ export default function Page() {
       const u = await signUp(username, password)
       setUser(u)
       setLocalUser(u)
-      showPage("#profile")
+      
+      // 注册用户默认需要完成定位筛选
+      setOriginalDestination("#bounty")
+      showPage("#personal-filter")
     } catch (err: any) {
       setSignupErr(err?.message ?? "注册失败")
     } finally {
@@ -874,7 +1102,7 @@ export default function Page() {
       }
       setAiGenerateError(null)
     } catch (error: any) {
-      console.error("简历优化报告生成失败:", error)
+      console.error("Resume optimization report generation failed:", error)
       setAiGenerateError("生成简历优化报告时出现问题")
       setResumeReportTitle("简历优化报告")
       setResumeReportContent("生成失败，请稍后重试")
@@ -932,7 +1160,7 @@ export default function Page() {
         }
         setAiGenerateError(null)
       } catch (error: any) {
-        console.error("简历优化报告生成失败:", error)
+        console.error("Resume optimization report generation failed:", error)
         setAiGenerateError("生成简历优化报告时出现问题")
         setResumeReportTitle("简历优化报告")
         setResumeReportContent("生成失败，请稍后重试")
@@ -974,7 +1202,7 @@ export default function Page() {
         }
         setAiGenerateError(null)
       } catch (error: any) {
-        console.error("邮件生成失败:", error)
+        console.error("Email generation failed:", error)
         setAiGenerateError("生成邮件时出现问题")
         setMailSubject("求职邮件")
         setMailBody("生成失败，请稍后重试")
@@ -1031,7 +1259,7 @@ export default function Page() {
       }
       setAiGenerateError(null)
     } catch (error: any) {
-      console.error("求职邮件生成失败:", error)
+      console.error("Job application email generation failed:", error)
       setAiGenerateError("生成求职邮件时出现问题")
       setMailSubject("求职邮件")
       setMailBody("生成失败，请稍后重试")
@@ -1078,7 +1306,7 @@ export default function Page() {
     setSendMsg("📤 正在发送邮件...")
 
     try {
-      console.log("开始发送邮件流程...")
+      console.log("Starting email sending process...")
 
       // 1) 发送真实邮件
       const emailResult = await sendEmail({
@@ -1089,7 +1317,7 @@ export default function Page() {
         senderEmail: senderEmail.trim() || undefined,
       })
 
-      console.log("邮件发送结果:", emailResult)
+      console.log("Email sending result:", emailResult)
 
       if (!emailResult.success) {
         throw new Error(emailResult.error || "邮件发送失败")
@@ -1127,7 +1355,7 @@ export default function Page() {
         setTimeout(() => showPage("#bounty"), 1000)
       }, 4000)
     } catch (e: any) {
-      console.error("发送流程失败:", e)
+      console.error("Sending process failed:", e)
       setSendMsg(`❌ 发送失败：${e?.message ?? "未知错误"}`)
     } finally {
       setSending(false)
@@ -1281,7 +1509,7 @@ export default function Page() {
       try {
         await updateUserResumeText(user.id, text)
       } catch (error) {
-        console.warn("更新旧版本简历字段失败:", error)
+        console.warn("Failed to update legacy resume field:", error)
       }
 
       setFileUploadSuccess(`简历 "${title}" 已成功添加并设为当前使用`)
@@ -1289,7 +1517,7 @@ export default function Page() {
       // 3秒后清除成功消息
       setTimeout(() => setFileUploadSuccess(null), 3000)
     } catch (error: any) {
-      console.error("简历上传失败:", error)
+      console.error("Resume upload failed:", error)
       setFileUploadError(error.message || "简历上传失败，请重试")
     } finally {
       setFileUploading(false)
@@ -1314,7 +1542,7 @@ export default function Page() {
       try {
         encodedUrl = encodeURIComponent(crawlUrl)
       } catch (encodeError) {
-        console.error('URL编码失败:', encodeError)
+        console.error('URL encoding failed:', encodeError)
         setCrawlError('URL格式不正确，无法进行编码')
         return
       }
@@ -1347,7 +1575,7 @@ export default function Page() {
         setAdminOpportunities(JSON.parse(stored))
       }
     } catch (error) {
-      console.error("加载管理员机会失败:", error)
+      console.error("Failed to load admin opportunities:", error)
     }
   }
 
@@ -1356,7 +1584,7 @@ export default function Page() {
       localStorage.setItem(ADMIN_OPPORTUNITIES_KEY, JSON.stringify(opportunities))
       setAdminOpportunities(opportunities)
     } catch (error) {
-      console.error("保存管理员机会失败:", error)
+      console.error("Failed to save admin opportunities:", error)
     }
   }
 
@@ -1454,9 +1682,9 @@ export default function Page() {
     try {
       const stats = await getOpportunityStatistics()
       setOpportunityStats(stats)
-      console.log("统计数据已更新:", stats)
+      console.log("Statistics data updated:", stats)
     } catch (error) {
-      console.error("更新统计数据失败:", error)
+      console.error("Failed to update statistics data:", error)
     }
 
     // 重置表单
@@ -1624,17 +1852,46 @@ export default function Page() {
           <div className="hidden md:flex items-center space-x-4">
             {user ? (
               <>
-                <a
-                  href="#profile"
-                  className="nav-link flex items-center"
-                  onClick={(e) => handleNavClick(e, "#profile")}
-                  aria-label="个人主页"
-                  title="个人主页"
-                >
-                  <span className="inline-flex items-center justify-center h-9 w-9 rounded-full bg-green-500 text-white font-bold">
-                    {avatarInitial}
-                  </span>
-                </a>
+                <div className="relative profile-dropdown-container">
+                  <button
+                    className="nav-link flex items-center"
+                    onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                    aria-label="个人信息菜单"
+                    title="个人信息菜单"
+                  >
+                    <span className="inline-flex items-center justify-center h-9 w-9 rounded-full bg-green-500 text-white font-bold">
+                      {avatarInitial}
+                    </span>
+                  </button>
+                  
+                  {/* 下拉菜单 */}
+                  {profileDropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-50">
+                      <div className="py-1">
+                        <button
+                          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => {
+                            setProfileDropdownOpen(false)
+                            setCurrentPage("personal-filter")
+                            setActiveFilterSection('city')
+                          }}
+                        >
+                          个人定位筛选
+                        </button>
+                        <button
+                          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => {
+                            setProfileDropdownOpen(false)
+                            setPreviousPage(currentPage)
+                            setCurrentPage("profile")
+                          }}
+                        >
+                          简历修改
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <button onClick={handleLogout} className="text-gray-600 hover:text-green-500">
                   退出
                 </button>
@@ -2090,6 +2347,536 @@ export default function Page() {
           </div>
         )}
 
+        {/* 个人筛选页 */}
+        {currentPage === "personal-filter" && (
+          <div id="page-personal-filter" className="page-content">
+            <section className="py-12 bg-gray-50 min-h-screen">
+              <div className="container mx-auto px-6 max-w-6xl">
+                {/* 顶部标题和返回按钮 */}
+                <div className="mb-8 text-center relative">
+                  <button
+                    onClick={() => showPage("#login")}
+                    className="absolute left-0 top-0 flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                    返回
+                  </button>
+                  <h2 className="text-2xl md:text-3xl font-bold text-green-600 mb-4">
+                    为了帮您精准找到合适的工作，请选择你的个人标签
+                  </h2>
+                </div>
+
+                {/* 主要内容区域 */}
+                <div className="flex gap-8">
+                  {/* 左侧导航 */}
+                  <div className="w-64 flex-shrink-0">
+                    <div className="bg-white rounded-lg shadow-sm border p-4">
+                      <div className="space-y-2">
+                        <button
+                          onClick={() => setActiveFilterSection('city')}
+                          className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                            activeFilterSection === 'city'
+                              ? 'bg-green-50 text-green-600 border border-green-200'
+                              : 'hover:bg-gray-50 text-gray-700'
+                          }`}
+                        >
+                          意向城市
+                        </button>
+                        <button
+                          onClick={() => setActiveFilterSection('company')}
+                          className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                            activeFilterSection === 'company'
+                              ? 'bg-green-50 text-green-600 border border-green-200'
+                              : 'hover:bg-gray-50 text-gray-700'
+                          }`}
+                        >
+                          意向公司类型
+                        </button>
+                        <button
+                          onClick={() => setActiveFilterSection('education')}
+                          className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                            activeFilterSection === 'education'
+                              ? 'bg-green-50 text-green-600 border border-green-200'
+                              : 'hover:bg-gray-50 text-gray-700'
+                          }`}
+                        >
+                          教育背景
+                        </button>
+                        <button
+                          onClick={() => setActiveFilterSection('tags')}
+                          className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                            activeFilterSection === 'tags'
+                              ? 'bg-green-50 text-green-600 border border-green-200'
+                              : 'hover:bg-gray-50 text-gray-700'
+                          }`}
+                        >
+                          我的标签
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 右侧内容区 */}
+                  <div className="flex-1">
+                    <div className="bg-white rounded-lg shadow-sm border p-6 min-h-[500px] relative">
+                      {/* 意向城市 */}
+                      {activeFilterSection === 'city' && (
+                        <div>
+                          <h3 className="text-lg font-semibold mb-4">选择意向城市</h3>
+                          {/* 搜索框 */}
+                          <div className="mb-4">
+                            <input
+                              type="text"
+                              placeholder="搜索城市名称或拼音"
+                              value={citySearchTerm}
+                              onChange={(e) => setCitySearchTerm(e.target.value)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            />
+                          </div>
+                          {/* 搜索结果或热门城市 */}
+                          <div className="mb-6">
+                            {citySearchTerm.trim() ? (
+                              <div>
+                                <h4 className="text-sm font-medium text-gray-700 mb-3">
+                                  搜索结果 ({filteredCities.length})
+                                </h4>
+                                {filteredCities.length > 0 ? (
+                                  <div className="grid grid-cols-3 gap-2 max-h-60 overflow-y-auto">
+                                    {filteredCities.map((city) => (
+                                      <button
+                                        key={city.name}
+                                        onClick={() => {
+                                          if (selectedCities.includes(city.name)) {
+                                            // 如果已选中，则取消选择
+                                            setSelectedCities(prev => prev.filter(c => c !== city.name))
+                                            setPersonalTags(prev => prev.filter(tag => !(tag.type === '意向城市' && tag.value === city.name)))
+                                          } else {
+                                            // 添加到选中列表
+                                            setSelectedCities(prev => [...prev, city.name])
+                                            const newTag = { type: '意向城市', value: city.name }
+                                            setPersonalTags(prev => [...prev, newTag])
+                                          }
+                                          setCitySearchTerm('') // 清空搜索框
+                                        }}
+                                        className={`px-3 py-2 text-sm rounded-lg border transition-colors ${
+                                          selectedCities.includes(city.name)
+                                            ? 'bg-green-500 text-white border-green-500'
+                                            : 'bg-white text-gray-700 border-gray-300 hover:border-green-300'
+                                        }`}
+                                      >
+                                        {city.name}
+                                      </button>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="text-center py-8 text-gray-500">
+                                    <p>未找到匹配的城市</p>
+                                    <p className="text-sm mt-1">请尝试输入城市名称、拼音或缩写</p>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div>
+                                <h4 className="text-sm font-medium text-gray-700 mb-3">热门城市</h4>
+                                <div className="grid grid-cols-3 gap-2">
+                                  {['北京', '上海', '广州', '深圳', '杭州', '成都', '武汉', '西安', '全国'].map((city) => (
+                                    <button
+                                      key={city}
+                                      onClick={() => {
+                                        if (selectedCities.includes(city)) {
+                                          // 如果已选中，则取消选择
+                                          setSelectedCities(prev => prev.filter(c => c !== city))
+                                          setPersonalTags(prev => prev.filter(tag => !(tag.type === '意向城市' && tag.value === city)))
+                                        } else {
+                                          // 添加到选中列表
+                                          setSelectedCities(prev => [...prev, city])
+                                          const newTag = { type: '意向城市', value: city }
+                                          setPersonalTags(prev => [...prev, newTag])
+                                        }
+                                      }}
+                                      className={`px-3 py-2 text-sm rounded-lg border transition-colors ${
+                                        selectedCities.includes(city)
+                                          ? 'bg-green-500 text-white border-green-500'
+                                          : 'bg-white text-gray-700 border-gray-300 hover:border-green-300'
+                                      }`}
+                                    >
+                                      {city}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          {selectedCities.length > 0 && (
+                            <div className="mt-4 p-3 bg-green-50 rounded-lg">
+                              <div className="flex flex-wrap gap-2">
+                                {selectedCities.map((city) => (
+                                  <div key={city} className="flex items-center bg-green-500 text-white px-3 py-1 rounded-lg text-sm">
+                                    <span>{city}</span>
+                                    <button
+                                      onClick={() => {
+                                        setSelectedCities(prev => prev.filter(c => c !== city))
+                                        setPersonalTags(prev => prev.filter(tag => !(tag.type === '意向城市' && tag.value === city)))
+                                      }}
+                                      className="ml-2 text-white hover:text-gray-200 font-bold"
+                                    >
+                                      ×
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* 意向公司类型 */}
+                      {activeFilterSection === 'company' && (
+                        <div>
+                          <h3 className="text-lg font-semibold mb-4">选择意向公司类型</h3>
+                          <div className="space-y-4">
+                            {/* 国企选项 */}
+                            <div className={`p-4 rounded-lg border transition-colors flex items-center justify-between ${
+                              selectedCompanyType === '国企'
+                                ? 'bg-blue-500 text-white border-blue-500'
+                                : 'bg-white border-gray-300 hover:border-blue-300'
+                            }`}>
+                              <button
+                                onClick={() => {
+                                  if (selectedCompanyType === '国企') {
+                                    // 如果已选中，则取消选择
+                                    setSelectedCompanyType('')
+                                    setPersonalTags(prev => prev.filter(tag => tag.type !== '意向公司类型'))
+                                  } else {
+                                    // 选中国企
+                                    setSelectedCompanyType('国企')
+                                    const newTag = { type: '意向公司类型', value: '国企' }
+                                    setPersonalTags(prev => {
+                                      const filtered = prev.filter(tag => tag.type !== '意向公司类型')
+                                      return [...filtered, newTag]
+                                    })
+                                  }
+                                }}
+                                className="flex-1 text-left font-medium"
+                              >
+                                国企
+                              </button>
+                              {selectedCompanyType === '国企' && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setSelectedCompanyType('')
+                                    setPersonalTags(prev => prev.filter(tag => tag.type !== '公司类型'))
+                                  }}
+                                  className="ml-2 text-white hover:text-gray-200 font-bold text-lg"
+                                >
+                                  ×
+                                </button>
+                              )}
+                            </div>
+                            
+                            {/* 中小厂选项 */}
+                            <div className="space-y-2">
+                              <div className={`p-4 rounded-lg border transition-colors cursor-pointer ${
+                                selectedCompanyType === '中小厂' || showSubOptions
+                                  ? 'bg-green-500 text-white border-green-500'
+                                  : 'bg-white border-gray-300 hover:border-green-300'
+                              }`}
+                                onClick={() => {
+                                  if (selectedCompanyType === '中小厂' && showSubOptions) {
+                                    // 如果已经选中且展开，则收起
+                                    setShowSubOptions(false)
+                                    setSelectedCompanyType('')
+                                    setSelectedSubOptions([])
+                                    setPersonalTags(prev => prev.filter(tag => tag.type !== '公司类型' && tag.type !== '发展阶段'))
+                                  } else {
+                                    // 选中中小厂并展开子选项
+                                    setSelectedCompanyType('中小厂')
+                                    setShowSubOptions(true)
+                                    const newTag = { type: '意向公司类型', value: '中小厂' }
+                                    setPersonalTags(prev => {
+                                      const filtered = prev.filter(tag => tag.type !== '意向公司类型')
+                                      return [...filtered, newTag]
+                                    })
+                                  }
+                                }}
+                              >
+                                <div className="font-medium">中小厂</div>
+                              </div>
+                              
+                              {/* 子选项 - 垂直排列 */}
+                              {showSubOptions && (
+                                <div className="ml-4 space-y-2">
+                                  {/* 初创期选项 */}
+                                  <div className={`p-3 rounded-lg border transition-colors flex items-center justify-between ${
+                                    selectedSubOptions.includes('初创期')
+                                      ? 'bg-green-500 text-white border-green-500'
+                                      : 'bg-white border-gray-300 hover:border-green-300'
+                                  }`}>
+                                    <button
+                                      onClick={() => {
+                                        if (selectedSubOptions.includes('初创期')) {
+                                          // 如果已选中，则取消选择
+                                          setSelectedSubOptions(prev => prev.filter(option => option !== '初创期'))
+                                          setPersonalTags(prev => prev.filter(tag => !(tag.type === '意向公司类型' && tag.value === '初创期')))
+                                        } else {
+                                          // 选中初创期
+                                          setSelectedSubOptions(prev => [...prev, '初创期'])
+                                          const stageTag = { type: '意向公司类型', value: '初创期' }
+                                          setPersonalTags(prev => [...prev, stageTag])
+                                        }
+                                      }}
+                                      className="flex-1 text-left font-medium"
+                                    >
+                                      初创期
+                                    </button>
+                                    {selectedSubOptions.includes('初创期') && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          setSelectedSubOptions(prev => prev.filter(option => option !== '初创期'))
+                                          setPersonalTags(prev => prev.filter(tag => !(tag.type === '意向公司类型' && tag.value === '初创期')))
+                                        }}
+                                        className="ml-2 text-white hover:text-gray-200 font-bold text-lg"
+                                      >
+                                        ×
+                                      </button>
+                                    )}
+                                  </div>
+                                  
+                                  {/* 成长期选项 */}
+                                  <div className={`p-3 rounded-lg border transition-colors flex items-center justify-between ${
+                                    selectedSubOptions.includes('成长期')
+                                      ? 'bg-green-500 text-white border-green-500'
+                                      : 'bg-white border-gray-300 hover:border-green-300'
+                                  }`}>
+                                    <button
+                                      onClick={() => {
+                                        if (selectedSubOptions.includes('成长期')) {
+                                          // 如果已选中，则取消选择
+                                          setSelectedSubOptions(prev => prev.filter(option => option !== '成长期'))
+                                          setPersonalTags(prev => prev.filter(tag => !(tag.type === '意向公司类型' && tag.value === '成长期')))
+                                        } else {
+                                          // 选中成长期
+                                          setSelectedSubOptions(prev => [...prev, '成长期'])
+                                          const stageTag = { type: '意向公司类型', value: '成长期' }
+                                          setPersonalTags(prev => [...prev, stageTag])
+                                        }
+                                      }}
+                                      className="flex-1 text-left font-medium"
+                                    >
+                                      成长期
+                                    </button>
+                                    {selectedSubOptions.includes('成长期') && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          setSelectedSubOptions(prev => prev.filter(option => option !== '成长期'))
+                                          setPersonalTags(prev => prev.filter(tag => !(tag.type === '意向公司类型' && tag.value === '成长期')))
+                                        }}
+                                        className="ml-2 text-white hover:text-gray-200 font-bold text-lg"
+                                      >
+                                        ×
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 教育背景 */}
+                      {activeFilterSection === 'education' && (
+                        <div>
+                          <h3 className="text-lg font-semibold mb-4">选择教育背景</h3>
+                          <div className="flex gap-4">
+                            {['大专', '本科', '硕士及以上'].map((edu) => (
+                              <div key={edu} className={`px-6 py-3 rounded-lg border transition-colors flex items-center gap-2 ${
+                                selectedEducation === edu
+                                  ? 'bg-green-500 text-white border-green-500'
+                                  : 'bg-white text-gray-700 border-gray-300 hover:border-green-300'
+                              }`}>
+                                <button
+                                  onClick={() => {
+                                    if (selectedEducation === edu) {
+                                      // 如果已选中，则取消选择
+                                      setSelectedEducation('')
+                                      setPersonalTags(prev => prev.filter(tag => tag.type !== '教育背景'))
+                                    } else {
+                                      // 选中教育背景
+                                      setSelectedEducation(edu)
+                                      const newTag = { type: '教育背景', value: edu }
+                                      setPersonalTags(prev => {
+                                        const filtered = prev.filter(tag => tag.type !== '教育背景')
+                                        return [...filtered, newTag]
+                                      })
+                                    }
+                                  }}
+                                  className="flex-1 text-left font-medium"
+                                >
+                                  {edu}
+                                </button>
+                                {selectedEducation === edu && (
+                                  <button
+                                    onClick={() => {
+                                      setSelectedEducation('')
+                                      setPersonalTags(prev => prev.filter(tag => tag.type !== '教育背景'))
+                                    }}
+                                    className="text-white hover:text-gray-200 font-bold text-lg"
+                                  >
+                                    ×
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 我的标签 */}
+                      {activeFilterSection === 'tags' && (
+                        <div>
+                          <h3 className="text-lg font-semibold mb-4">我的标签</h3>
+                          {(selectedCities.length === 0 && !selectedCompanyType && selectedSubOptions.length === 0 && !selectedEducation) ? (
+                            <p className="text-gray-500">暂无标签，请先选择其他选项</p>
+                          ) : (
+                            <div className="space-y-3">
+                              {/* 意向城市标签行 */}
+                              {selectedCities.length > 0 && (
+                                <div className="flex items-center bg-green-50 px-4 py-2 rounded-lg">
+                                  <span className="text-green-700 font-medium mr-2">意向城市：</span>
+                                  <div className="flex flex-wrap gap-1">
+                                    {selectedCities.map((city, index) => (
+                                      <span key={city} className="flex items-center">
+                                        <span className="text-green-700">{city}</span>
+                                        <button
+                                          onClick={() => {
+                                            setSelectedCities(prev => prev.filter(c => c !== city))
+                                            setPersonalTags(prev => prev.filter(tag => !(tag.type === '意向城市' && tag.value === city)))
+                                          }}
+                                          className="ml-1 text-red-500 hover:text-red-700 transition-colors font-bold"
+                                        >
+                                          ×
+                                        </button>
+                                        {index < selectedCities.length - 1 && <span className="mx-1 text-green-700">、</span>}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* 意向公司类型标签行 */}
+                              {(selectedCompanyType || selectedSubOptions.length > 0) && (
+                                <div className="flex items-center bg-green-50 px-4 py-2 rounded-lg">
+                                  <span className="text-green-700 font-medium mr-2">意向公司类型：</span>
+                                  <div className="flex flex-wrap gap-1">
+                                    {selectedCompanyType && (
+                                      <span className="flex items-center">
+                                        <span className="text-green-700">{selectedCompanyType}</span>
+                                        <button
+                                          onClick={() => {
+                                            setSelectedCompanyType('')
+                                            setShowSubOptions(false)
+                                            setSelectedSubOptions([])
+                                            setPersonalTags(prev => prev.filter(tag => tag.type !== '意向公司类型'))
+                                          }}
+                                          className="ml-1 text-red-500 hover:text-red-700 transition-colors font-bold"
+                                        >
+                                          ×
+                                        </button>
+                                        {selectedSubOptions.length > 0 && <span className="mx-1 text-green-700">、</span>}
+                                      </span>
+                                    )}
+                                    {selectedSubOptions.map((option, index) => (
+                                      <span key={option} className="flex items-center">
+                                        <span className="text-green-700">{option}</span>
+                                        <button
+                                          onClick={() => {
+                                            setSelectedSubOptions(prev => prev.filter(opt => opt !== option))
+                                            setPersonalTags(prev => prev.filter(tag => !(tag.type === '意向公司类型' && tag.value === option)))
+                                          }}
+                                          className="ml-1 text-red-500 hover:text-red-700 transition-colors font-bold"
+                                        >
+                                          ×
+                                        </button>
+                                        {index < selectedSubOptions.length - 1 && <span className="mx-1 text-green-700">、</span>}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* 教育背景标签行 */}
+                              {selectedEducation && (
+                                <div className="flex items-center bg-green-50 px-4 py-2 rounded-lg">
+                                  <span className="text-green-700 font-medium mr-2">教育背景：</span>
+                                  <div className="flex items-center">
+                                    <span className="text-green-700">{selectedEducation}</span>
+                                    <button
+                                      onClick={() => {
+                                        setSelectedEducation('')
+                                        setPersonalTags(prev => prev.filter(tag => tag.type !== '教育背景'))
+                                      }}
+                                      className="ml-1 text-red-500 hover:text-red-700 transition-colors font-bold"
+                                    >
+                                      ×
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* 下一步按钮 */}
+                      <div className="absolute bottom-6 right-6">
+                        <button
+                          onClick={() => {
+                            // 携带筛选参数跳转到原目标页面
+                            const filterParams = {
+                              cities: selectedCities,
+                              companyType: selectedCompanyType,
+                              education: selectedEducation,
+                              tags: personalTags
+                            }
+                            // 将筛选参数存储到localStorage，供机会雷达页面使用
+                            try {
+                              localStorage.setItem('personalFilterParams', JSON.stringify(filterParams))
+                              // 标记已完成定位筛选
+                              localStorage.setItem('personalFilterCompleted', 'true')
+                            } catch (error) {
+                              console.warn('localStorage storage failed, using memory storage:', error)
+                              // 如果localStorage失败，可以使用sessionStorage或内存存储作为备选
+                              sessionStorage.setItem('personalFilterParams', JSON.stringify(filterParams))
+                              sessionStorage.setItem('personalFilterCompleted', 'true')
+                            }
+                            setHasCompletedFilter(true)
+                            // 跳转到简历上传页面
+                            showPage('#profile')
+                          }}
+                          disabled={selectedCities.length === 0}
+                          className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+                            selectedCities.length > 0
+                              ? 'bg-green-500 text-white hover:bg-green-600 shadow-lg'
+                              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          }`}
+                        >
+                          下一步
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        )}
+
         {/* 1) 机会雷达 */}
         {currentPage === "bounty" && (
           <div id="page-bounty" className="page-content">
@@ -2244,6 +3031,8 @@ export default function Page() {
                     </div>
                   </div>
                 )}
+                
+
               </div>
             </section>
           </div>
@@ -2903,6 +3692,8 @@ export default function Page() {
                     </div>
                   </div>
                 )}
+                
+
               </div>
             </section>
           </div>
@@ -3054,6 +3845,8 @@ export default function Page() {
                     </div>
                   </div>
                 )}
+                
+
               </div>
             </section>
           </div>
@@ -3062,8 +3855,19 @@ export default function Page() {
         {/* 个人资料页面 */}
         {currentPage === "profile" && (
           <div id="page-profile" className="page-content">
-            <section className="py-12 bg-white">
+            <section className="py-12 bg-white relative">
               <div className="container mx-auto px-6 max-w-4xl">
+                {/* 返回按钮 */}
+                <button
+                  onClick={() => setCurrentPage("personal-filter")}
+                  className="absolute left-0 top-0 flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  返回
+                </button>
+                
                 <div className="mb-8">
                   <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">个人资料</h2>
                   {connOk === true && <p className="text-sm text-green-600">已成功连接云端数据（Supabase）</p>}
@@ -3265,6 +4069,23 @@ export default function Page() {
                     </div>
                   </div>
                 )}
+                
+                {/* 寻找机会按钮 - 可拖拽移动 */}
+                <button
+                  onClick={handleButtonClick}
+                  onMouseDown={handleMouseDown}
+                  className={`fixed bg-yellow-500 text-white font-bold py-3 px-6 rounded-full shadow-lg hover:bg-yellow-600 transition-colors z-50 select-none ${
+                    isDragging ? 'cursor-grabbing' : 'cursor-grab'
+                  }`}
+                  style={{
+                    left: buttonPosition.x || 'auto',
+                    top: buttonPosition.y || 'auto',
+                    right: buttonPosition.x ? 'auto' : '2rem',
+                    bottom: buttonPosition.y ? 'auto' : '2rem'
+                  }}
+                >
+                  寻找机会
+                </button>
               </div>
             </section>
           </div>

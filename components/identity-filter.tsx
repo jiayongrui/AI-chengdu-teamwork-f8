@@ -118,18 +118,18 @@ export function IdentityFilter({ onComplete }: IdentityFilterProps) {
         <button 
           id="cta" 
           onClick={handleViewJobs}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-8 rounded-full text-lg transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-indigo-300"
+          className="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-8 rounded-full text-lg transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-green-300"
         >
           立即查看
         </button>
         <button 
           id="reset" 
           onClick={handleReset}
-          className="text-indigo-600 hover:text-indigo-700 font-medium py-4 px-8 rounded-full text-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+          className="text-green-500 hover:text-green-600 font-medium py-4 px-8 rounded-full text-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-300"
         >
           改定位
         </button>
       </div>
     </main>
   )
-} 
+}
