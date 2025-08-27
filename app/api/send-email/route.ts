@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     const isDemoMode = !process.env.RESEND_API_KEY || !isProduction
 
     if (isDemoMode) {
-      console.log("使用演示模式发送邮件", {
+      console.log("Using demo mode to send email", {
         reason: !process.env.RESEND_API_KEY ? "RESEND_API_KEY 未配置" : "非生产环境",
       })
       const mockMessageId = `demo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
       const resendModule = await import("resend")
       Resend = resendModule.Resend
     } catch (importError) {
-      console.error("Resend 库导入失败:", importError)
+      console.error("Resend library import failed:", importError)
       return NextResponse.json({ error: "邮件服务库加载失败" }, { status: 500 })
     }
 
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
       replyTo: replyToEmail,
     }
 
-    console.log("准备发送邮件:", {
+    console.log("Preparing to send email:", {
       to: emailData.to,
       from: emailData.from,
       subject: emailData.subject,
@@ -89,10 +89,10 @@ export async function POST(req: NextRequest) {
     // 发送邮件
     const result = await resend.emails.send(emailData)
 
-    console.log("Resend API 响应:", result)
+    console.log("Resend API response:", result)
 
     if (result.error) {
-      console.error("Resend API 错误:", result.error)
+      console.error("Resend API error:", result.error)
       // 生产环境报错，非生产环境降级为演示成功
       if (!isProduction) {
         const mockMessageId = `demo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
       message: "邮件发送成功",
     })
   } catch (error: any) {
-    console.error("邮件发送错误:", error)
+    console.error("Email sending error:", error)
 
     // 非生产环境降级为演示成功
     if (process.env.NODE_ENV !== "production") {

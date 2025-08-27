@@ -8,7 +8,7 @@ export function getSupabaseClient(): SupabaseClient | null {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   
   if (!url || !key) {
-    console.warn("Supabase环境变量未配置，将使用本地数据")
+    console.warn("Supabase environment variables not configured, will use local data")
     return null
   }
   
@@ -33,9 +33,9 @@ export function getSupabaseClient(): SupabaseClient | null {
           },
         },
       })
-      console.log("Supabase客户端初始化成功")
+      console.log("Supabase client initialized successfully")
     } catch (error) {
-      console.error("Supabase客户端初始化失败:", error)
+      console.error("Supabase client initialization failed:", error)
       return null
     }
   }

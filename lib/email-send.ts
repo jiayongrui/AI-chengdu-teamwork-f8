@@ -19,7 +19,7 @@ export interface SendEmailResult {
 
 export async function sendEmail(params: SendEmailParams): Promise<SendEmailResult> {
   try {
-    console.log("发送邮件请求:", {
+    console.log("Sending email request:", {
       to: params.to,
       subject: params.subject,
       senderName: params.senderName,
@@ -35,19 +35,19 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
       body: JSON.stringify(params),
     })
 
-    console.log("API 响应状态:", response.status, response.statusText)
+    console.log("API response status:", response.status, response.statusText)
 
     // 检查响应是否为 JSON
     const contentType = response.headers.get("content-type")
     if (!contentType || !contentType.includes("application/json")) {
-      console.error("API 返回非 JSON 响应:", contentType)
+      console.error("API returned non-JSON response:", contentType)
       const textResponse = await response.text()
-      console.error("响应内容:", textResponse.substring(0, 500))
+      console.error("Response content:", textResponse.substring(0, 500))
       throw new Error(`服务器返回了非 JSON 响应 (${response.status}): ${textResponse.substring(0, 100)}`)
     }
 
     const data = await response.json()
-    console.log("API 响应数据:", data)
+    console.log("API response data:", data)
 
     if (!response.ok) {
       throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`)
@@ -59,7 +59,7 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
       demo: data.demo || false,
     }
   } catch (error: any) {
-    console.error("邮件发送失败:", error)
+    console.error("Email sending failed:", error)
     return {
       success: false,
       error: error.message || "邮件发送失败",
@@ -78,7 +78,7 @@ export async function logAndAdvanceTask(args: {
 }) {
   const supabase = getSupabaseClient()
   if (!supabase) {
-    console.warn("Supabase 未配置，跳过数据库记录")
+    console.warn("Supabase not configured, skipping database record")
     return
   }
 
@@ -146,8 +146,8 @@ export async function logAndAdvanceTask(args: {
       if (upErr) throw upErr
     }
   } catch (error: any) {
-    console.error("数据库操作失败:", error)
+    console.error("Database operation failed:", error)
     // 不抛出错误，允许邮件发送成功但数据库记录失败
-    console.warn("邮件发送成功，但数据库记录失败，继续执行")
+    console.warn("Email sent successfully, but database record failed, continuing execution")
   }
 }

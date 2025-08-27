@@ -88,3 +88,23 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* 个人信息下拉菜单样式 */
+.profile-dropdown-container {
+  position: relative;
+}
+
+.profile-dropdown-container .absolute {
+  animation: dropdownFadeIn 0.15s ease-out;
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
