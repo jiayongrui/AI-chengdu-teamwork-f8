@@ -120,6 +120,8 @@
   );
   background-size: 200% 100%;
   animation: progress-shimmer 2s ease-in-out infinite, progress-glow 3s ease-in-out infinite;
+}
+
 /* 个人信息下拉菜单样式 */
 .profile-dropdown-container {
   position: relative;
