@@ -1922,9 +1922,9 @@ const REQUEST_DELAY = 500; // 500ms延迟
                   <div className="flex flex-col md:flex-row items-center gap-10">
                     <div className="md:w-1/2 p-8 bg-white rounded-2xl shadow-lg">
                       <img
-                        src="https://placehold.co/600x400/34d399/ffffff?text=机会雷达UI"
+                        src="/images/ai-radar-dashboard.png"
                         alt="机会雷达UI界面"
-                        className="rounded-lg w-full"
+                        className="rounded-lg w-full h-64 object-cover"
                       />
                     </div>
                     <div className="md:w-1/2">
@@ -1947,9 +1947,9 @@ const REQUEST_DELAY = 500; // 500ms延迟
                   <div className="flex flex-col md:flex-row-reverse items-center gap-10">
                     <div className="md:w-1/2 p-8 bg-white rounded-2xl shadow-lg">
                       <img
-                        src="https://placehold.co/600x400/fbbf24/ffffff?text=破冰策略库UI"
+                        src="/images/ai-radar-dashboard01.png"
                         alt="破冰策略库UI界面"
-                        className="rounded-lg w-full"
+                        className="rounded-lg w-full h-64 object-cover"
                       />
                     </div>
                     <div className="md:w-1/2">
