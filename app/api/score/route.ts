@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { callAiApi } from '@/lib/ai-api-client'
 
 export async function POST(req: NextRequest) {
   // 解析请求体
@@ -115,67 +116,50 @@ ${resumeText}
   "overall_comment": "候选人学历和专业与职位要求匹配，具备基础的技术背景和产品意识，但在AI实践经验和作品展示方面有待加强。薪资期望与能力水平基本匹配。"
 }`
 
-    // 清理 prompt 中的特殊字符
-    const cleanPrompt = scoringPrompt.replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim()
-    
-    // 调用 SiliconFlow API
-    const requestBody = {
+    // 使用新的API管理系统调用AI
+    const apiResult = await callAiApi({
       model: 'deepseek-ai/DeepSeek-V3',
       messages: [
         {
           role: 'user',
-          content: cleanPrompt
+          content: scoringPrompt
         }
       ],
       max_tokens: 4000,
       temperature: 0.3
-    }
-    
-    const response = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Authorization': 'Bearer sk-ufnwysgrwnebkczychcgkvzvvinyydmppnrvgyclbwdluvpu'
-      },
-      body: JSON.stringify(requestBody)
     })
 
-    if (!response.ok) {
-      throw new Error(`API调用失败: ${response.status} ${response.statusText}`)
-    }
-
-    const apiResult = await response.json()
     const aiResponse = apiResult.choices[0].message.content
     
     // 添加详细日志
-    console.log('AI raw response:', aiResponse)
-      console.log('AI response length:', aiResponse.length)
+    console.log('AI原始响应:', aiResponse)
+    console.log('AI响应长度:', aiResponse.length)
 
     // 尝试解析 AI 返回的 JSON
     let scoreResult
     try {
       // 提取 JSON 部分（如果 AI 返回了额外的文本）
       const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
-      console.log('JSON match result:', jsonMatch ? 'JSON found' : 'JSON not found')
+      console.log('JSON匹配结果:', jsonMatch ? '找到JSON' : '未找到JSON')
       if (jsonMatch) {
-        console.log('Extracted JSON:', jsonMatch[0])
-        const scoreResult = JSON.parse(jsonMatch[0])
-        console.log('Parsed result:', scoreResult)
-        console.log('Original total_score value:', scoreResult.total_score)
+        console.log('提取的JSON:', jsonMatch[0])
+        scoreResult = JSON.parse(jsonMatch[0])
+        console.log('解析后的结果:', scoreResult)
+        console.log('原始total_score值:', scoreResult.total_score)
         
         // 检查并修正total_score：如果小于等于5，说明AI没有转换为百分制，需要乘以20
         if (scoreResult.total_score && scoreResult.total_score <= 5) {
-          console.log('Detected non-percentage score, auto-converting to percentage')
-          scoreResult.total_score = Math.round(scoreResult.total_score * 100)
-          console.log('Converted total_score value:', scoreResult.total_score)
+          console.log('检测到非百分制分数，自动转换为百分制')
+          scoreResult.total_score = scoreResult.total_score * 20
+          console.log('转换后的total_score值:', scoreResult.total_score)
         }
       } else {
-        console.error('No valid JSON format found, AI response:', aiResponse)
+        console.error('未找到有效的JSON格式，AI响应:', aiResponse)
         throw new Error('未找到有效的JSON格式')
       }
     } catch (parseError) {
-      console.error('JSON parsing failed:', parseError)
-      console.error('Failed to parse content:', aiResponse)
+      console.error('JSON解析失败:', parseError)
+      console.error('解析失败的内容:', aiResponse)
       // 返回默认的评分结果
       scoreResult = {
         scores: {
@@ -205,7 +189,7 @@ ${resumeText}
     })
 
   } catch (error: any) {
-    console.error("Resume scoring failed:", error)
+    console.error("简历评分失败:", error)
     
     // 返回错误信息和默认评分
     return NextResponse.json({
@@ -232,4 +216,36 @@ ${resumeText}
       }
     }, { status: 500 })
   }
+}
+
+
+// 增强分数验证和转换逻辑
+function validateAndConvertScore(score: any): number {
+  const numScore = parseFloat(score);
+  if (isNaN(numScore)) return 0;
+  
+  // 0-5分制转换为百分制
+  if (numScore <= 5) {
+    return Math.round(numScore * 20);
+  }
+  
+  // 百分制范围校验
+  return Math.max(0, Math.min(100, Math.round(numScore)));
+}
+
+// API响应处理增强
+try {
+  const parsedResponse = JSON.parse(responseText);
+  
+  // 验证必要字段
+  if (!parsedResponse.total_score) {
+    throw new Error('Missing total_score in response');
+  }
+  
+  // 转换和验证分数
+  parsedResponse.total_score = validateAndConvertScore(parsedResponse.total_score);
+  
+} catch (error) {
+  console.error('Score validation failed:', error);
+  // 返回默认分数结构
 }
