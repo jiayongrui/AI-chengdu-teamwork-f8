@@ -29,7 +29,7 @@ export async function getAllOpportunities(): Promise<Opportunity[]> {
 
     return appOpportunities
   } catch (error) {
-    console.warn("从数据库获取机会失败，使用本地缓存:", error)
+    console.warn("Failed to fetch opportunities from database, using local cache:", error)
 
     // 降级到本地存储
     const localOpportunities = getLocalOpportunities()
@@ -44,7 +44,7 @@ export async function searchOpportunitiesWithFallback(keyword: string): Promise<
     const dbOpportunities = await searchOpportunities({ keyword, limit: 20 })
     return dbOpportunities.map(convertDbToApp)
   } catch (error) {
-    console.warn("搜索失败，使用本地过滤:", error)
+    console.warn("Search failed, using local filtering:", error)
 
     // 降级到本地搜索
     const localOpportunities = getLocalOpportunities()
@@ -64,7 +64,7 @@ export async function getOpportunitiesByLocation(location: string): Promise<Oppo
     const dbOpportunities = await searchOpportunities({ location, limit: 20 })
     return dbOpportunities.map(convertDbToApp)
   } catch (error) {
-    console.warn("按地区获取失败，使用本地过滤:", error)
+    console.warn("Failed to fetch by region, using local filtering:", error)
 
     const localOpportunities = getLocalOpportunities()
     const filtered = localOpportunities.filter((opp) => opp.city?.toLowerCase().includes(location.toLowerCase()))
@@ -80,7 +80,7 @@ export async function getTrendingOpportunities(): Promise<Opportunity[]> {
     const trending = dbOpportunities.sort((a, b) => b.priority - a.priority).slice(0, 10)
     return trending.map(convertDbToApp)
   } catch (error) {
-    console.warn("获取热门机会失败，使用本地数据:", error)
+    console.warn("Failed to fetch popular opportunities, using local data:", error)
 
     const localOpportunities = getLocalOpportunities()
     const trending = localOpportunities.sort((a, b) => b.priority - a.priority).slice(0, 10)
