@@ -34,6 +34,7 @@ import { OpportunityCardEnhanced } from "@/components/opportunity-card-enhanced"
 import { OpportunityFilters } from "@/components/opportunity-filters"
 import { ScoreBreakdownTest } from "@/components/score-breakdown-test"
 import GapAnalysisView from "@/components/gap-analysis-view"
+import { ScoreCache } from "@/lib/score-cache"
 import {
   fetchEnhancedOpportunities,
   searchEnhancedOpportunities,
@@ -65,6 +66,7 @@ type PageKey =
   | "profile"
 
 const ADMIN_OPPORTUNITIES_KEY = "admin-opportunities"
+const SELECTED_RESUME_KEY = "selected-resume-id"
 
 export default function Page() {
   const [currentPage, setCurrentPage] = useState<PageKey>("home")
@@ -227,6 +229,18 @@ export default function Page() {
   const [aiGenerateError, setAiGenerateError] = useState<string | null>(null)
   const [apiStatus, setApiStatus] = useState<string>('')
 
+  // 进度跟踪状态
+  const [analysisProgress, setAnalysisProgress] = useState(0)
+  const [analysisStage, setAnalysisStage] = useState<string>('')
+  const [progressStages] = useState([
+    { stage: 'init', text: '初始化分析...', progress: 10 },
+    { stage: 'parsing', text: '解析简历内容...', progress: 25 },
+    { stage: 'matching', text: '分析职位匹配度...', progress: 50 },
+    { stage: 'generating', text: '生成优化建议...', progress: 75 },
+    { stage: 'finalizing', text: '完成分析报告...', progress: 90 },
+    { stage: 'complete', text: '分析完成', progress: 100 }
+  ])
+
   // 网页爬虫状态（管理员功能）
   const [isAdmin, setIsAdmin] = useState(false)
   const [crawlUrl, setCrawlUrl] = useState("")
@@ -383,6 +397,26 @@ export default function Page() {
     (hashOrKey: string, scrollToId?: string | null) => {
       const cleaned = hashOrKey.startsWith("#") ? hashOrKey.slice(1) : hashOrKey
       const target = validPages[cleaned] ?? "home"
+      
+      // 页面切换时重置AI生成状态
+      if (target !== currentPage) {
+        setAiGenerating(false)
+        setAiGenerateError(null)
+        setAnalysisProgress(0)
+        setAnalysisStage('')
+        
+        // 如果切换到简历优化页面，清除之前的分析数据
+        if (target === "resume-optimizer") {
+          setResumeAnalysisData(null)
+        }
+        
+        // 如果切换到破冰工坊页面，清除之前的邮件数据
+        if (target === "forge") {
+          setMailSubject("")
+          setMailBody("")
+        }
+      }
+      
       setCurrentPage(target)
       if (typeof window !== "undefined") {
         window.location.hash = cleaned
@@ -396,7 +430,7 @@ export default function Page() {
         window.scrollTo({ top: 0 })
       }
     },
-    [smoothScrollInsideHome, validPages],
+    [smoothScrollInsideHome, validPages, currentPage],
   )
 
   // 初始化
@@ -465,6 +499,7 @@ export default function Page() {
       if (!user) {
         setResumeText(null)
         setResumes([])
+        setSelectedResumeId(null)
         return
       }
       
@@ -479,6 +514,26 @@ export default function Page() {
         
         const userResumes = await fetchUserResumes(user.id)
         setResumes(userResumes)
+        
+        // 恢复用户之前选择的简历，如果不存在则选择第一个简历
+        if (userResumes.length > 0) {
+          const savedResumeId = getSelectedResumeId(user.id)
+          const savedResume = savedResumeId ? userResumes.find(r => r.id === savedResumeId) : null
+          
+          if (savedResume) {
+            // 恢复之前选择的简历
+            setSelectedResumeId(savedResume.id)
+            if (!txt) {
+              setResumeText(savedResume.content)
+            }
+          } else {
+            // 选择第一个简历作为默认
+            setSelectedResumeId(userResumes[0].id)
+            if (!txt) {
+              setResumeText(userResumes[0].content)
+            }
+          }
+        }
       } catch (e: any) {
         setConnOk(false)
         setConnErr(e?.message ?? "连接 Supabase 失败")
@@ -487,9 +542,20 @@ export default function Page() {
         const localResumes = getLocalResumes(user.id)
         setResumes(localResumes)
         
-        // 如果有本地简历，使用第一个作为默认简历文本
+        // 如果有本地简历，恢复之前选择的简历或选择第一个
         if (localResumes.length > 0) {
-          setResumeText(localResumes[0].content)
+          const savedResumeId = getSelectedResumeId(user.id)
+          const savedResume = savedResumeId ? localResumes.find(r => r.id === savedResumeId) : null
+          
+          if (savedResume) {
+            // 恢复之前选择的简历
+            setSelectedResumeId(savedResume.id)
+            setResumeText(savedResume.content)
+          } else {
+            // 选择第一个简历作为默认
+            setSelectedResumeId(localResumes[0].id)
+            setResumeText(localResumes[0].content)
+          }
         }
       }
     })()
@@ -695,16 +761,51 @@ export default function Page() {
       setResumeScore(baseResumeScore)
       setScoringProgress(prev => ({ ...prev, current: 1 }))
 
-      // 第二步：并行处理机会评分（分批处理，避免过多并发）
-      const BATCH_SIZE = 3; // 减少并发量
-const RETRY_ATTEMPTS = 3;
-const REQUEST_DELAY = 500; // 500ms延迟
+      // 第二步：智能并行处理机会评分
+      const BATCH_SIZE = 8; // 进一步增加并发量
+      const RETRY_ATTEMPTS = 2;
+      const REQUEST_DELAY = 100; // 进一步减少延迟
       const opportunities = [...filteredOpportunities]
       
-      for (let i = 0; i < opportunities.length; i += BATCH_SIZE) {
-        const batch = opportunities.slice(i, i + BATCH_SIZE)
+      // 预先检查缓存，分离缓存命中和需要API调用的机会
+      const cachedResults: Record<string, number> = {}
+      const needApiCall: typeof opportunities = []
+      
+      console.log(`开始智能缓存检查，共${opportunities.length}个机会...`)
+      
+      opportunities.forEach(opportunity => {
+        const opportunityKey = `${opportunity.company_name}_${opportunity.job_title}_${opportunity.location}`
+        const cachedScore = ScoreCache.get(resumeText, opportunityKey)
+        if (cachedScore) {
+          cachedResults[opportunity.id] = cachedScore.total_score || 0
+          console.log(`✓ 缓存命中: ${opportunity.company_name} - ${cachedScore.total_score}分`)
+        } else {
+          needApiCall.push(opportunity)
+        }
+      })
+       
+       const cacheHits = Object.keys(cachedResults).length
+       const apiCalls = needApiCall.length
+       console.log(`📊 缓存统计: ${cacheHits}个命中, ${apiCalls}个需要API调用 (命中率: ${((cacheHits / opportunities.length) * 100).toFixed(1)}%)`)
+       
+       // 立即应用缓存结果
+       Object.assign(newScores, cachedResults)
+       setOpportunityScores({ ...newScores })
+       setScoringProgress(prev => ({ 
+         ...prev, 
+         current: prev.current + cacheHits 
+       }))
+       
+       // 只对需要API调用的机会进行批处理
+       if (apiCalls === 0) {
+         console.log('🎉 所有评分均来自缓存，无需API调用！')
+       } else {
+         console.log(`🚀 开始并行处理${apiCalls}个API调用，批次大小: ${BATCH_SIZE}`)
+       }
+      for (let i = 0; i < needApiCall.length; i += BATCH_SIZE) {
+        const batch = needApiCall.slice(i, i + BATCH_SIZE)
         
-        // 添加批次间延迟
+        // 添加批次间延迟（仅在有API调用时）
         if (i > 0) {
           await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY));
         }
@@ -740,7 +841,7 @@ const REQUEST_DELAY = 500; // 500ms延迟
                 const scoreData = await response.json()
                 const score = scoreData.success ? (scoreData.data?.total_score || 0) : 0
                 
-                return { id: opportunity.id, score, company: opportunity.company_name }
+                return { id: opportunity.id, score, company: opportunity.company_name, cached: scoreData.cached || false }
               } catch (error) {
                 console.error(`评分失败 - ${opportunity.company_name}:`, error)
                 return null
@@ -754,7 +855,8 @@ const REQUEST_DELAY = 500; // 500ms延迟
             batchResults.forEach((result) => {
               if (result) {
                 newScores[result.id] = result.score
-                console.log(`${result.company}: ${result.score}分`)
+                const cacheStatus = result.cached ? '(缓存)' : '(新计算)'
+                console.log(`${result.company}: ${result.score}分 ${cacheStatus}`)
               }
             })
             
@@ -854,17 +956,38 @@ const REQUEST_DELAY = 500; // 500ms延迟
 
 
 
+  // 进度模拟函数
+  const simulateProgress = async (type: 'resume' | 'email') => {
+    const stages = type === 'resume' 
+      ? progressStages.filter(s => s.stage !== 'complete')
+      : progressStages.filter(s => s.stage !== 'complete').map(s => ({
+          ...s,
+          text: s.text.replace('简历', '邮件').replace('职位匹配度', '个人背景')
+        }))
+    
+    for (const stage of stages) {
+      setAnalysisStage(stage.text)
+      setAnalysisProgress(stage.progress)
+      await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 400))
+    }
+  }
+
   // 重新生成邮件
   const onRegenerateEmail = async () => {
     if (!user || !selectedOpp) return
 
     setAiGenerating(true)
     setAiGenerateError(null)
+    setAnalysisProgress(0)
+    setAnalysisStage('')
     
     // 根据当前页面决定调用哪个API和使用哪些状态变量
     if (currentPage === "resume-optimizer") {
       // 简历优化页面：生成简历分析报告
       setResumeAnalysisData(null)
+      
+      // 启动进度模拟
+      simulateProgress('resume')
       
       try {
         const response = await fetch("/api/gap-analysis", {
@@ -887,6 +1010,8 @@ const REQUEST_DELAY = 500; // 500ms延迟
         
         // 处理简历分析报告数据
         if (data.success && data.data) {
+          setAnalysisStage('分析完成')
+          setAnalysisProgress(100)
           setResumeAnalysisData(data.data)
         } else {
           setAiGenerateError(data.error || "分析报告数据格式错误")
@@ -896,11 +1021,16 @@ const REQUEST_DELAY = 500; // 500ms延迟
         console.error("简历分析报告生成失败:", error)
         setAiGenerateError("生成简历分析报告时出现问题")
         setResumeAnalysisData(null)
+      } finally {
+        setAiGenerating(false)
       }
     } else {
       // 破冰工坊页面：生成邮件
       setMailSubject("")
       setMailBody("")
+      
+      // 启动进度模拟
+      simulateProgress('email')
       
       try {
         const response = await fetch("/api/generate-email", {
@@ -932,20 +1062,60 @@ const REQUEST_DELAY = 500; // 500ms延迟
         
         if (data.email && data.email.subject && data.email.body) {
           console.log('使用email对象格式，主题:', data.email.subject)
+          setAnalysisStage('邮件生成完成')
+          setAnalysisProgress(100)
           setMailSubject(data.email.subject)
           setMailBody(data.email.body)
+          // 显示成功提示
+          setTimeout(() => {
+            const successDiv = document.createElement('div')
+            successDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300'
+            successDiv.innerHTML = '✅ 邮件重新生成成功！'
+            document.body.appendChild(successDiv)
+            setTimeout(() => {
+              successDiv.style.opacity = '0'
+              setTimeout(() => document.body.removeChild(successDiv), 300)
+            }, 3000)
+          }, 100)
         } else if (data.subject && data.body) {
           console.log('使用直接格式，主题:', data.subject)
+          setAnalysisStage('邮件生成完成')
+          setAnalysisProgress(100)
           setMailSubject(data.subject)
           setMailBody(data.body)
+          // 显示成功提示
+          setTimeout(() => {
+            const successDiv = document.createElement('div')
+            successDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300'
+            successDiv.innerHTML = '✅ 邮件重新生成成功！'
+            document.body.appendChild(successDiv)
+            setTimeout(() => {
+              successDiv.style.opacity = '0'
+              setTimeout(() => document.body.removeChild(successDiv), 300)
+            }, 3000)
+          }, 100)
         } else if (data.rawText) {
           console.log('使用rawText格式')
+          setAnalysisStage('邮件生成完成')
+          setAnalysisProgress(100)
           setMailSubject("求职邮件")
           setMailBody(data.rawText)
+          // 显示成功提示
+          setTimeout(() => {
+            const successDiv = document.createElement('div')
+            successDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300'
+            successDiv.innerHTML = '✅ 邮件重新生成成功！'
+            document.body.appendChild(successDiv)
+            setTimeout(() => {
+              successDiv.style.opacity = '0'
+              setTimeout(() => document.body.removeChild(successDiv), 300)
+            }, 3000)
+          }, 100)
         } else {
           console.log('使用默认格式')
           setMailSubject("求职邮件")
           setMailBody("邮件生成失败，请重试")
+          setAiGenerateError("邮件生成失败，请重试")
         }
         setAiGenerateError(null)
       } catch (error: any) {
@@ -953,10 +1123,16 @@ const REQUEST_DELAY = 500; // 500ms延迟
         setAiGenerateError("生成邮件时出现问题")
         setMailSubject("求职邮件")
         setMailBody("生成失败，请稍后重试")
+      } finally {
+        setAiGenerating(false)
       }
     }
     
-    setAiGenerating(false)
+    // 重置进度状态
+    setTimeout(() => {
+      setAnalysisProgress(0)
+      setAnalysisStage('')
+    }, 2000)
   }
 
   // 机会卡片 -> 破冰工坊（简历优化报告生成）
@@ -976,6 +1152,12 @@ const REQUEST_DELAY = 500; // 500ms延迟
 
     // 异步生成求职邮件
     setAiGenerating(true)
+    setAnalysisProgress(0)
+    setAnalysisStage('')
+    
+    // 启动进度模拟
+    simulateProgress('email')
+    
     try {
       const response = await fetch("/api/generate-email", {
         method: "POST",
@@ -983,8 +1165,8 @@ const REQUEST_DELAY = 500; // 500ms延迟
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          userId: user.id,
-          opportunityId: opp.id,
+          user: user,
+          opportunity: opp,
           resumeText: resumeText,
         }),
       })
@@ -997,17 +1179,57 @@ const REQUEST_DELAY = 500; // 500ms延迟
       
       // 处理邮件数据
       if (data.email && data.email.subject && data.email.body) {
+        setAnalysisStage('邮件生成完成')
+        setAnalysisProgress(100)
         setMailSubject(data.email.subject)
         setMailBody(data.email.body)
+        // 显示成功提示
+        setTimeout(() => {
+          const successDiv = document.createElement('div')
+          successDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300'
+          successDiv.innerHTML = '✅ 邮件生成成功！'
+          document.body.appendChild(successDiv)
+          setTimeout(() => {
+            successDiv.style.opacity = '0'
+            setTimeout(() => document.body.removeChild(successDiv), 300)
+          }, 3000)
+        }, 100)
       } else if (data.subject && data.body) {
+        setAnalysisStage('邮件生成完成')
+        setAnalysisProgress(100)
         setMailSubject(data.subject)
         setMailBody(data.body)
+        // 显示成功提示
+        setTimeout(() => {
+          const successDiv = document.createElement('div')
+          successDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300'
+          successDiv.innerHTML = '✅ 邮件生成成功！'
+          document.body.appendChild(successDiv)
+          setTimeout(() => {
+            successDiv.style.opacity = '0'
+            setTimeout(() => document.body.removeChild(successDiv), 300)
+          }, 3000)
+        }, 100)
       } else if (data.rawText) {
+        setAnalysisStage('邮件生成完成')
+        setAnalysisProgress(100)
         setMailSubject("求职邮件")
         setMailBody(data.rawText)
+        // 显示成功提示
+        setTimeout(() => {
+          const successDiv = document.createElement('div')
+          successDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300'
+          successDiv.innerHTML = '✅ 邮件生成成功！'
+          document.body.appendChild(successDiv)
+          setTimeout(() => {
+            successDiv.style.opacity = '0'
+            setTimeout(() => document.body.removeChild(successDiv), 300)
+          }, 3000)
+        }, 100)
       } else {
         setMailSubject("求职邮件")
         setMailBody("邮件生成失败，请重试")
+        setAiGenerateError("邮件生成失败，请重试")
       }
       setAiGenerateError(null)
     } catch (error: any) {
@@ -1016,6 +1238,12 @@ const REQUEST_DELAY = 500; // 500ms延迟
       setMailSubject("求职邮件")
       setMailBody("生成失败，请稍后重试")
     } finally {
+      // 重置进度状态
+      setTimeout(() => {
+        setAnalysisProgress(0)
+        setAnalysisStage('')
+      }, 2000)
+      
       setAiGenerating(false)
     }
   }
@@ -1036,6 +1264,12 @@ const REQUEST_DELAY = 500; // 500ms延迟
 
     // 异步生成简历分析报告
     setAiGenerating(true)
+    setAnalysisProgress(0)
+    setAnalysisStage('')
+    
+    // 启动进度模拟
+    simulateProgress('resume')
+    
     try {
       const response = await fetch("/api/gap-analysis", {
         method: "POST",
@@ -1057,6 +1291,8 @@ const REQUEST_DELAY = 500; // 500ms延迟
       
       // 处理简历分析数据
       if (data.success && data.data) {
+        setAnalysisStage('分析完成')
+        setAnalysisProgress(100)
         setResumeAnalysisData(data.data)
       } else {
         setAiGenerateError(data.error || "分析报告数据格式错误")
@@ -1067,6 +1303,12 @@ const REQUEST_DELAY = 500; // 500ms延迟
       setAiGenerateError("生成简历分析报告时出现问题")
       setResumeAnalysisData(null)
     } finally {
+      // 重置进度状态
+      setTimeout(() => {
+        setAnalysisProgress(0)
+        setAnalysisStage('')
+      }, 2000)
+      
       setAiGenerating(false)
     }
   }
@@ -1257,6 +1499,11 @@ const REQUEST_DELAY = 500; // 500ms延迟
     if (resume) {
       setResumeText(resume.content)
     }
+    
+    // 保存用户的选择到localStorage
+    if (user) {
+      saveSelectedResumeId(user.id, resumeId)
+    }
   }
 
   const cancelResumeForm = () => {
@@ -1365,6 +1612,30 @@ const REQUEST_DELAY = 500; // 500ms延迟
       setCrawlError(`爬取失败: ${error.message}`)
     } finally {
       setCrawling(false)
+    }
+  }
+
+  // 简历选择持久化功能
+  const getSelectedResumeId = (userId: string): string | null => {
+    try {
+      const key = `${SELECTED_RESUME_KEY}-${userId}`
+      return localStorage.getItem(key)
+    } catch (error) {
+      console.error("获取选中简历ID失败:", error)
+      return null
+    }
+  }
+
+  const saveSelectedResumeId = (userId: string, resumeId: string | null) => {
+    try {
+      const key = `${SELECTED_RESUME_KEY}-${userId}`
+      if (resumeId) {
+        localStorage.setItem(key, resumeId)
+      } else {
+        localStorage.removeItem(key)
+      }
+    } catch (error) {
+      console.error("保存选中简历ID失败:", error)
     }
   }
 
@@ -2235,6 +2506,20 @@ const REQUEST_DELAY = 500; // 500ms延迟
                           ) : (
                             `加载更多 (还有 ${filteredOpportunities.length - displayedOpportunities.length} 个机会)`
                           )}
+
+                    {/* 成功状态显示 */}
+                    {!aiGenerating && resumeAnalysisData && !aiGenerateError && (
+                      <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                          <p className="text-green-700 text-sm font-medium">✅ 简历优化报告生成成功！可以查看详细分析结果。</p>
+                        </div>
+                      </div>
+                    )}
                         </button>
                       </div>
                     )}
@@ -2884,10 +3169,36 @@ const REQUEST_DELAY = 500; // 500ms延迟
 
 
                     {aiGenerating && (
-                      <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg shadow-sm transition-all duration-300">
                         <div className="flex items-center gap-3">
-                          <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                          <p className="text-blue-700 text-sm">AI正在为你生成简历优化报告，请稍候...</p>
+                          <div className="relative">
+                            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                            <div className="absolute inset-0 w-5 h-5 border-2 border-blue-300 rounded-full animate-ping opacity-20"></div>
+                          </div>
+                          <p className="text-blue-700 text-sm font-medium">AI正在为你生成简历优化报告，请稍候...</p>
+                        </div>
+                        <div className="mt-3 bg-blue-100 rounded-full h-3 overflow-hidden shadow-inner">
+                          <div className="progress-bar-enhanced h-3 rounded-full transition-all duration-1000 ease-in-out" 
+                               style={{width: `${analysisProgress}%`}}></div>
+                        </div>
+                        <p className="text-blue-600 text-xs mt-2 opacity-75">{analysisStage || '正在分析简历内容和职位匹配度...'}</p>
+                        <div className="flex justify-between text-xs text-blue-500 mt-1">
+                          <span>进度</span>
+                          <span>{analysisProgress}%</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 成功状态显示 */}
+                    {!aiGenerating && resumeAnalysisData && !aiGenerateError && (
+                      <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                          <p className="text-green-700 text-sm font-medium">✅ 简历优化报告生成成功！可以查看详细分析结果。</p>
                         </div>
                       </div>
                     )}
@@ -3026,10 +3337,36 @@ const REQUEST_DELAY = 500; // 500ms延迟
                     )}
 
                     {aiGenerating && (
-                      <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg shadow-sm transition-all duration-300">
                         <div className="flex items-center gap-3">
-                          <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                          <p className="text-blue-700 text-sm">AI正在为你生成求职邮件，请稍候...</p>
+                          <div className="relative">
+                            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                            <div className="absolute inset-0 w-5 h-5 border-2 border-blue-300 rounded-full animate-ping opacity-20"></div>
+                          </div>
+                          <p className="text-blue-700 text-sm font-medium">AI正在为你生成求职邮件，请稍候...</p>
+                        </div>
+                        <div className="mt-3 bg-blue-100 rounded-full h-3 overflow-hidden shadow-inner">
+                          <div className="progress-bar-enhanced h-3 rounded-full transition-all duration-1000 ease-in-out" 
+                               style={{width: `${analysisProgress}%`}}></div>
+                        </div>
+                        <p className="text-blue-600 text-xs mt-2 opacity-75">{analysisStage || '正在分析职位需求和个人背景...'}</p>
+                        <div className="flex justify-between text-xs text-blue-500 mt-1">
+                          <span>进度</span>
+                          <span>{analysisProgress}%</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 成功状态显示 */}
+                    {!aiGenerating && mailSubject && mailBody && !aiGenerateError && (
+                      <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                          <p className="text-green-700 text-sm font-medium">✅ 求职邮件生成成功！可以复制使用或直接发送。</p>
                         </div>
                       </div>
                     )}

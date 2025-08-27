@@ -13,11 +13,11 @@ export async function POST(req: NextRequest) {
   }
 
   // 修改参数解析逻辑，支持前端发送的格式
-  const { user, opportunity, resumeText: frontendResumeText, userId, opportunityId } = payload || {}
+  const { user, opportunity: inputOpportunity, resumeText: frontendResumeText, userId, opportunityId } = payload || {}
   
   // 兼容两种参数格式
   const actualUserId = userId || user?.id
-  const actualOpportunityId = opportunityId || opportunity?.id
+  const actualOpportunityId = opportunityId || inputOpportunity?.id
   const actualResumeText = frontendResumeText
 
   try {
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     }
 
     let resumeText = actualResumeText || ""
-    let opportunityData: any = opportunity || null
+    let opportunity: any = inputOpportunity || null
 
     // 尝试从数据库获取数据
     const supabase = getSupabaseClient()
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
         }
 
         // 如果没有传入职位信息，从数据库获取职位信息
-        if (!opportunityData) {
+        if (!opportunity) {
           const { data: oppData, error: opportunityError } = await supabase
             .from('opportunities')
             .select('*')
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
             .single()
 
           if (!opportunityError && oppData) {
-            opportunityData = oppData
+            opportunity = oppData
           }
         }
       } catch (dbError) {
@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
       } else {
         // 使用默认职位信息
         opportunity = {
-          id: opportunityId,
+          id: actualOpportunityId,
           company_name: 'AI科技公司',
           job_title: 'AI产品经理',
           location: '北京',

@@ -108,12 +108,12 @@ function buildTemplateEmail(params: {
   topRequirements?: string[]
 }) {
   const { user, opportunity, resumeText, topRequirements } = params
-  const companyName = opportunity.company || opportunity.company_name
-  const jobTitle = opportunity.title || opportunity.job_title
+  const companyName = opportunity?.company || opportunity?.company_name || '未知公司'
+  const jobTitle = opportunity?.title || opportunity?.job_title || '未知职位'
   
   // 从简历中提取个人信息
   const personalInfo = extractPersonalInfo(resumeText || '')
-  const displayName = personalInfo.name || user.username
+  const displayName = personalInfo.name || user?.username || '求职者'
   
   // 统一的主题格式
   const subject = `应聘${jobTitle} - ${displayName}`
@@ -245,9 +245,10 @@ function generatePersonalizedGreeting(company: string, jobTitle: string, reason?
 function extractTopThreeRequirements(opportunity: any): string[] {
   const requirements: string[] = []
   
-  // 从职位描述中提取要求
-  if (opportunity.job_description) {
-    const desc = opportunity.job_description
+  // 从职位描述中提取要求 - 添加安全检查
+  const jobDescription = opportunity?.job_description || opportunity?.description || opportunity?.reason
+  if (jobDescription && typeof jobDescription === 'string') {
+    const desc = jobDescription
     // 查找包含要求关键词的句子
     const requirementKeywords = ['要求', '需要', '具备', '熟悉', '掌握', '经验', '能力', '技能', '负责', '参与']
     const sentences = desc.split(/[。；;\n]/).filter(s => s.trim().length > 5)
@@ -259,18 +260,18 @@ function extractTopThreeRequirements(opportunity: any): string[] {
     })
   }
   
-  // 添加经验要求
-  if (opportunity.experience_required) {
+  // 添加经验要求 - 添加安全检查
+  if (opportunity?.experience_required) {
     requirements.push(`工作经验：${opportunity.experience_required}`)
   }
   
-  // 添加学历要求
-  if (opportunity.education_required) {
+  // 添加学历要求 - 添加安全检查
+  if (opportunity?.education_required) {
     requirements.push(`学历要求：${opportunity.education_required}`)
   }
   
-  // 从标签中提取技能要求
-  if (opportunity.tags && opportunity.tags.length > 0) {
+  // 从标签中提取技能要求 - 添加安全检查
+  if (opportunity?.tags && Array.isArray(opportunity.tags) && opportunity.tags.length > 0) {
     const skillTags = opportunity.tags.filter((tag: string) => 
       !['大厂', '创业', '融资', '北京', '上海', '深圳', '杭州', '广州'].includes(tag)
     )
@@ -476,10 +477,10 @@ ${resumeHighlights}
       email: emailData,
       rawText: text,
       metadata: {
-        company: opportunity.company,
-        position: opportunity.title,
-        city: opportunity.city,
-        tags: opportunity.tags,
+        company: opportunity?.company || opportunity?.company_name || '未知公司',
+        position: opportunity?.title || opportunity?.job_title || '未知职位',
+        city: opportunity?.city || opportunity?.location || '未知城市',
+        tags: opportunity?.tags || [],
         generatedAt: new Date().toISOString(),
         apiKey: apiStatus.currentKey,
         apiStatus: `${apiStatus.availableCount}/${apiStatus.totalCount} 可用`
@@ -504,10 +505,10 @@ ${resumeHighlights}
       rawText: templateEmail.body,
       fallback: true,
       metadata: {
-        company: opportunity.company || opportunity.company_name,
-        position: opportunity.title || opportunity.job_title,
-        city: opportunity.city || opportunity.location,
-        tags: opportunity.tags,
+        company: opportunity?.company || opportunity?.company_name || '未知公司',
+        position: opportunity?.title || opportunity?.job_title || '未知职位',
+        city: opportunity?.city || opportunity?.location || '未知城市',
+        tags: opportunity?.tags || [],
         generatedAt: new Date().toISOString(),
         apiKey: fallbackApiStatus.currentKey,
         apiStatus: `${fallbackApiStatus.availableCount}/${fallbackApiStatus.totalCount} 可用`

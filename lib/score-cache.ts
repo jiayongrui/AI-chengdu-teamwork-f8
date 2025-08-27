@@ -75,7 +75,6 @@ interface CachedScore {
   resumeHash: string;
 }
 
-const CACHE_TTL = 24 * 60 * 60 * 1000; // 24小时
 const CACHE_KEY_PREFIX = 'score_cache_';
 
 export class ScoreCache {

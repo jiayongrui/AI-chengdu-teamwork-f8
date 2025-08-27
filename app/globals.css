@@ -88,3 +88,36 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* 自定义进度条动画 */
+@keyframes progress-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes progress-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.8), 0 0 30px rgba(99, 102, 241, 0.6);
+  }
+}
+
+/* 进度条渐变闪烁效果 */
+.progress-bar-enhanced {
+  background: linear-gradient(
+    90deg,
+    #3b82f6 0%,
+    #6366f1 25%,
+    #8b5cf6 50%,
+    #6366f1 75%,
+    #3b82f6 100%
+  );
+  background-size: 200% 100%;
+  animation: progress-shimmer 2s ease-in-out infinite, progress-glow 3s ease-in-out infinite;
+}
