@@ -23,6 +23,18 @@ export function getSupabaseClient(): SupabaseClient | null {
           headers: {
             'X-Client-Info': 'supabase-js-web',
           },
+          fetch: (url, options = {}) => {
+            // 添加超时和错误处理
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), 5000) // 5秒超时
+            
+            return fetch(url, {
+              ...options,
+              signal: controller.signal,
+            }).finally(() => {
+              clearTimeout(timeoutId)
+            })
+          },
         },
         db: {
           schema: 'public',
@@ -33,9 +45,9 @@ export function getSupabaseClient(): SupabaseClient | null {
           },
         },
       })
-      console.log("Supabase client initialized successfully")
+      console.log("✅ Supabase 客户端初始化成功")
     } catch (error) {
-      console.error("Supabase client initialization failed:", error)
+      console.warn("⚠️ Supabase 客户端初始化失败:", error instanceof Error ? error.message : error)
       return null
     }
   }

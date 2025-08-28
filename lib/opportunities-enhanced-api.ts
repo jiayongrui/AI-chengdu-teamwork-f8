@@ -18,14 +18,14 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     contact_person: "HR",
     company_logo: "/placeholder-logo.png",
     salary_range: "15-25K",
-     experience_required: "3年以上",
-     education_required: "本科及以上",
-     priority: 8,
-     created_at: "2023-12-15T10:00:00Z",
-     updated_at: "2023-12-15T10:00:00Z",
-     expires_at: "2024-06-15T23:59:59Z",
-     is_active: true,
-   },
+    experience_required: "3年以上",
+    education_required: "本科及以上",
+    priority: 8,
+    created_at: "2023-12-15T10:00:00Z",
+    updated_at: "2023-12-15T10:00:00Z",
+    expires_at: "2024-06-15T23:59:59Z",
+    is_active: true,
+  },
   {
     id: "local-2",
     company_name: "辛恩励科技有限公司",
@@ -41,14 +41,14 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     contact_person: "HR",
     company_logo: "/placeholder-logo.png",
     salary_range: "12-20K",
-     experience_required: "2-4年",
-     education_required: "本科及以上",
-     priority: 7,
-     created_at: "2023-12-20T09:30:00Z",
-     updated_at: "2023-12-20T09:30:00Z",
-     expires_at: "2025-12-31T23:59:59Z",
-     is_active: true,
-   },
+    experience_required: "2-4年",
+    education_required: "本科及以上",
+    priority: 7,
+    created_at: "2023-12-20T09:30:00Z",
+    updated_at: "2023-12-20T09:30:00Z",
+    expires_at: "2025-12-31T23:59:59Z",
+    is_active: true,
+  },
   {
     id: "local-3",
     company_name: "杭州知行元科技",
@@ -64,14 +64,14 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     contact_person: "HR",
     company_logo: "/placeholder-logo.png",
     salary_range: "10-18K",
-     experience_required: "应届生优先",
-     education_required: "本科及以上",
-     priority: 6,
-     created_at: "2023-12-25T14:20:00Z",
-     updated_at: "2023-12-25T14:20:00Z",
-     expires_at: "2025-12-31T23:59:59Z",
-     is_active: true,
-   },
+    experience_required: "应届生优先",
+    education_required: "本科及以上",
+    priority: 6,
+    created_at: "2023-12-25T14:20:00Z",
+    updated_at: "2023-12-25T14:20:00Z",
+    expires_at: "2025-12-31T23:59:59Z",
+    is_active: true,
+  },
   {
     id: "local-4",
     company_name: "蜜蜂数联",
@@ -87,14 +87,14 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     contact_person: "HR",
     company_logo: "/placeholder-logo.png",
     salary_range: "8-15K",
-     experience_required: "应届生优先",
-     education_required: "本科及以上",
-     priority: 5,
-     created_at: "2023-12-30T11:15:00Z",
-     updated_at: "2023-12-30T11:15:00Z",
-     expires_at: "2025-12-31T23:59:59Z",
-     is_active: true,
-   },
+    experience_required: "应届生优先",
+    education_required: "本科及以上",
+    priority: 5,
+    created_at: "2023-12-30T11:15:00Z",
+    updated_at: "2023-12-30T11:15:00Z",
+    expires_at: "2025-12-31T23:59:59Z",
+    is_active: true,
+  },
   {
     id: "local-5",
     company_name: "杭州智能涌现人工智能科技有限公司",
@@ -110,15 +110,15 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     contact_person: "HR",
     company_logo: "/placeholder-logo.png",
     salary_range: "12-22K",
-     experience_required: "从0到1经验",
-     education_required: "本科及以上",
-     priority: 4,
-     created_at: "2024-01-05T16:45:00Z",
-     updated_at: "2024-01-05T16:45:00Z",
-     expires_at: "2025-08-31T23:59:59Z",
-      is_active: true,
-    },
-   {
+    experience_required: "从0到1经验",
+    education_required: "本科及以上",
+    priority: 4,
+    created_at: "2024-01-05T16:45:00Z",
+    updated_at: "2024-01-05T16:45:00Z",
+    expires_at: "2025-08-31T23:59:59Z",
+    is_active: true,
+  },
+  {
     id: "local-6",
     company_name: "皓域科技（河北）有限责任公司",
     job_title: "AI声乐教练产品经理",
@@ -133,14 +133,14 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     contact_person: "HR",
     company_logo: "/placeholder-logo.png",
     salary_range: "10-16K",
-     experience_required: "应届生优先",
-     education_required: "本科及以上",
-     priority: 3,
-     created_at: "2024-01-10T13:30:00Z",
-     updated_at: "2024-01-10T13:30:00Z",
-     expires_at: "2025-12-31T23:59:59Z",
-     is_active: true,
-   },
+    experience_required: "应届生优先",
+    education_required: "本科及以上",
+    priority: 3,
+    created_at: "2024-01-10T13:30:00Z",
+    updated_at: "2024-01-10T13:30:00Z",
+    expires_at: "2025-12-31T23:59:59Z",
+    is_active: true,
+  },
   {
     id: "local-7",
     company_name: "雄安九典科技有限公司",
@@ -156,14 +156,14 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     contact_person: "HR",
     company_logo: "/placeholder-logo.png",
     salary_range: "8-14K",
-     experience_required: "应届生优先",
-     education_required: "本科及以上",
-     priority: 2,
-     created_at: "2024-01-15T10:20:00Z",
-     updated_at: "2024-01-15T10:20:00Z",
-     expires_at: "2025-08-16T23:59:59Z",
-     is_active: true,
-   },
+    experience_required: "应届生优先",
+    education_required: "本科及以上",
+    priority: 2,
+    created_at: "2024-01-15T10:20:00Z",
+    updated_at: "2024-01-15T10:20:00Z",
+    expires_at: "2025-08-16T23:59:59Z",
+    is_active: true,
+  },
   {
     id: "local-8",
     company_name: "苏州苏纳光电有限公司",
@@ -179,14 +179,14 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     contact_person: "HR",
     company_logo: "/placeholder-logo.png",
     salary_range: "15-25K",
-     experience_required: "2026届硕士",
-     education_required: "硕士及以上",
-     priority: 1,
-     created_at: "2024-01-20T15:10:00Z",
-     updated_at: "2024-01-20T15:10:00Z",
-     expires_at: "2025-06-30T23:59:59Z",
-     is_active: true,
-   },
+    experience_required: "2026届硕士",
+    education_required: "硕士及以上",
+    priority: 1,
+    created_at: "2024-01-20T15:10:00Z",
+    updated_at: "2024-01-20T15:10:00Z",
+    expires_at: "2025-06-30T23:59:59Z",
+    is_active: true,
+  },
   {
     id: "local-9",
     company_name: "聚合吧科技有限公司",
@@ -202,13 +202,13 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     contact_person: "HR",
     company_logo: "/placeholder-logo.png",
     salary_range: "10-18K",
-     experience_required: "应届生优先",
-     education_required: "本科及以上",
-     priority: 9,
-     created_at: "2024-01-25T12:00:00Z",
-     updated_at: "2024-01-25T12:00:00Z",
-     expires_at: "2025-06-30T23:59:59Z",
-     is_active: true,
+    experience_required: "应届生优先",
+    education_required: "本科及以上",
+    priority: 9,
+    created_at: "2024-01-25T12:00:00Z",
+    updated_at: "2024-01-25T12:00:00Z",
+    expires_at: "2025-06-30T23:59:59Z",
+    is_active: true,
   },
 ]
 
@@ -232,7 +232,7 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
     // 先获取总数（添加超时控制）
     const countController = new AbortController()
     const countTimeoutId = setTimeout(() => countController.abort(), 5000) // 5秒超时
-    
+
     const { count, error: countError } = await supabase
       .from("opportunities")
       .select("id", { count: "exact", head: true })
@@ -242,8 +242,7 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
     clearTimeout(countTimeoutId)
 
     if (countError) {
-      console.error("获取数据总数失败:", countError)
-      console.log("数据库查询失败，使用本地数据")
+      console.warn("⚠️ 获取数据总数失败，将使用本地数据:", countError?.message || countError || "未知错误")
       return getRandomLocalOpportunities(limit)
     }
 
@@ -264,7 +263,7 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
     // 获取随机数据（添加超时控制）
     const dataController = new AbortController()
     const dataTimeoutId = setTimeout(() => dataController.abort(), 8000) // 8秒超时
-    
+
     const { data, error } = await supabase
       .from("opportunities")
       .select("*")
@@ -276,8 +275,7 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
     clearTimeout(dataTimeoutId)
 
     if (error) {
-      console.error("获取机会数据失败:", error.message || error)
-      console.log("数据查询失败，使用本地数据")
+      console.warn("⚠️ 获取机会数据失败，将使用本地数据:", error?.message || error || "未知错误")
       return getRandomLocalOpportunities(limit)
     }
 
@@ -301,7 +299,7 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
 
     return opportunities.slice(0, limit)
   } catch (error) {
-    console.error("获取增强机会数据时出错:", error)
+    console.warn("⚠️ 获取增强机会数据时出错，将使用本地数据:", error instanceof Error ? error.message : error)
     return getRandomLocalOpportunities(limit)
   }
 }
@@ -322,21 +320,21 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
   try {
     const testController = new AbortController()
     const testTimeoutId = setTimeout(() => testController.abort(), 3000)
-    
+
     const { error: testError } = await supabase
       .from('opportunities')
       .select('id')
       .limit(1)
       .abortSignal(testController.signal)
-    
+
     clearTimeout(testTimeoutId)
-    
+
     if (testError) {
-      console.error("搜索时数据库连接失败:", testError)
+      console.warn("⚠️ 搜索时数据库连接失败，将使用本地数据:", testError?.message || testError)
       return filterLocalOpportunities(filters)
     }
   } catch (error) {
-    console.error("搜索时数据库连接异常:", error)
+    console.warn("⚠️ 搜索时数据库连接错误，将使用本地数据:", error instanceof Error ? error.message : error)
     return filterLocalOpportunities(filters)
   }
 
@@ -367,15 +365,15 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
     // 先获取符合条件的总数（添加超时控制）
     const countController = new AbortController()
     const countTimeoutId = setTimeout(() => countController.abort(), 5000)
-    
+
     const { count, error: countError } = await query
       .select("*", { count: "exact", head: true })
       .abortSignal(countController.signal)
-    
+
     clearTimeout(countTimeoutId)
 
     if (countError) {
-      console.error("获取筛选结果总数失败:", countError.message || countError)
+      console.warn("⚠️ 获取筛选结果总数失败，将使用本地数据:", countError?.message || countError || "未知错误")
       return filterLocalOpportunities(filters)
     }
 
@@ -393,15 +391,15 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
     if (totalCount <= limit) {
       const dataController = new AbortController()
       const dataTimeoutId = setTimeout(() => dataController.abort(), 8000)
-      
+
       const { data, error } = await query
         .order("priority", { ascending: false })
         .abortSignal(dataController.signal)
-      
+
       clearTimeout(dataTimeoutId)
 
       if (error) {
-        console.error("获取筛选结果失败:", error.message || error)
+        console.warn("⚠️ 获取筛选结果失败，将使用本地数据:", error?.message || error || "未知错误")
         return filterLocalOpportunities(filters)
       }
 
@@ -418,23 +416,23 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
     // 获取随机筛选结果（添加超时控制）
     const finalController = new AbortController()
     const finalTimeoutId = setTimeout(() => finalController.abort(), 8000)
-    
+
     const { data, error } = await query
       .order("priority", { ascending: false })
       .range(randomOffset, randomOffset + limit - 1)
       .abortSignal(finalController.signal)
-    
+
     clearTimeout(finalTimeoutId)
 
     if (error) {
-      console.error("获取随机筛选结果失败:", error.message || error)
+      console.warn("⚠️ 获取随机筛选结果失败，将使用本地数据:", error?.message || error || "未知错误")
       return filterLocalOpportunities(filters)
     }
 
-    console.log(`成功获取 ${data?.length || 0} 条随机筛选结果`)
+    console.log(`✅ 成功获取 ${data?.length || 0} 条随机筛选结果`)
     return (data || []).map(transformDatabaseToEnhanced)
   } catch (error) {
-    console.error("搜索增强机会时出错:", error.message || error)
+    console.warn("⚠️ 搜索增强机会时出错，将使用本地数据:", error instanceof Error ? error.message : error)
     return filterLocalOpportunities(filters)
   }
 }
@@ -459,11 +457,11 @@ export async function getOpportunityStatistics(): Promise<OpportunityStatistics>
     // 使用RPC函数获取统计信息（如果存在，添加超时控制）
     const rpcController = new AbortController()
     const rpcTimeoutId = setTimeout(() => rpcController.abort(), 5000)
-    
+
     const { data: rpcData, error: rpcError } = await supabase
       .rpc("get_opportunity_statistics")
       .abortSignal(rpcController.signal)
-    
+
     clearTimeout(rpcTimeoutId)
 
     if (!rpcError && rpcData) {
@@ -476,12 +474,12 @@ export async function getOpportunityStatistics(): Promise<OpportunityStatistics>
     // 手动计算统计信息（添加超时控制）
     const statsController = new AbortController()
     const statsTimeoutId = setTimeout(() => statsController.abort(), 10000)
-    
+
     const { data: allOpportunities, error } = await supabase
       .from("opportunities")
       .select("*")
       .abortSignal(statsController.signal)
-    
+
     clearTimeout(statsTimeoutId)
 
     if (error) {
