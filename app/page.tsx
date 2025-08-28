@@ -32,9 +32,8 @@ import { logAndAdvanceTask, sendEmail } from "@/lib/email-send"
 import type { OpportunityEnhanced } from "@/types/opportunity-enhanced"
 import { OpportunityCardEnhanced } from "@/components/opportunity-card-enhanced"
 import { OpportunityFilters } from "@/components/opportunity-filters"
-import { ScoreBreakdownTest } from "@/components/score-breakdown-test"
-import GapAnalysisView from "@/components/gap-analysis-view"
-import { ScoreCache } from "@/lib/score-cache"
+
+
 import {
   fetchEnhancedOpportunities,
   searchEnhancedOpportunities,
