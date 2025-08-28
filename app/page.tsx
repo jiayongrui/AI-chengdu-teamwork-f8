@@ -2193,9 +2193,9 @@ export default function Page() {
                   <div className="flex flex-col md:flex-row items-center gap-10">
                     <div className="md:w-1/2 p-8 bg-white rounded-2xl shadow-lg">
                       <img
-                        src="/images/ai-radar-dashboard.png"
+                        src="https://placehold.co/600x400/34d399/ffffff?text=机会雷达UI"
                         alt="机会雷达UI界面"
-                        className="rounded-lg w-full h-64 object-cover"
+                        className="rounded-lg w-full"
                       />
                     </div>
                     <div className="md:w-1/2">
@@ -2218,9 +2218,9 @@ export default function Page() {
                   <div className="flex flex-col md:flex-row-reverse items-center gap-10">
                     <div className="md:w-1/2 p-8 bg-white rounded-2xl shadow-lg">
                       <img
-                        src="/images/ai-radar-dashboard01.png"
+                        src="https://placehold.co/600x400/fbbf24/ffffff?text=破冰策略库UI"
                         alt="破冰策略库UI界面"
-                        className="rounded-lg w-full h-64 object-cover"
+                        className="rounded-lg w-full"
                       />
                     </div>
                     <div className="md:w-1/2">
@@ -2257,16 +2257,16 @@ export default function Page() {
                       "通过'冲鸭'发现一家刚融资的AI公司，用它生成的邮件联系了CTO，三天后就收到了面试邀请，太神奇了！"
                     </p>
                     <div className="flex items-center">
-                        <img
-                          src="/placeholder-user.jpg"
-                          alt="用户头像 小明"
-                          className="w-12 h-12 rounded-full mr-4"
-                        />
-                        <div>
-                          <p className="font-bold text-gray-800">小明</p>
-                          <p className="text-sm text-gray-500">计算机科学专业</p>
-                        </div>
+                      <img
+                        src="https://placehold.co/48x48/cccccc/ffffff?text=小明"
+                        alt="用户头像 小明"
+                        className="w-12 h-12 rounded-full mr-4"
+                      />
+                      <div>
+                        <p className="font-bold text-gray-800">小明</p>
+                        <p className="text-sm text-gray-500">计算机科学专业</p>
                       </div>
+                    </div>
                   </div>
 
                   <div className="bg-gray-50 p-8 rounded-2xl border border-gray-100">
@@ -2274,16 +2274,16 @@ export default function Page() {
                       "文科生找工作太难了！'冲鸭'帮我定位了几家快速扩张的新消费品牌，并指导我如何展示策划能力，最终成功入职！"
                     </p>
                     <div className="flex items-center">
-                        <img
-                          src="/placeholder-user.jpg"
-                          alt="用户头像 小红"
-                          className="w-12 h-12 rounded-full mr-4"
-                        />
-                        <div>
-                          <p className="font-bold text-gray-800">小红</p>
-                          <p className="text-sm text-gray-500">市场营销专业</p>
-                        </div>
+                      <img
+                        src="https://placehold.co/48x48/cccccc/ffffff?text=小红"
+                        alt="用户头像 小红"
+                        className="w-12 h-12 rounded-full mr-4"
+                      />
+                      <div>
+                        <p className="font-bold text-gray-800">小红</p>
+                        <p className="text-sm text-gray-500">市场营销专业</p>
                       </div>
+                    </div>
                   </div>
 
                   <div className="bg-gray-50 p-8 rounded-2xl border border-gray-100 md:col-span-2 lg:col-span-1">
@@ -2291,16 +2291,16 @@ export default function Page() {
                       "以前总觉得毛遂自荐很掉价，用了这个才发现，精准的主动出击比海投有效100倍。已经拿到了3个隐藏offer。"
                     </p>
                     <div className="flex items-center">
-                        <img
-                          src="/placeholder-user.jpg"
-                          alt="用户头像 李哲"
-                          className="w-12 h-12 rounded-full mr-4"
-                        />
-                        <div>
-                          <p className="font-bold text-gray-800">李哲</p>
-                          <p className="text-sm text-gray-500">软件工程专业</p>
-                        </div>
+                      <img
+                        src="https://placehold.co/48x48/cccccc/ffffff?text=李哲"
+                        alt="用户头像 李哲"
+                        className="w-12 h-12 rounded-full mr-4"
+                      />
+                      <div>
+                        <p className="font-bold text-gray-800">李哲</p>
+                        <p className="text-sm text-gray-500">软件工程专业</p>
                       </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2344,6 +2344,42 @@ export default function Page() {
                     <p className="text-gray-600 text-sm">
                       不止追踪投递，更关注"回复-面试-Offer"的全链路，给你可复用的策略沉淀。
                     </p>
+                  </div>
+                </div>
+
+                <div className="mt-12 rounded-2xl border border-gray-200 bg-white p-6">
+                  <p className="text-sm text-gray-500 mb-4">已服务与合作的机构（示意）</p>
+                  <div className="grid grid-cols-2 md:grid-cols-6 gap-6 items-center">
+                    <img
+                      src="https://placehold.co/120x40?text=LogoA"
+                      alt="合作机构 Logo A"
+                      className="mx-auto opacity-70"
+                    />
+                    <img
+                      src="https://placehold.co/120x40?text=LogoB"
+                      alt="合作机构 Logo B"
+                      className="mx-auto opacity-70"
+                    />
+                    <img
+                      src="https://placehold.co/120x40?text=LogoC"
+                      alt="合作机构 Logo C"
+                      className="mx-auto opacity-70"
+                    />
+                    <img
+                      src="https://placehold.co/120x40?text=LogoD"
+                      alt="合作机构 Logo D"
+                      className="mx-auto opacity-70"
+                    />
+                    <img
+                      src="https://placehold.co/120x40?text=LogoE"
+                      alt="合作机构 Logo E"
+                      className="mx-auto opacity-70"
+                    />
+                    <img
+                      src="https://placehold.co/120x40?text=LogoF"
+                      alt="合作机构 Logo F"
+                      className="mx-auto opacity-70"
+                    />
                   </div>
                 </div>
               </div>
