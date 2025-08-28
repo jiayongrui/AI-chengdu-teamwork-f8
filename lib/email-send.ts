@@ -59,7 +59,7 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
       demo: data.demo || false,
     }
   } catch (error: any) {
-    console.warn("⚠️ 邮件发送失败:", error?.message || error)
+    console.error("Email sending failed:", error)
     return {
       success: false,
       error: error.message || "邮件发送失败",
@@ -146,8 +146,8 @@ export async function logAndAdvanceTask(args: {
       if (upErr) throw upErr
     }
   } catch (error: any) {
-    console.warn("⚠️ 数据库操作失败:", error?.message || error)
+    console.error("Database operation failed:", error)
     // 不抛出错误，允许邮件发送成功但数据库记录失败
-    console.warn("📧 邮件发送成功，但数据库记录失败，继续执行")
+    console.warn("Email sent successfully, but database record failed, continuing execution")
   }
 }
