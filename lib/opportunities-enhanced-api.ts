@@ -13,8 +13,7 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     tags: ["AI", "产品经理", "前沿技术", "Agent"],
     reason: "深度追踪全球AI技术前沿动态，包括大型语言模型演进、Agent架构等，构思突破性AI产品概念",
     job_description: "<h3>职位职责：</h3><ul><li>深度追踪全球AI技术前沿动态，包括大型语言模型演进、Agent架构等核心技术发展</li><li>构思突破性AI产品概念，制定产品战略规划和路线图</li><li>与技术团队紧密合作，推动AI产品从概念到落地的全流程管理</li><li>分析市场需求和竞品动态，识别产品机会点</li><li>协调跨部门资源，确保产品按时高质量交付</li></ul><h3>任职要求：</h3><ul><li>计算机、人工智能相关专业本科及以上学历</li><li>3年以上AI产品管理经验，熟悉大模型、Agent等前沿技术</li><li>具备优秀的产品思维和用户体验设计能力</li><li>良好的沟通协调能力和项目管理经验</li><li>对AI技术发展趋势有深刻理解和敏锐洞察</li></ul>",
-    contact_email: "1119143624@qq.com",
-    contact_phone: undefined,
+    contact_email: "请通过招聘平台联系",
     contact_person: "HR",
     company_logo: "/placeholder-logo.png",
     salary_range: "15-25K",
@@ -37,7 +36,6 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     reason: "主导AI软件产品全生命周期，与内部各部门紧密协作，推动产品开发落地",
     job_description: "<h3>职位职责：</h3><ul><li>主导AI软件产品全生命周期管理，从需求分析到产品上线</li><li>与研发、设计、运营等内部各部门紧密协作，确保产品顺利交付</li><li>制定产品规划和迭代计划，推动产品功能优化和用户体验提升</li><li>进行市场调研和用户需求分析，识别产品改进机会</li><li>跟踪产品数据表现，制定数据驱动的产品决策</li></ul><h3>任职要求：</h3><ul><li>本科及以上学历，计算机、软件工程等相关专业优先</li><li>2-4年产品管理经验，有AI相关产品经验者优先</li><li>具备良好的项目管理和跨部门协作能力</li><li>熟悉产品设计流程和用户体验设计原则</li><li>欢迎优秀应届生投递简历</li></ul>",
     contact_email: "请通过招聘平台联系",
-    contact_phone: "18512176096",
     contact_person: "HR",
     company_logo: "/placeholder-logo.png",
     salary_range: "12-20K",
@@ -59,8 +57,7 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     tags: ["AI", "产品经理", "AIGC", "应届生"],
     reason: "主导创作者平台与官网产品迭代，深度接触AI艺术家群体，优化产品功能与服务",
     job_description: "<h3>职位职责：</h3><ul><li>主导创作者平台与官网产品的迭代升级，提升用户体验</li><li>深度接触AI艺术家群体，了解用户需求和痛点</li><li>优化AIGC相关产品功能与服务，推动产品商业化</li><li>制定产品路线图，协调技术资源实现产品目标</li><li>分析用户行为数据，持续优化产品功能</li></ul><h3>任职要求：</h3><ul><li>本科及以上学历，产品、设计、计算机相关专业优先</li><li>对AIGC、AI艺术创作领域有浓厚兴趣和深入了解</li><li>具备良好的用户洞察能力和产品设计思维</li><li>优秀的沟通协调能力，能与艺术家群体有效交流</li><li>欢迎应届生和转行人员投递</li></ul>",
-    contact_email: "18796827019@163.com",
-    contact_phone: "18796827019",
+    contact_email: "请通过招聘平台联系",
     contact_person: "HR",
     company_logo: "/placeholder-logo.png",
     salary_range: "10-18K",
@@ -82,8 +79,7 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     tags: ["AI", "产品经理", "医疗健康", "应届生"],
     reason: "负责产品需求调研与分析，洞察行业发展趋势，设计开发解决方案",
     job_description: "<h3>职位职责：</h3><ul><li>负责AI医疗健康产品的需求调研与分析</li><li>洞察医疗健康行业发展趋势，识别产品机会</li><li>设计开发AI驱动的医疗健康解决方案</li><li>与医疗专家和技术团队协作，确保产品专业性</li><li>制定产品商业化策略和市场推广计划</li></ul><h3>任职要求：</h3><ul><li>本科及以上学历，医学、生物、计算机相关专业优先</li><li>对医疗健康和AI技术结合有深入理解</li><li>具备产品需求分析和解决方案设计能力</li><li>良好的跨领域沟通协调能力</li><li>欢迎医疗背景应届生投递</li></ul>",
-    contact_email: "mifengshulian@hotmail.com",
-    contact_phone: "13637920466",
+    contact_email: "请通过招聘平台联系",
     contact_person: "HR",
     company_logo: "/placeholder-logo.png",
     salary_range: "8-15K",
@@ -106,7 +102,6 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     reason: "打造下一代AI婚恋平台，懂AI产品底层逻辑，有从0到1完整主导产品经验",
     job_description: "<h3>职位职责：</h3><ul><li>打造下一代AI驱动的智能婚恋平台产品</li><li>深入理解AI产品底层逻辑，设计智能匹配算法产品化方案</li><li>拥有从0到1完整主导产品的全流程经验</li><li>负责用户需求分析和产品功能规划</li><li>与算法团队协作，将AI技术转化为用户价值</li></ul><h3>任职要求：</h3><ul><li>本科及以上学历，计算机、心理学、社会学相关专业优先</li><li>深入理解AI技术在社交领域的应用</li><li>具备从0到1产品孵化的完整经验</li><li>对用户心理和社交行为有深刻洞察</li><li>优秀的产品设计和用户体验能力</li></ul>",
     contact_email: "请通过招聘平台联系",
-    contact_phone: undefined,
     contact_person: "HR",
     company_logo: "/placeholder-logo.png",
     salary_range: "12-22K",
@@ -128,8 +123,7 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     tags: ["AI", "产品经理", "声乐教育", "应届生"],
     reason: "负责AI声乐教练产品全生命周期管理，结合声乐教学与AI技术创新",
     job_description: "<h3>职位职责：</h3><ul><li>负责AI声乐教练产品的全生命周期管理</li><li>结合声乐教学专业知识与AI技术进行产品创新</li><li>设计智能化声乐教学解决方案和用户体验</li><li>与音乐教育专家和技术团队协作开发产品功能</li><li>分析用户学习数据，优化AI教学算法效果</li></ul><h3>任职要求：</h3><ul><li>本科及以上学历，音乐、教育、计算机相关专业优先</li><li>对声乐教学和音乐教育有深入了解</li><li>熟悉AI技术在教育领域的应用</li><li>具备产品设计和用户体验优化能力</li><li>欢迎音乐教育背景应届生投递</li></ul>",
-    contact_email: "haoyukeji@163.com",
-    contact_phone: "15832223344",
+    contact_email: "请通过招聘平台联系",
     contact_person: "HR",
     company_logo: "/placeholder-logo.png",
     salary_range: "10-16K",
@@ -151,8 +145,7 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     tags: ["AI", "产品经理", "雄安新区", "应届生"],
     reason: "负责AI产品市场调研，设计产品原型，规划产品商业化路径",
     job_description: "<h3>职位职责：</h3><ul><li>负责AI产品的市场调研和竞品分析</li><li>设计产品原型和用户交互流程</li><li>规划产品商业化路径和盈利模式</li><li>与技术团队协作，推动产品从概念到落地</li><li>参与雄安新区智慧城市建设相关AI项目</li></ul><h3>任职要求：</h3><ul><li>本科及以上学历，产品、计算机、管理相关专业优先</li><li>对AI技术和智慧城市建设有浓厚兴趣</li><li>具备市场调研和商业分析能力</li><li>良好的产品设计和原型制作能力</li><li>愿意在雄安新区发展的应届生优先</li></ul>",
-    contact_email: "xionganjudian@163.com",
-    contact_phone: "13012345678",
+    contact_email: "请通过招聘平台联系",
     contact_person: "HR",
     company_logo: "/placeholder-logo.png",
     salary_range: "8-14K",
@@ -174,8 +167,7 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     tags: ["产品经理", "光电技术", "应届生", "硕士"],
     reason: "协助执行产品线市场洞察，参与产品规划与路标制定，支持产品开发项目",
     job_description: "<h3>职位职责：</h3><ul><li>协助执行光电产品线的市场洞察和需求分析</li><li>参与产品规划与技术路标的制定工作</li><li>支持光电产品开发项目的全流程管理</li><li>与研发团队协作，推动产品技术创新</li><li>分析行业趋势，识别新的产品机会</li></ul><h3>任职要求：</h3><ul><li>硕士及以上学历，光电、物理、电子工程相关专业</li><li>对光电技术和产业发展有深入了解</li><li>具备良好的技术理解和产品思维能力</li><li>优秀的项目管理和团队协作能力</li><li>2026届应届硕士毕业生优先</li></ul>",
-    contact_email: "sunaguangdian@163.com",
-    contact_phone: "15012345678",
+    contact_email: "请通过招聘平台联系",
     contact_person: "HR",
     company_logo: "/placeholder-logo.png",
     salary_range: "15-25K",
@@ -197,8 +189,7 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
     tags: ["产品经理", "金融科技", "信贷", "应届生"],
     reason: "负责助贷产品全生命周期管理，深入分析业务问题，优化产品流程",
     job_description: "<h3>职位职责：</h3><ul><li>负责助贷产品的全生命周期管理</li><li>深入分析信贷业务问题，提出解决方案</li><li>优化产品流程，提升用户体验和业务效率</li><li>与风控、技术、运营团队协作推进产品迭代</li><li>监控产品数据表现，制定数据驱动的优化策略</li></ul><h3>任职要求：</h3><ul><li>本科及以上学历，金融、计算机、数学相关专业优先</li><li>对金融科技和信贷业务有深入理解</li><li>具备优秀的业务分析和产品设计能力</li><li>熟悉移动APP产品开发流程</li><li>欢迎金融背景应届生投递简历</li></ul>",
-    contact_email: "juheba@163.com",
-    contact_phone: "13987654321",
+    contact_email: "请通过招聘平台联系",
     contact_person: "HR",
     company_logo: "/placeholder-logo.png",
     salary_range: "10-18K",
@@ -216,17 +207,36 @@ const LOCAL_ENHANCED_OPPORTUNITIES: OpportunityEnhanced[] = [
  * 获取增强版机会列表（支持随机选择）
  */
 export async function fetchEnhancedOpportunities(limit = 6): Promise<OpportunityEnhanced[]> {
-  console.log(`获取增强机会数据，限制: ${limit}`)
+  console.log(`Fetching enhanced opportunity data, limit: ${limit}`)
 
   const supabase = getSupabaseClient()
   if (!supabase) {
-    console.log("Supabase客户端不可用，使用本地数据")
+    console.log("Supabase client unavailable, using local data")
     return getRandomLocalOpportunities(limit)
   }
 
-  // 跳过数据库连接测试，直接使用本地数据
-  console.log("使用本地数据，跳过数据库查询")
-  return getRandomLocalOpportunities(limit)
+  // 快速测试数据库连接（减少超时时间）
+  try {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 1000) // 1秒超时
+    
+    const { error: testError } = await supabase
+      .from('opportunities')
+      .select('id')
+      .limit(1)
+      .abortSignal(controller.signal)
+    
+    clearTimeout(timeoutId)
+    
+    if (testError) {
+      console.warn("Database connection test failed, using local data:", testError.message)
+      return getRandomLocalOpportunities(limit)
+    }
+    console.log("Database connection normal")
+  } catch (error) {
+    console.warn("Network connection failed or timeout, using local data:", error instanceof Error ? error.message : error)
+    return getRandomLocalOpportunities(limit)
+  }
 
   try {
     // 先获取总数（添加超时控制）
@@ -242,16 +252,15 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
     clearTimeout(countTimeoutId)
 
     if (countError) {
-      console.error("获取数据总数失败:", countError)
-      console.log("数据库查询失败，使用本地数据")
+      console.warn("⚠️ 获取数据总数失败，将使用本地数据:", countError?.message || countError || "未知错误")
       return getRandomLocalOpportunities(limit)
     }
 
     const totalCount = count || 0
-    console.log(`数据库中共有 ${totalCount} 条活跃机会`)
+    console.log(`Database has ${totalCount} active opportunities`)
 
     if (totalCount === 0) {
-      console.log("数据库中没有活跃机会，使用本地数据")
+      console.log("No active opportunities in database, using local data")
       return getRandomLocalOpportunities(limit)
     }
 
@@ -259,7 +268,7 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
     const maxOffset = Math.max(0, totalCount - limit)
     const randomOffset = Math.floor(Math.random() * (maxOffset + 1))
 
-    console.log(`随机偏移量: ${randomOffset}, 最大偏移量: ${maxOffset}`)
+    console.log(`Random offset: ${randomOffset}, max offset: ${maxOffset}`)
 
     // 获取随机数据（添加超时控制）
     const dataController = new AbortController()
@@ -276,17 +285,16 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
     clearTimeout(dataTimeoutId)
 
     if (error) {
-      console.error("获取机会数据失败:", error.message || error)
-      console.log("数据查询失败，使用本地数据")
+      console.warn("⚠️ 获取机会数据失败，将使用本地数据:", error?.message || error || "未知错误")
       return getRandomLocalOpportunities(limit)
     }
 
     if (!data || data.length === 0) {
-      console.log("数据库返回空结果，使用本地数据")
+      console.log("Database returned empty result, using local data")
       return getRandomLocalOpportunities(limit)
     }
 
-    console.log(`成功从数据库获取 ${data.length} 条机会数据`)
+    console.log(`Successfully retrieved ${data.length} opportunity records from database`)
 
     // 转换数据格式
     const opportunities = data.map(transformDatabaseToEnhanced)
@@ -295,13 +303,13 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
     if (opportunities.length < limit) {
       const needed = limit - opportunities.length
       const localData = getRandomLocalOpportunities(needed)
-      console.log(`数据不足，用本地数据补充 ${needed} 条`)
+      console.log(`Insufficient data, supplementing with ${needed} local records`)
       opportunities.push(...localData)
     }
 
     return opportunities.slice(0, limit)
   } catch (error) {
-    console.error("获取增强机会数据时出错:", error)
+    console.warn("⚠️ 获取增强机会数据时出错，将使用本地数据:", error instanceof Error ? error.message : error)
     return getRandomLocalOpportunities(limit)
   }
 }
@@ -310,11 +318,11 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
  * 搜索增强版机会（支持随机选择）
  */
 export async function searchEnhancedOpportunities(filters: OpportunityFilters): Promise<OpportunityEnhanced[]> {
-  console.log("执行增强机会搜索，筛选条件:", filters)
+  console.log("Executing enhanced opportunity search with filters:", filters)
 
   const supabase = getSupabaseClient()
   if (!supabase) {
-    console.log("Supabase客户端不可用，使用本地筛选")
+    console.log("Supabase client unavailable, using local filtering")
     return filterLocalOpportunities(filters)
   }
 
@@ -332,11 +340,11 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
     clearTimeout(testTimeoutId)
     
     if (testError) {
-      console.error("搜索时数据库连接失败:", testError)
+      console.warn("⚠️ 搜索时数据库连接失败，将使用本地数据:", testError?.message || testError)
       return filterLocalOpportunities(filters)
     }
   } catch (error) {
-    console.error("搜索时数据库连接异常:", error)
+    console.warn("⚠️ 搜索时数据库连接错误，将使用本地数据:", error instanceof Error ? error.message : error)
     return filterLocalOpportunities(filters)
   }
 
@@ -375,15 +383,15 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
     clearTimeout(countTimeoutId)
 
     if (countError) {
-      console.error("获取筛选结果总数失败:", countError.message || countError)
+      console.warn("⚠️ 获取筛选结果总数失败，将使用本地数据:", countError?.message || countError || "未知错误")
       return filterLocalOpportunities(filters)
     }
 
     const totalCount = count || 0
-    console.log(`筛选条件下共有 ${totalCount} 条匹配机会`)
+    console.log(`Found ${totalCount} matching opportunities under filter conditions`)
 
     if (totalCount === 0) {
-      console.log("没有匹配的机会，返回空结果")
+      console.log("No matching opportunities found, returning empty result")
       return []
     }
 
@@ -401,11 +409,11 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
       clearTimeout(dataTimeoutId)
 
       if (error) {
-        console.error("获取筛选结果失败:", error.message || error)
+        console.warn("⚠️ 获取筛选结果失败，将使用本地数据:", error?.message || error || "未知错误")
         return filterLocalOpportunities(filters)
       }
 
-      console.log(`返回所有 ${data?.length || 0} 条匹配结果`)
+      console.log(`Returning all ${data?.length || 0} matching results`)
       return (data || []).map(transformDatabaseToEnhanced)
     }
 
@@ -413,7 +421,7 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
     const maxOffset = Math.max(0, totalCount - limit)
     const randomOffset = Math.floor(Math.random() * (maxOffset + 1))
 
-    console.log(`筛选结果随机偏移量: ${randomOffset}, 最大偏移量: ${maxOffset}`)
+    console.log(`Filter result random offset: ${randomOffset}, max offset: ${maxOffset}`)
 
     // 获取随机筛选结果（添加超时控制）
     const finalController = new AbortController()
@@ -427,14 +435,14 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
     clearTimeout(finalTimeoutId)
 
     if (error) {
-      console.error("获取随机筛选结果失败:", error.message || error)
+      console.warn("⚠️ 获取随机筛选结果失败，将使用本地数据:", error?.message || error || "未知错误")
       return filterLocalOpportunities(filters)
     }
 
-    console.log(`成功获取 ${data?.length || 0} 条随机筛选结果`)
+    console.log(`✅ 成功获取 ${data?.length || 0} 条随机筛选结果`)
     return (data || []).map(transformDatabaseToEnhanced)
   } catch (error) {
-    console.error("搜索增强机会时出错:", error.message || error)
+    console.warn("⚠️ 搜索增强机会时出错，将使用本地数据:", error instanceof Error ? error.message : error)
     return filterLocalOpportunities(filters)
   }
 }
@@ -443,18 +451,33 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
  * 获取机会统计信息
  */
 export async function getOpportunityStatistics(): Promise<OpportunityStatistics> {
-  console.log("获取机会统计信息")
+  console.log("Getting opportunity statistics")
 
   const supabase = getSupabaseClient()
   if (!supabase) {
-    console.log("Supabase客户端不可用，使用本地统计")
+    console.log("Supabase client unavailable, using local statistics")
     return getLocalStatistics()
   }
 
   try {
-    // 跳过数据库连接测试，直接使用本地统计数据
-    console.log("使用本地统计数据，跳过数据库查询")
-    return getLocalStatistics()
+    // 快速测试数据库连接
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 800) // 800毫秒超时
+    
+    const { error: connectionError } = await supabase
+      .from('opportunities')
+      .select('id')
+      .limit(1)
+      .abortSignal(controller.signal)
+    
+    clearTimeout(timeoutId)
+    
+    if (connectionError) {
+      console.warn("Database connection failed, using local statistics:", connectionError.message)
+      return getLocalStatistics()
+    }
+    
+    console.log("Statistics query database connection normal")
 
     // 使用RPC函数获取统计信息（如果存在，添加超时控制）
     const rpcController = new AbortController()
@@ -467,11 +490,11 @@ export async function getOpportunityStatistics(): Promise<OpportunityStatistics>
     clearTimeout(rpcTimeoutId)
 
     if (!rpcError && rpcData) {
-      console.log("成功通过RPC获取统计信息:", rpcData)
+      console.log("Successfully retrieved statistics via RPC:", rpcData)
       return rpcData
     }
 
-    console.log("RPC函数不可用，手动计算统计信息")
+    console.log("RPC function unavailable, calculating statistics manually")
 
     // 手动计算统计信息（添加超时控制）
     const statsController = new AbortController()
@@ -485,8 +508,8 @@ export async function getOpportunityStatistics(): Promise<OpportunityStatistics>
     clearTimeout(statsTimeoutId)
 
     if (error) {
-      console.error("获取机会数据失败:", error)
-      console.log("数据库查询失败，使用本地统计数据")
+      console.error("Failed to retrieve opportunity data:", error)
+      console.log("Database query failed, using local statistics")
       return getLocalStatistics()
     }
 
@@ -512,11 +535,11 @@ export async function getOpportunityStatistics(): Promise<OpportunityStatistics>
       unique_companies: uniqueCompanies,
     }
 
-    console.log("手动计算的统计信息:", stats)
+    console.log("Manually calculated statistics:", stats)
     return stats
   } catch (error) {
-    console.error("获取统计信息时出错:", error)
-    console.log("统计信息获取异常，使用本地统计数据")
+    console.error("Error occurred while getting statistics:", error)
+    console.log("Statistics retrieval exception, using local statistics")
     return getLocalStatistics()
   }
 }
