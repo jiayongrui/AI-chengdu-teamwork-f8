@@ -410,28 +410,28 @@ export default function Page() {
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     setIsDragging(true)
-    setDragStart({
-      x: e.clientX - buttonPosition.x,
-      y: e.clientY - buttonPosition.y
-    })
-  }, [buttonPosition])
+    // 不需要记录偏移量，直接让按钮中心跟随鼠标
+  }, [])
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isDragging) return
     
-    const newX = e.clientX - dragStart.x
-    const newY = e.clientY - dragStart.y
+    // 按钮尺寸约为 120px 宽 × 50px 高，让按钮中心跟随鼠标
+    const buttonWidth = 120
+    const buttonHeight = 50
+    const newX = e.clientX - buttonWidth / 2
+    const newY = e.clientY - buttonHeight / 2
     
     // 限制按钮在视窗范围内
-    const maxX = window.innerWidth - 120 // 按钮宽度约120px
-    const maxY = window.innerHeight - 50 // 按钮高度约50px
+    const maxX = window.innerWidth - buttonWidth
+    const maxY = window.innerHeight - buttonHeight
     
     setButtonPosition({
       x: Math.max(0, Math.min(newX, maxX)),
       y: Math.max(0, Math.min(newY, maxY))
     })
     setHasBeenDragged(true)
-  }, [isDragging, dragStart])
+  }, [isDragging])
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false)
@@ -1871,12 +1871,23 @@ export default function Page() {
                         <button
                           className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                           onClick={() => {
+                            // 保存当前页面状态到sessionStorage
+                            try {
+                              const currentState = {
+                                page: currentPage,
+                                hash: window.location.hash || '#home'
+                              }
+                              sessionStorage.setItem('PREV_PAGE', JSON.stringify(currentState))
+                            } catch (error) {
+                              console.warn('Failed to save previous page state:', error)
+                            }
+                            
                             setProfileDropdownOpen(false)
                             setCurrentPage("personal-filter")
                             setActiveFilterSection('city')
                           }}
                         >
-                          个人定位筛选
+                          我的标签
                         </button>
                         <button
                           className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -1886,7 +1897,7 @@ export default function Page() {
                             setCurrentPage("profile")
                           }}
                         >
-                          简历修改
+                          我的简历
                         </button>
                       </div>
                     </div>
@@ -2352,17 +2363,8 @@ export default function Page() {
           <div id="page-personal-filter" className="page-content">
             <section className="py-12 bg-gray-50 min-h-screen">
               <div className="container mx-auto px-6 max-w-6xl">
-                {/* 顶部标题和返回按钮 */}
-                <div className="mb-8 text-center relative">
-                  <button
-                    onClick={() => showPage("#login")}
-                    className="absolute left-0 top-0 flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                    返回
-                  </button>
+                {/* 顶部标题 */}
+                <div className="mb-8 text-center">
                   <h2 className="text-2xl md:text-3xl font-bold text-green-600 mb-4">
                     为了帮您精准找到合适的工作，请选择你的个人标签
                   </h2>
@@ -2856,8 +2858,32 @@ export default function Page() {
                               sessionStorage.setItem('personalFilterCompleted', 'true')
                             }
                             setHasCompletedFilter(true)
-                            // 跳转到简历上传页面
-                            showPage('#profile')
+                            
+                            // 读取之前保存的页面状态并跳转
+                            try {
+                              const prevPageData = sessionStorage.getItem('PREV_PAGE')
+                              if (prevPageData) {
+                                const prevState = JSON.parse(prevPageData)
+                                // 清除保存的状态
+                                sessionStorage.removeItem('PREV_PAGE')
+                                // 跳转到之前的页面
+                                if (prevState.hash) {
+                                  showPage(prevState.hash)
+                                } else if (prevState.page) {
+                                  setCurrentPage(prevState.page)
+                                } else {
+                                  // 默认跳转到简历管理页面
+                                  showPage('#resume-manage')
+                                }
+                              } else {
+                                // 如果没有保存的状态，默认跳转到简历管理页面
+                                showPage('#resume-manage')
+                              }
+                            } catch (error) {
+                              console.warn('Failed to restore previous page state:', error)
+                              // 出错时默认跳转到简历管理页面
+                              showPage('#resume-manage')
+                            }
                           }}
                           disabled={selectedCities.length === 0}
                           className={`px-6 py-3 rounded-lg font-medium transition-colors ${
@@ -2866,7 +2892,7 @@ export default function Page() {
                               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                           }`}
                         >
-                          下一步
+                          完成
                         </button>
                       </div>
                     </div>
@@ -3857,16 +3883,7 @@ export default function Page() {
           <div id="page-profile" className="page-content">
             <section className="py-12 bg-white relative">
               <div className="container mx-auto px-6 max-w-4xl">
-                {/* 返回按钮 */}
-                <button
-                  onClick={() => setCurrentPage("personal-filter")}
-                  className="absolute left-0 top-0 flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                  返回
-                </button>
+
                 
                 <div className="mb-8">
                   <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">个人资料</h2>
@@ -4074,17 +4091,26 @@ export default function Page() {
                 <button
                   onClick={handleButtonClick}
                   onMouseDown={handleMouseDown}
-                  className={`fixed bg-yellow-500 text-white font-bold py-3 px-6 rounded-full shadow-lg hover:bg-yellow-600 transition-colors z-50 select-none ${
+                  className={`fixed text-white font-semibold py-3 px-6 rounded-lg z-50 select-none ${
                     isDragging ? 'cursor-grabbing' : 'cursor-grab'
                   }`}
                   style={{
                     left: buttonPosition.x || 'auto',
                     top: buttonPosition.y || 'auto',
                     right: buttonPosition.x ? 'auto' : '2rem',
-                    bottom: buttonPosition.y ? 'auto' : '2rem'
+                    bottom: buttonPosition.y ? 'auto' : '2rem',
+                    background: 'linear-gradient(to right, #3B82F6, #1D4ED8)',
+                    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.35)',
+                    fontWeight: '600'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.boxShadow = '0 6px 16px rgba(59, 130, 246, 0.45)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.35)';
                   }}
                 >
-                  寻找机会
+                  去往机会雷达
                 </button>
               </div>
             </section>
