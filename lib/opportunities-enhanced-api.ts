@@ -252,8 +252,7 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
     clearTimeout(countTimeoutId)
 
     if (countError) {
-      console.error("Failed to get total count:", countError)
-      console.log("Database query failed, using local data")
+      console.warn("⚠️ 获取数据总数失败，将使用本地数据:", countError?.message || countError || "未知错误")
       return getRandomLocalOpportunities(limit)
     }
 
@@ -286,8 +285,7 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
     clearTimeout(dataTimeoutId)
 
     if (error) {
-      console.error("Failed to get opportunity data:", error.message || error)
-    console.log("Data query failed, using local data")
+      console.warn("⚠️ 获取机会数据失败，将使用本地数据:", error?.message || error || "未知错误")
       return getRandomLocalOpportunities(limit)
     }
 
@@ -311,7 +309,7 @@ export async function fetchEnhancedOpportunities(limit = 6): Promise<Opportunity
 
     return opportunities.slice(0, limit)
   } catch (error) {
-    console.error("Error getting enhanced opportunity data:", error)
+    console.warn("⚠️ 获取增强机会数据时出错，将使用本地数据:", error instanceof Error ? error.message : error)
     return getRandomLocalOpportunities(limit)
   }
 }
@@ -342,11 +340,11 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
     clearTimeout(testTimeoutId)
     
     if (testError) {
-      console.error("Database connection failed during search:", testError)
+      console.warn("⚠️ 搜索时数据库连接失败，将使用本地数据:", testError?.message || testError)
       return filterLocalOpportunities(filters)
     }
   } catch (error) {
-    console.error("Database connection error during search:", error)
+    console.warn("⚠️ 搜索时数据库连接错误，将使用本地数据:", error instanceof Error ? error.message : error)
     return filterLocalOpportunities(filters)
   }
 
@@ -385,7 +383,7 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
     clearTimeout(countTimeoutId)
 
     if (countError) {
-      console.error("Failed to get filtered results count:", countError.message || countError)
+      console.warn("⚠️ 获取筛选结果总数失败，将使用本地数据:", countError?.message || countError || "未知错误")
       return filterLocalOpportunities(filters)
     }
 
@@ -411,7 +409,7 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
       clearTimeout(dataTimeoutId)
 
       if (error) {
-        console.error("Failed to get filtered results:", error.message || error)
+        console.warn("⚠️ 获取筛选结果失败，将使用本地数据:", error?.message || error || "未知错误")
         return filterLocalOpportunities(filters)
       }
 
@@ -437,14 +435,14 @@ export async function searchEnhancedOpportunities(filters: OpportunityFilters): 
     clearTimeout(finalTimeoutId)
 
     if (error) {
-      console.error("Failed to get random filtered results:", error.message || error)
+      console.warn("⚠️ 获取随机筛选结果失败，将使用本地数据:", error?.message || error || "未知错误")
       return filterLocalOpportunities(filters)
     }
 
-    console.log(`Successfully retrieved ${data?.length || 0} random filtered results`)
+    console.log(`✅ 成功获取 ${data?.length || 0} 条随机筛选结果`)
     return (data || []).map(transformDatabaseToEnhanced)
   } catch (error) {
-    console.error("Error searching enhanced opportunities:", error.message || error)
+    console.warn("⚠️ 搜索增强机会时出错，将使用本地数据:", error instanceof Error ? error.message : error)
     return filterLocalOpportunities(filters)
   }
 }

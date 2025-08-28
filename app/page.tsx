@@ -667,11 +667,21 @@ export default function Page() {
       clearTimeout(timeoutId)
       
       if (error) throw error
-      console.log("Connection test successful")
-    } catch (error) {
+      console.log("✅ Supabase连接成功")
+    } catch (error: any) {
       clearTimeout(timeoutId)
-      console.error("Connection test failed:", error)
-      throw error
+      
+      // 更优雅的错误处理，减少控制台噪音
+      if (error.name === 'AbortError') {
+        console.warn("⚠️ Supabase连接超时，将使用本地数据")
+        throw new Error("连接超时")
+      } else if (error.message?.includes('Failed to connect')) {
+        console.warn("⚠️ 网络连接问题，将使用本地数据")
+        throw new Error("网络连接失败")
+      } else {
+        console.warn("⚠️ Supabase服务暂时不可用，将使用本地数据")
+        throw error
+      }
     }
   }, [supabase])
 
@@ -3051,8 +3061,10 @@ export default function Page() {
                     <div className="flex items-center gap-2">
                       <Info size={16} className="text-yellow-600" />
                       <p className="text-yellow-700 text-sm">
-                        <strong>数据库连接失败：</strong>
-                        {connErr || "未知错误"}。当前显示的是本地缓存数据，可能不是最新的。
+                        <strong>离线模式：</strong>
+                        {connErr === "连接超时" ? "网络连接超时" : 
+                         connErr === "网络连接失败" ? "网络暂时不可用" : 
+                         "云端服务暂时不可用"}。当前显示本地数据，功能正常使用。
                       </p>
                     </div>
                   </div>
@@ -3595,7 +3607,7 @@ export default function Page() {
                 <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">简历优化</h2>
                 {connOk === true && <p className="text-sm text-green-600 mb-4">已成功链接云端数据（Supabase）</p>}
                 {connOk === false && (
-                  <p className="text-sm text-red-600 mb-4">云端连接失败：{connErr || "未知错误"}（本地演示）</p>
+                  <p className="text-sm text-yellow-600 mb-4">离线模式：{connErr === "连接超时" ? "网络连接超时" : connErr === "网络连接失败" ? "网络暂时不可用" : "云端服务暂时不可用"}（使用本地数据）</p>
                 )}
 
                 {!user ? (
@@ -3734,7 +3746,7 @@ export default function Page() {
                 <p className="text-gray-600 mb-6">AI分析简历与目标职位匹配度，生成个性化的求职邮件</p>
                 {connOk === true && <p className="text-sm text-green-600 mb-4">已成功链接云端数据（Supabase）</p>}
                 {connOk === false && (
-                  <p className="text-sm text-red-600 mb-4">云端连接失败：{connErr || "未知错误"}（本地演示）</p>
+                  <p className="text-sm text-yellow-600 mb-4">离线模式：{connErr === "连接超时" ? "网络连接超时" : connErr === "网络连接失败" ? "网络暂时不可用" : "云端服务暂时不可用"}（使用本地数据）</p>
                 )}
 
                 {!user ? (
@@ -3889,7 +3901,7 @@ export default function Page() {
                   <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">个人资料</h2>
                   {connOk === true && <p className="text-sm text-green-600">已成功连接云端数据（Supabase）</p>}
                   {connOk === false && (
-                    <p className="text-sm text-red-600">云端连接失败：{connErr || "未知错误"}（使用本地存储）</p>
+                    <p className="text-sm text-yellow-600">离线模式：{connErr === "连接超时" ? "网络连接超时" : connErr === "网络连接失败" ? "网络暂时不可用" : "云端服务暂时不可用"}（使用本地存储）</p>
                   )}
                 </div>
 
