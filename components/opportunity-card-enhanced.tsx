@@ -239,21 +239,19 @@ export function OpportunityCardEnhanced({ opportunity, onApply, onGoResumeOptimi
           </div>
           <div className="flex flex-col gap-1 items-end flex-shrink-0">
             {score !== undefined && (
-              <div 
-                className="cursor-pointer hover:opacity-80 rounded-lg p-1 transition-all duration-200"
+              <Badge 
                 onClick={handleScoreClick}
+                className={`${getScoreColor(score)} text-xs px-2 py-1 font-semibold flex items-center gap-1 border cursor-pointer hover:opacity-80 transition-opacity`}
               >
-                <Badge className={`${getScoreColor(score)} text-xs px-2 py-1 font-semibold flex items-center gap-1 border`}>
-                  {getScoreLabel(score)} {score.toFixed(1)}
-                  {isLoadingBreakdown ? (
-                    <Loader2 size={12} className="animate-spin" />
-                  ) : isExpanded ? (
-                    <ChevronUp size={12} />
-                  ) : (
-                    <ChevronDown size={12} />
-                  )}
-                </Badge>
-              </div>
+                {getScoreLabel(score)} {score.toFixed(1)}
+                {isLoadingBreakdown ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : isExpanded ? (
+                  <ChevronUp size={12} />
+                ) : (
+                  <ChevronDown size={12} />
+                )}
+              </Badge>
             )}
           </div>
         </div>
@@ -382,13 +380,22 @@ export function OpportunityCardEnhanced({ opportunity, onApply, onGoResumeOptimi
       </CardContent>
 
       <CardFooter className="pt-4 border-t border-gray-100">
-        <div className="flex items-center justify-between w-full">
-          <div className="text-xs text-gray-500">
-            {formatDate(opportunity.created_at)}
-            {opportunity.expires_at && <span className="ml-2">· 截止 {formatDate(opportunity.expires_at)}</span>}
-          </div>
+        <div className="flex items-center justify-end w-full">
           <div className="flex gap-2">
-            {onGoResumeOptimizer && (
+            {score !== undefined && (
+              <Button
+                onClick={handleScoreClick}
+                size="sm"
+                variant="outline"
+                className="bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border-blue-200 text-blue-700 px-3 py-2 rounded-lg transition-all duration-200"
+              >
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                解锁机会全貌
+              </Button>
+            )}
+            {score !== undefined && onGoResumeOptimizer && (
               <Button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -401,19 +408,21 @@ export function OpportunityCardEnhanced({ opportunity, onApply, onGoResumeOptimi
                 <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                简历优化
+                查看优化报告
               </Button>
             )}
-            <Button
-              onClick={(e) => {
-                e.stopPropagation();
-                onApply(opportunity);
-              }}
-              size="sm"
-              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors"
-            >
-              破冰邮件
-            </Button>
+            {score !== undefined && (
+              <Button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onApply(opportunity);
+                }}
+                size="sm"
+                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                生成AI求职信
+              </Button>
+            )}
           </div>
         </div>
       </CardFooter>

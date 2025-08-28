@@ -651,7 +651,7 @@ export default function Page() {
     }
     
     if (!resumeText) {
-      alert("需上传简历，才可评分。")
+      alert("请上传简历")
       return
     }
 
@@ -2119,9 +2119,9 @@ const REQUEST_DELAY = 500; // 500ms延迟
                          <Calculator size={16} className={scoringOpportunities ? "animate-pulse" : ""} />
                          {scoringOpportunities ? (
                            scoringProgress.total > 0 ? 
-                             `评分中... (${scoringProgress.current}/${scoringProgress.total})` : 
-                             "评分中..."
-                         ) : "评分"}
+                             `匹配中... (${scoringProgress.current}/${scoringProgress.total})` : 
+                             "匹配中..."
+                         ) : "AI 匹配一下"}
                        </button>
                     </div>
                   </div>
