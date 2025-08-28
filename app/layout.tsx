@@ -5,7 +5,7 @@ import './globals.css'
 import '../styles/identity-filter.css'
 
 export const metadata: Metadata = {
-  title: 'AI成都团队协作平台',
+  title: '简历冲鸭',
   description: '智能求职机会管理平台，帮助应届生发现理想工作',
   generator: 'v0.app',
   manifest: '/site.webmanifest',
