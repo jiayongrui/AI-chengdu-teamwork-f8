@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { callAiApi } from '@/lib/ai-api-client'
 
 // 从简历中提取关键技能和经验
 function extractResumeHighlights(resumeText: string, jobTags: string[] = []) {
@@ -186,36 +187,19 @@ ${resumeHighlights}
 
 `
 
-    // 使用直接HTTP请求调用SiliconFlow API
-    // 只移除真正的控制字符，保留中文字符
-    const cleanPrompt = prompt.replace(/[\u0000-\u001F\u007F]/g, '').trim()
-    
-    const requestBody = {
+    // 使用新的API管理系统调用AI
+    const apiResult = await callAiApi({
       model: 'deepseek-ai/DeepSeek-V3',
       messages: [
         {
           role: 'user',
-          content: cleanPrompt
+          content: prompt
         }
       ],
       max_tokens: 8000,
       temperature: 0.7
-    }
-    
-    const response = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Authorization': 'Bearer sk-ufnwysgrwnebkczychcgkvzvvinyydmppnrvgyclbwdluvpu'
-      },
-      body: JSON.stringify(requestBody)
     })
 
-    if (!response.ok) {
-      throw new Error(`API调用失败: ${response.status} ${response.statusText}`)
-    }
-
-    const apiResult = await response.json()
     const text = apiResult.choices[0].message.content
 
     // 尝试解析AI返回的JSON格式报告
@@ -263,7 +247,7 @@ ${resumeHighlights}
       }
       
     } catch (parseError) {
-      console.error('JSON parsing failed:', parseError, 'Original text:', text.substring(0, 500))
+      console.error('JSON解析失败:', parseError, '原始文本:', text.substring(0, 500))
       // 如果解析失败，返回原始文本作为报告
       reportData = {
         dimensionalOptimization: {
@@ -295,7 +279,7 @@ ${resumeHighlights}
       }
     })
   } catch (error: any) {
-    console.error("AI resume optimization generation failed:", error)
+    console.error("AI简历优化生成失败:", error)
     // 返回基础的简历优化模板
     const fallbackResumeHighlightsObj = resumeText ? extractResumeHighlights(resumeText, opportunity.tags || []) : null
     const fallbackResumeHighlights = fallbackResumeHighlightsObj ? 
