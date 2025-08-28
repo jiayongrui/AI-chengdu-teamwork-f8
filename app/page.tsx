@@ -2942,15 +2942,11 @@ export default function Page() {
                          title={!user ? "请先登录" : !resumeText ? "请先上传简历" : "对符合条件的机会进行评分"}
                        >
                          <Calculator size={16} className={scoringOpportunities ? "animate-pulse" : ""} />
-<<<<<<< HEAD
                          {scoringOpportunities ? (
                            scoringProgress.total > 0 ? 
                              `匹配中... (${scoringProgress.current}/${scoringProgress.total})` : 
                              "匹配中..."
                          ) : "AI 匹配一下"}
-=======
-                         {scoringOpportunities ? "评分中..." : "评分"}
->>>>>>> 38801a1eaa35a96f09d2d882880296b97fdf5b84
                        </button>
                     </div>
                   </div>
