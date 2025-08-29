@@ -10,6 +10,7 @@ export interface OpportunityEnhanced {
   reason?: string
   contact_email?: string
   contact_person?: string
+  contact_phone?: string
   company_logo?: string
   priority: number // 1-10 优先级，替代 urgency_level
   created_at: string
