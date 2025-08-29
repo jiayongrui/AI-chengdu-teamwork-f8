@@ -4,159 +4,18 @@ import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
-import { Building2, MapPin, Clock, Star, Mail, User, Briefcase, GraduationCap, Calendar, DollarSign, ChevronDown, ChevronUp, Loader2, Phone } from "lucide-react"
+import { Building2, MapPin, Clock, Star, Mail, User, Briefcase, GraduationCap, Calendar, DollarSign } from "lucide-react"
 import type { OpportunityEnhanced } from "@/types/opportunity-enhanced"
 import { OpportunityDetailDialog } from "./opportunity-detail-dialog"
-import ScoreBreakdown from "./score-breakdown"
-import GapAnalysisView from "./gap-analysis-view"
 
 interface OpportunityCardEnhancedProps {
   opportunity: OpportunityEnhanced
   onApply: (opportunity: OpportunityEnhanced) => void
-  onGoResumeOptimizer?: (opportunity: OpportunityEnhanced) => void
   score?: number
-  userId?: string
 }
 
-interface ScoreData {
-  dimension: string
-  score: number
-  weight: number
-}
-
-interface GapAnalysisData {
-  overall_score: number
-  dimension_scores: Array<{
-    dimension: string
-    score: number
-    weight: number
-    strengths: Array<{
-      point: string
-      resume_evidence: string
-      jd_requirement: string
-    }>
-    gaps: Array<{
-      point: string
-      suggestion: string
-    }>
-  }>
-  optimization_suggestions: Array<{
-    category: string
-    suggestions: string[]
-  }>
-  description_rewrite_examples: Array<{
-    original: string
-    optimized: string
-    improvement_points: string[]
-  }>
-  missing_opportunities: Array<{
-    opportunity: string
-    impact: string
-    action_plan: string
-  }>
-}
-
-export function OpportunityCardEnhanced({ opportunity, onApply, onGoResumeOptimizer, score, userId }: OpportunityCardEnhancedProps) {
+export function OpportunityCardEnhanced({ opportunity, onApply, score }: OpportunityCardEnhancedProps) {
   const [showDetail, setShowDetail] = useState(false)
-  const [isExpanded, setIsExpanded] = useState(false)
-  const [isLoadingBreakdown, setIsLoadingBreakdown] = useState(false)
-  const [scoreBreakdown, setScoreBreakdown] = useState<ScoreData[] | null>(null)
-  const [showGapAnalysis, setShowGapAnalysis] = useState(false)
-  const [isLoadingGapAnalysis, setIsLoadingGapAnalysis] = useState(false)
-  const [gapAnalysisData, setGapAnalysisData] = useState<GapAnalysisData | null>(null)
-  const [gapAnalysisError, setGapAnalysisError] = useState<string | null>(null)
-
-  const fetchScoreBreakdown = async () => {
-    if (!userId || !opportunity.id || scoreBreakdown) return
-    
-    setIsLoadingBreakdown(true)
-    try {
-      const response = await fetch('/api/score-breakdown', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: userId,
-          opportunityId: opportunity.id
-        })
-      })
-      
-      if (response.ok) {
-        const data = await response.json()
-        console.log('Score breakdown API response:', data)
-        // API返回的数据结构：{ breakdown: [...] }
-        setScoreBreakdown(data.breakdown || [])
-      } else {
-        console.error('Score breakdown API error:', response.status, response.statusText)
-      }
-    } catch (error) {
-      console.error('Failed to fetch score breakdown:', error)
-    } finally {
-      setIsLoadingBreakdown(false)
-    }
-  }
-
-  const fetchGapAnalysis = async () => {
-    if (!userId || !opportunity.id || gapAnalysisData) return
-    
-    setIsLoadingGapAnalysis(true)
-    setGapAnalysisError(null)
-    try {
-      const response = await fetch('/api/gap-analysis', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: userId,
-          opportunityId: opportunity.id
-        })
-      })
-      
-      if (response.ok) {
-        const result = await response.json()
-        // 修复：正确提取数据
-        if (result.success && result.data) {
-          setGapAnalysisData(result.data)
-        } else {
-          setGapAnalysisError('分析数据格式错误，请稍后重试')
-        }
-      } else {
-        // 增强错误处理：显示具体错误信息
-        const errorResult = await response.json().catch(() => null)
-        const errorMessage = errorResult?.error || '获取分析数据失败，请稍后重试'
-        setGapAnalysisError(errorMessage)
-        
-        // 输出调试信息
-        if (errorResult?.debug_info) {
-          console.error('Gap analysis debug info:', errorResult.debug_info)
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch gap analysis:', error)
-      setGapAnalysisError('网络错误，请检查网络连接')
-    } finally {
-      setIsLoadingGapAnalysis(false)
-    }
-  }
-
-  const handleGapAnalysisClick = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    setShowGapAnalysis(!showGapAnalysis)
-    if (!showGapAnalysis && !gapAnalysisData) {
-      fetchGapAnalysis()
-    }
-  }
-
-  const handleScoreClick = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    setIsExpanded(!isExpanded)
-    if (!isExpanded && !scoreBreakdown) {
-      fetchScoreBreakdown()
-    }
-  }
-
   const getPriorityColor = (priority: number) => {
     if (priority >= 8) return "bg-red-100 text-red-800 border-red-200"
     if (priority >= 6) return "bg-orange-100 text-orange-800 border-orange-200"
@@ -169,21 +28,6 @@ export function OpportunityCardEnhanced({ opportunity, onApply, onGoResumeOptimi
     if (priority >= 6) return "中优先级"
     if (priority >= 4) return "普通"
     return "低优先级"
-  }
-
-  // 替换原有的getScoreColor函数
-  const getScoreColor = (score: number) => {
-    const bgColor = getScoreBackgroundColor(score)
-    const textColor = getScoreTextColor(score)
-    const borderColor = getScoreBorderColor(score)
-    return `${bgColor} ${textColor} ${borderColor}`
-  }
-
-  // 根据评分返回对应的等级标签 - 积极化表述
-  const getScoreLabel = (score: number) => {
-    if (score >= 80) return "优势匹配"  // 原"高匹配" -> "优势匹配"
-    if (score >= 60) return "成长潜力"  // 原"中等匹配" -> "成长潜力"
-    return "发展机会"                   // 原"低匹配" -> "发展机会"
   }
 
   const isExpiringSoon =
@@ -205,11 +49,7 @@ export function OpportunityCardEnhanced({ opportunity, onApply, onGoResumeOptimi
         onApply={onApply}
       />
       <Card 
-        className={`h-full flex flex-col hover:shadow-lg transition-all duration-200 cursor-pointer ${
-          score !== undefined 
-            ? `border-2 ${getScoreBorderColor(score)} ${getScoreBackgroundColor(score)}/10` 
-            : 'border border-gray-200'
-        }`}
+        className="h-full flex flex-col hover:shadow-lg transition-shadow duration-200 border border-gray-200 cursor-pointer"
         onClick={() => setShowDetail(true)}
       >
       <CardHeader className="pb-3">
@@ -253,6 +93,7 @@ export function OpportunityCardEnhanced({ opportunity, onApply, onGoResumeOptimi
                 )}
               </Badge>
             )}
+
           </div>
         </div>
       </CardHeader>
@@ -310,12 +151,6 @@ export function OpportunityCardEnhanced({ opportunity, onApply, onGoResumeOptimi
                 <span className="truncate">{opportunity.contact_email}</span>
               </div>
             )}
-            {opportunity.contact_phone && (
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Phone size={14} className="flex-shrink-0" />
-                <span className="truncate">{opportunity.contact_phone}</span>
-              </div>
-            )}
           </div>
 
           {/* 标签 */}
@@ -354,26 +189,6 @@ export function OpportunityCardEnhanced({ opportunity, onApply, onGoResumeOptimi
           {opportunity.reason && (
             <div className="bg-gray-50 rounded-lg p-3">
               <p className="text-sm text-gray-700 leading-relaxed line-clamp-3">{opportunity.reason}</p>
-            </div>
-          )}
-
-          {/* 评分详情展开区域 */}
-          {isExpanded && (
-            <div className="mt-4 border-t border-gray-200 pt-4">
-              {isLoadingBreakdown ? (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 size={20} className="animate-spin text-blue-500" />
-                  <span className="ml-2 text-sm text-gray-600">加载评分详情...</span>
-                </div>
-              ) : scoreBreakdown && scoreBreakdown.length > 0 ? (
-                <div className="space-y-4">
-                  <ScoreBreakdown scoreData={scoreBreakdown} />
-                </div>
-              ) : (
-                <div className="text-center py-4 text-sm text-gray-500">
-                  暂无评分详情数据
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -429,37 +244,4 @@ export function OpportunityCardEnhanced({ opportunity, onApply, onGoResumeOptimi
     </Card>
     </>
   )
-}
-
-/**
- * 根据评分获取对应的背景色类名
- * @param score 0-100的数值
- * @returns 对应的Tailwind背景色类名
- */
-function getScoreBackgroundColor(score: number): string {
-  if (score >= 80) return 'bg-amber-400';  // 荣耀金 - 成就阶段
-  if (score >= 60) return 'bg-teal-400';   // 活力青 - 成长阶段
-  return 'bg-slate-200';                   // 潜力灰 - 潜力阶段
-}
-
-/**
- * 根据评分获取对应的文字颜色类名
- * @param score 0-100的数值
- * @returns 对应的Tailwind文字颜色类名
- */
-function getScoreTextColor(score: number): string {
-  if (score >= 80) return 'text-amber-900';
-  if (score >= 60) return 'text-teal-900';
-  return 'text-slate-700';
-}
-
-/**
- * 根据评分获取对应的边框颜色类名
- * @param score 0-100的数值
- * @returns 对应的Tailwind边框颜色类名
- */
-function getScoreBorderColor(score: number): string {
-  if (score >= 80) return 'border-amber-300';
-  if (score >= 60) return 'border-teal-300';
-  return 'border-slate-300';
 }

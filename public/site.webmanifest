@@ -1,5 +1,5 @@
 {
-  "name": "简历冲鸭",
+  "name": "AI成都团队协作平台",
   "short_name": "AI求职平台",
   "description": "智能求职机会管理平台",
   "start_url": "/",
@@ -14,4 +14,4 @@
       "purpose": "any maskable"
     }
   ]
-}
+} 
