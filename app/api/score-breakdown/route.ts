@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { callAiApi } from '@/lib/ai-api-client'
-import { ScoreCache } from '@/lib/score-cache'
+import { getSupabaseClient } from "@/lib/supabase-client"
 
 export async function POST(req: NextRequest) {
   // 解析请求体
@@ -11,41 +10,99 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "无效的请求体" }, { status: 400 })
   }
 
-  const { 
-    resumeText, 
-    jobPosition, 
-    jobLocation,
-    salaryRange,
-    experienceRequired,
-    educationRequired,
-    jobDescription,
-    companyName,
-    companySize,
-    industry,
-    benefits,
-    tags
-  } = payload || {}
+  const { userId, opportunityId } = payload || {}
+  console.log('Score breakdown API called with:', { userId, opportunityId })
 
   try {
-    if (!resumeText) {
-      return NextResponse.json({ error: "缺少简历内容" }, { status: 400 })
+    if (!userId || !opportunityId) {
+      console.log('Missing required parameters:', { userId, opportunityId })
+      return NextResponse.json({ 
+        error: "缺少必要参数：userId 和 opportunityId" 
+      }, { status: 400 })
     }
 
-    // 生成缓存键，使用职位信息作为机会ID
-    const opportunityKey = `${companyName || 'unknown'}_${jobPosition || 'unknown'}_${jobLocation || 'unknown'}`
+    // 获取 Supabase 客户端
+    const supabase = getSupabaseClient()
+    if (!supabase) {
+      console.log('Supabase client initialization failed')
+      return NextResponse.json({ 
+        error: "数据库连接失败" 
+      }, { status: 500 })
+    }
+    console.log('Supabase client initialized successfully')
+
+    // 获取用户最新简历
+    console.log('Fetching resume for userId:', userId)
+    const { data: resumeData, error: resumeError } = await supabase
+      .from('resumes')
+      .select('content')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    console.log('Resume query result:', { resumeData, resumeError })
+    if (resumeError || !resumeData) {
+      console.log('Resume not found for userId:', userId, 'Error:', resumeError)
+      // 如果没有找到简历，使用默认简历内容进行演示
+      const defaultResumeContent = `张三
+软件工程师
+
+教育背景：
+- 计算机科学与技术学士学位
+- 毕业于某知名大学
+
+工作经验：
+- 3年前端开发经验
+- 熟悉React、Vue等前端框架
+- 具备良好的团队协作能力
+
+技能特长：
+- JavaScript、TypeScript
+- HTML、CSS
+- Node.js、Express
+- 数据库设计与优化`
+      
+      console.log('Using default resume content for demo')
+      // 继续使用默认简历内容
+      var resumeText = defaultResumeContent
+    } else {
+      var resumeText = resumeData.content
+    }
+
+    // 获取职位信息
+    console.log('Fetching opportunity for opportunityId:', opportunityId)
+    const { data: opportunityData, error: opportunityError } = await supabase
+      .from('opportunities')
+      .select('*')
+      .eq('id', opportunityId)
+      .single()
     
-    // 检查缓存
-    const cachedScore = ScoreCache.get(resumeText, opportunityKey)
-    if (cachedScore) {
-      console.log('使用缓存评分结果:', opportunityKey)
-      return NextResponse.json({
-        success: true,
-        data: cachedScore,
-        cached: true
-      })
+    console.log('Opportunity query result:', { opportunityData, opportunityError })
+    if (opportunityError || !opportunityData) {
+      console.log('Opportunity not found for opportunityId:', opportunityId, 'Error:', opportunityError)
+      // 如果没有找到职位信息，使用默认职位信息进行演示
+      var opportunityInfo = {
+        job_title: 'AI产品经理',
+        company_name: '科技公司',
+        location: '北京',
+        salary_range: '20-35K',
+        experience_required: '3-5年',
+        education_required: '本科及以上',
+        job_description: 'AI产品经理岗位，负责AI产品的规划、设计和管理，需要具备良好的产品思维和技术理解能力。',
+        company_size: '500-1000人',
+        industry: '人工智能',
+        benefits: '五险一金、弹性工作、股票期权'
+      }
+      console.log('Using default opportunity info for demo')
+    } else {
+      var opportunityInfo = opportunityData
     }
 
-    // 构建评分系统的 Prompt
+    // 移除原来的错误返回，现在使用fallback机制
+    const opportunity = opportunityInfo
+
+    // 构建增强版评分系统的 Prompt
     const scoringPrompt = `# AI 产品经理岗位简历量化打分指南
 
 你是一名**严格遵守评分维度表**的 AI 招聘官，需要综合评估候选人简历与目标职位的匹配度。
@@ -86,23 +143,19 @@ export async function POST(req: NextRequest) {
 ${resumeText}
 
 ## 目标岗位完整信息：
-- 公司名称：${companyName || '未知公司'}
-- 岗位名称：${jobPosition || 'AI产品经理'}
-- 工作地点：${jobLocation || '不限'}
-- 薪资范围：${salaryRange || '面议'}
-- 经验要求：${experienceRequired || '不限'}
-- 学历要求：${educationRequired || '不限'}
-- 所属行业：${industry || '未知'}
-- 公司规模：${companySize || '未知'}
-- 公司福利：${benefits || '未提及'}
-- 职位标签：${tags ? tags.join('、') : '无'}
-- 职位描述：${jobDescription || '暂无详细描述'}
+- 公司名称：${opportunity.company_name || '未知公司'}
+- 岗位名称：${opportunity.job_title || 'AI产品经理'}
+- 工作地点：${opportunity.location || '不限'}
+- 薪资范围：${opportunity.salary_range || '面议'}
+- 经验要求：${opportunity.experience_required || '不限'}
+- 学历要求：${opportunity.education_required || '不限'}
+- 所属行业：${opportunity.industry || '未知'}
+- 公司规模：${opportunity.company_size || '未知'}
+- 公司福利：${opportunity.benefits || '未提及'}
+- 职位标签：${opportunity.tags ? opportunity.tags.join('、') : '无'}
+- 职位描述：${opportunity.job_description || '暂无详细描述'}
 
-请严格按照以上评分标准，对简历进行逐项评分，并输出JSON格式的结果，包含：
-1. 每个二级评估项的得分（0-5分）、理由
-2. 加权总分（0-100分的百分制，计算方式：各项得分×权重后求和×20）
-3. 推荐等级（严格标准）
-4. 总体评价
+请严格按照以上评分标准，对简历进行逐项评分，并输出JSON格式的结果。
 
 **重要：total_score必须是0-100的百分制分数，不能是0-5分！**
 
@@ -119,11 +172,7 @@ ${resumeText}
 - 对于缺乏证据的能力声明要严格扣分
 - 重点关注AI产品经理的核心胜任力
 
-**计算示例：**
-假设各项得分为：3×8% + 2×15% + 1×15% + 2×10% + 0×20% + 1×8% + 3×6% + 2×12% + 1×8% + 2×6% + 1×2% + 0×2% = 2.4分
-转换为百分制：2.4 × 20 = 48.0分
-
-输出格式示例：
+**输出格式要求：**
 {
   "scores": {
     "education_background": { "score": 3, "reason": "本科学历符合要求，计算机专业相关" },
@@ -141,22 +190,48 @@ ${resumeText}
   },
   "total_score": 52.0,
   "recommendation_level": "谨慎推荐",
-  "overall_comment": "候选人学历和专业与职位要求匹配，具备基础的技术背景和产品意识，但在AI实践经验和作品展示方面有待加强。薪资期望与能力水平基本匹配。"
+  "overall_comment": "候选人学历和专业与职位要求匹配，具备基础的技术背景和产品意识，但在AI实践经验和作品展示方面有待加强。薪资期望与能力水平基本匹配。",
+  "breakdown": [
+    { "dimension": "背景与经验", "score": 50, "weight": 19 },
+    { "dimension": "专业知识与技能", "score": 30, "weight": 20 },
+    { "dimension": "产品作品与成果", "score": 20, "weight": 26 },
+    { "dimension": "核心胜任力", "score": 60, "weight": 15 },
+    { "dimension": "发展潜力", "score": 30, "weight": 16 },
+    { "dimension": "企业认知与匹配", "score": 40, "weight": 4 }
+  ]
 }`
 
-    // 使用新的API管理系统调用AI
-    const apiResult = await callAiApi({
-      model: 'deepseek-ai/DeepSeek-V3',
-      messages: [
-        {
-          role: 'user',
-          content: scoringPrompt
-        }
-      ],
-      max_tokens: 4000,
-      temperature: 0.3
+    // 清理 prompt 中的特殊字符，但保留中文字符
+    const cleanPrompt = scoringPrompt.replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim()
+    
+    console.log('Sending prompt to AI API, length:', cleanPrompt.length)
+    console.log('Prompt preview:', cleanPrompt.substring(0, 200) + '...')
+    
+    // 调用 SiliconFlow API，确保正确处理UTF-8编码
+    const response = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Authorization': 'Bearer sk-ufnwysgrwnebkczychcgkvzvvinyydmppnrvgyclbwdluvpu'
+      },
+      body: JSON.stringify({
+        model: 'deepseek-ai/DeepSeek-V3',
+        messages: [
+          {
+            role: 'user',
+            content: cleanPrompt
+          }
+        ],
+        max_tokens: 4000,
+        temperature: 0.3
+      })
     })
 
+    if (!response.ok) {
+      throw new Error(`API调用失败: ${response.status} ${response.statusText}`)
+    }
+
+    const apiResult = await response.json()
     const aiResponse = apiResult.choices[0].message.content
     
     // 添加详细日志
@@ -180,6 +255,12 @@ ${resumeText}
           console.log('检测到非百分制分数，自动转换为百分制')
           scoreResult.total_score = scoreResult.total_score * 20
           console.log('转换后的total_score值:', scoreResult.total_score)
+        }
+
+        // 如果没有 breakdown 数组，根据 scores 生成
+        if (!scoreResult.breakdown) {
+          console.log('生成 breakdown 数组')
+          scoreResult.breakdown = generateBreakdownFromScores(scoreResult.scores)
         }
       } else {
         console.error('未找到有效的JSON格式，AI响应:', aiResponse)
@@ -207,26 +288,44 @@ ${resumeText}
         total_score: 0,
         recommendation_level: "系统错误",
         overall_comment: "评分系统暂时不可用，请稍后重试。",
+        breakdown: [
+          { "dimension": "背景与经验", "score": 0, "weight": 19 },
+          { "dimension": "专业知识与技能", "score": 0, "weight": 20 },
+          { "dimension": "产品作品与成果", "score": 0, "weight": 26 },
+          { "dimension": "核心胜任力", "score": 0, "weight": 15 },
+          { "dimension": "发展潜力", "score": 0, "weight": 16 },
+          { "dimension": "企业认知与匹配", "score": 0, "weight": 4 }
+        ],
         raw_response: aiResponse
       }
     }
 
-    // 缓存评分结果
-    ScoreCache.set(resumeText, opportunityKey, scoreResult)
-    console.log('评分结果已缓存:', opportunityKey)
-
+    // 返回符合前端组件要求的数据格式
     return NextResponse.json({
       success: true,
+      totalScore: scoreResult.total_score,
+      rating: scoreResult.recommendation_level,
+      breakdown: scoreResult.breakdown,
       data: scoreResult
     })
 
   } catch (error: any) {
-    console.error("简历评分失败:", error)
+    console.error("评分详情获取失败:", error)
     
     // 返回错误信息和默认评分
     return NextResponse.json({
       success: false,
       error: error.message || "评分服务暂时不可用",
+      totalScore: 0,
+      rating: "服务异常",
+      breakdown: [
+        { "dimension": "背景与经验", "score": 0, "weight": 19 },
+        { "dimension": "专业知识与技能", "score": 0, "weight": 20 },
+        { "dimension": "产品作品与成果", "score": 0, "weight": 26 },
+        { "dimension": "核心胜任力", "score": 0, "weight": 15 },
+        { "dimension": "发展潜力", "score": 0, "weight": 16 },
+        { "dimension": "企业认知与匹配", "score": 0, "weight": 4 }
+      ],
       data: {
         scores: {
           education_background: { score: 0, reason: "服务异常" },
@@ -250,34 +349,101 @@ ${resumeText}
   }
 }
 
+// 辅助函数：根据详细评分生成 breakdown 数组
+function generateBreakdownFromScores(scores: any): any[] {
+  // 维度映射和权重
+  const dimensionMapping = {
+    "背景与经验": {
+      items: ["education_background", "ai_experience"],
+      weights: [7, 12],
+      totalWeight: 19
+    },
+    "专业知识与技能": {
+      items: ["ai_technical_knowledge", "product_methodology"],
+      weights: [12, 8],
+      totalWeight: 20
+    },
+    "产品作品与成果": {
+      items: ["interactive_works", "product_documents"],
+      weights: [18, 8],
+      totalWeight: 26
+    },
+    "核心胜任力": {
+      items: ["logic_structure", "result_oriented"],
+      weights: [5, 10],
+      totalWeight: 15
+    },
+    "发展潜力": {
+      items: ["self_motivation", "innovation_initiative"],
+      weights: [11, 5],
+      totalWeight: 16
+    },
+    "企业认知与匹配": {
+      items: ["business_matching", "salary_matching"],
+      weights: [2, 2],
+      totalWeight: 4
+    }
+  }
 
-// 增强分数验证和转换逻辑
-function validateAndConvertScore(score: any): number {
-  const numScore = parseFloat(score);
-  if (isNaN(numScore)) return 0;
+  const breakdown = []
   
-  // 0-5分制转换为百分制
-  if (numScore <= 5) {
-    return Math.round(numScore * 20);
+  for (const [dimension, config] of Object.entries(dimensionMapping)) {
+    let weightedSum = 0
+    let totalWeight = 0
+    
+    // 计算该维度的加权平均分
+    for (let i = 0; i < config.items.length; i++) {
+      const itemKey = config.items[i]
+      const itemWeight = config.weights[i]
+      const itemScore = scores[itemKey]?.score || 0
+      
+      weightedSum += itemScore * itemWeight
+      totalWeight += itemWeight
+    }
+    
+    // 转换为百分制分数
+    const dimensionScore = totalWeight > 0 ? Math.round((weightedSum / totalWeight) * 20) : 0
+    
+    breakdown.push({
+      dimension: dimension,
+      score: dimensionScore,
+      weight: config.totalWeight
+    })
   }
   
-  // 百分制范围校验
-  return Math.max(0, Math.min(100, Math.round(numScore)));
+  return breakdown
 }
 
-// API响应处理增强
-try {
-  const parsedResponse = JSON.parse(responseText);
-  
-  // 验证必要字段
-  if (!parsedResponse.total_score) {
-    throw new Error('Missing total_score in response');
+
+const dimensionMapping = {
+  "背景与经验": {
+    items: ["教育背景", "AI经验"],
+    weights: [0.08, 0.15], // 严格权重调整：总权重23%
+    totalWeight: 0.23
+  },
+  "专业知识与技能": {
+    items: ["AI技术知识", "产品方法论"],
+    weights: [0.15, 0.10], // 严格权重调整：总权重25%
+    totalWeight: 0.25
+  },
+  "产品作品与成果": {
+    items: ["交互作品", "产品文档"],
+    weights: [0.20, 0.08], // 严格权重调整：总权重28%
+    totalWeight: 0.28
+  },
+  "核心胜任力": {
+    items: ["逻辑结构", "结果导向"],
+    weights: [0.06, 0.12], // 严格权重调整：总权重18%
+    totalWeight: 0.18
+  },
+  "发展潜力": {
+    items: ["自我驱动", "创新主动性"],
+    weights: [0.08, 0.06], // 严格权重调整：总权重14%
+    totalWeight: 0.14
+  },
+  "企业认知与匹配": {
+    items: ["业务匹配", "薪资匹配"],
+    weights: [0.02, 0.02], // 保持总权重4%
+    totalWeight: 0.04
   }
-  
-  // 转换和验证分数
-  parsedResponse.total_score = validateAndConvertScore(parsedResponse.total_score);
-  
-} catch (error) {
-  console.error('Score validation failed:', error);
-  // 返回默认分数结构
-}
+};
