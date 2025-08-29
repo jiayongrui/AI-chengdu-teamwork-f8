@@ -249,7 +249,7 @@ async function extractTextFromDocx(file: File): Promise<string> {
     console.log(`DOCX parsing successful, extracted text length: ${text.length}`)
     return text
   } catch (error: any) {
-    console.warn("⚠️ DOCX 解析失败:", error?.message || error)
+    console.error("DOCX parsing detailed error:", error)
 
     // 提供更具体的错误信息，使用安全的字符编码
     const errorMsg = error.message || 'Unknown error'
